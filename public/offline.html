@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="theme-color" content="#00c9d4"/>
+  <title>SoundAura — Offline</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: #070b14; color: #f0f4ff;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; text-align: center; padding: 24px;
+    }
+    .offline-container { max-width: 400px; }
+    .offline-icon {
+      width: 80px; height: 80px; margin: 0 auto 24px;
+      background: rgba(0, 201, 212, 0.1);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      border: 2px solid rgba(0, 201, 212, 0.2);
+    }
+    .offline-icon svg { width: 36px; height: 36px; color: #00c9d4; }
+    h1 { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+    h1 span { color: #00c9d4; }
+    p { font-size: 14px; color: #7b90b2; line-height: 1.6; margin-bottom: 24px; }
+    .retry-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: #00c9d4; color: #070b14;
+      font-size: 14px; font-weight: 700; padding: 12px 28px;
+      border-radius: 500px; border: none; cursor: pointer;
+      font-family: inherit; transition: all 0.2s;
+    }
+    .retry-btn:hover { background: #00e5f0; transform: scale(1.02); }
+    .hint { font-size: 12px; color: #3d5070; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="offline-container">
+    <div class="offline-icon">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <line x1="1" y1="1" x2="23" y2="23"/>
+        <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55"/>
+        <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39"/>
+        <path d="M10.71 5.05A16 16 0 0 1 22.56 9"/>
+        <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88"/>
+        <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+        <line x1="12" y1="20" x2="12.01" y2="20"/>
+      </svg>
+    </div>
+    <h1>You're <span>Offline</span></h1>
+    <p>It looks like you've lost your internet connection. Your downloaded songs are still available to play!</p>
+    <button class="retry-btn" onclick="window.location.reload()">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+      </svg>
+      Try Again
+    </button>
+    <p class="hint">Downloaded songs work without internet</p>
+  </div>
+</body>
+</html>

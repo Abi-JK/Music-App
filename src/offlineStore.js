@@ -1,6 +1,9 @@
-const DB_NAME = 'soundwave_offline';
+const DB_NAME = 'soundaura_offline';
 const STORE = 'tracks';
 const DB_VERSION = 1;
+
+// Cache map of active Object URLs to prevent memory leaks
+const objectUrls = new Map();
 
 function openDb() {
   return new Promise((resolve, reject) => {
@@ -55,6 +58,9 @@ export async function listOfflineTracks() {
 }
 
 export async function deleteOfflineTrack(id) {
+  // First clean up Object URL
+  revokeTrackUrl(id);
+  
   const db = await openDb();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE, 'readwrite');
@@ -66,5 +72,25 @@ export async function deleteOfflineTrack(id) {
 
 export function blobUrlForTrack(record) {
   if (!record?.blob) return null;
-  return URL.createObjectURL(record.blob);
+  // Reuse existing Object URL if available to avoid leaks
+  if (objectUrls.has(record.id)) {
+    return objectUrls.get(record.id);
+  }
+  const url = URL.createObjectURL(record.blob);
+  objectUrls.set(record.id, url);
+  return url;
+}
+
+export function revokeTrackUrl(id) {
+  if (objectUrls.has(id)) {
+    URL.revokeObjectURL(objectUrls.get(id));
+    objectUrls.delete(id);
+  }
+}
+
+export function clearAllTrackUrls() {
+  for (const url of objectUrls.values()) {
+    URL.revokeObjectURL(url);
+  }
+  objectUrls.clear();
 }
