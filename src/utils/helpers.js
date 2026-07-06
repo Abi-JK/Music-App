@@ -25,13 +25,14 @@ export function parseDuration(val) {
   return isNaN(n) ? 0 : n;
 }
 
-// Convert any web.saavncdn.com stream URL to go through local proxy
+// Convert any *.saavncdn.com stream URL to go through local proxy
 export function toProxiedStream(url) {
   if (!url) return null;
   if (url.startsWith('blob:') || url.startsWith('/')) return url;
   try {
     const u = new URL(url);
-    if (u.hostname === 'web.saavncdn.com') {
+    if (u.hostname.endsWith('.saavncdn.com')) {
+      // Normalize all saavncdn hosts → web.saavncdn.com (they serve the same files)
       return `${STREAM}${u.pathname}${u.search}`;
     }
     return url;

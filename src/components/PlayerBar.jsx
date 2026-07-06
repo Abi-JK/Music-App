@@ -1,13 +1,18 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { fmt } from '../utils/helpers';
-import { getStreamUrl, fetchStreamBlob } from '../utils/api';
+import { getStreamUrl } from '../utils/api';
+
+const MAX_SKIP_COUNT = 3;
 
 export default function PlayerBar({ 
   currentSong, isPlaying, setIsPlaying, playNext, playPrev,
   liked, toggleLike, onRingtone, onDetails, showToast, shuffle, setShuffle,
   onDownload, timerRemainingActive, formattedTimerTime 
 }) {
-  const audioRef  = useRef(null);
+  const audioRef    = useRef(null);
+  const abortRef    = useRef(null);
+  const skipCountRef = useRef(0);
+  const retryCountRef = useRef(0);
   const [curTime, setCurTime] = useState(0);
   const [dur,     setDur]     = useState(0);
   const [vol,     setVol]     = useState(0.85);
@@ -20,6 +25,14 @@ export default function PlayerBar({
   useEffect(() => {
     if (!currentSong) { setStreamUrl(null); return; }
 
+    // Cancel any in-flight request from previous song
+    if (abortRef.current) abortRef.current.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
+
+    // Reset retry counter on deliberate song change
+    retryCountRef.current = 0;
+
     // Offline song → use blob URL directly
     if (currentSong.localUrl) {
       setStreamUrl(currentSong.localUrl);
@@ -31,17 +44,30 @@ export default function PlayerBar({
     setLoading(true);
     showToast(`▶️ Loading: ${currentSong.title}...`);
 
-    getStreamUrl(currentSong.id)
-      .then(fresh => {
-        setStreamUrl(fresh.streamUrl);
-        setLoading(false);
-      })
-      .catch(err => {
-        console.error('getStreamUrl error:', err);
-        setLoading(false);
-        setIsPlaying(false);
-        showToast('⚠️ Could not load stream. Try again.');
-      });
+    const doFetch = () => {
+      getStreamUrl(currentSong.id, ac.signal)
+        .then(fresh => {
+          if (ac.signal.aborted) return;
+          setStreamUrl(fresh.streamUrl);
+          setLoading(false);
+        })
+        .catch(err => {
+          if (ac.signal.aborted) return;
+          console.error('getStreamUrl error:', err);
+          if (retryCountRef.current < 2) {
+            retryCountRef.current++;
+            showToast(`▶️ Retrying (${retryCountRef.current}/2)...`);
+            setTimeout(doFetch, 1000);
+          } else {
+            setLoading(false);
+            setIsPlaying(false);
+            showToast('⚠️ Could not load stream. Try again.');
+          }
+        });
+    };
+    doFetch();
+
+    return () => { ac.abort(); if (abortRef.current === ac) abortRef.current = null; };
   }, [currentSong?.id, currentSong?.localUrl]); // eslint-disable-line
 
   // Load audio element whenever streamUrl changes
@@ -60,7 +86,7 @@ export default function PlayerBar({
     if (isPlaying) {
       const tryPlay = () => {
         a.play()
-          .then(() => setLoading(false))
+          .then(() => { setLoading(false); skipCountRef.current = 0; })
           .catch(err => {
             console.error('play error:', err);
             setLoading(false);
@@ -113,8 +139,13 @@ export default function PlayerBar({
   const onAudioError = (e) => {
     console.error('Audio error:', e.nativeEvent || e);
     setLoading(false);
-    if (currentSong && !currentSong.localUrl) {
-      showToast('⚠️ Stream error — trying next song...');
+    skipCountRef.current += 1;
+    if (skipCountRef.current > MAX_SKIP_COUNT) {
+      showToast('⚠️ Too many consecutive errors. Stopping.');
+      setIsPlaying(false);
+      skipCountRef.current = 0;
+    } else if (currentSong && !currentSong.localUrl) {
+      showToast(`⚠️ Stream error — trying next song (${skipCountRef.current}/${MAX_SKIP_COUNT})...`);
       setTimeout(playNext, 1200);
     } else {
       setIsPlaying(false);
@@ -122,8 +153,13 @@ export default function PlayerBar({
     }
   };
   const onEnded = () => { if (repeat && audioRef.current) { audioRef.current.currentTime = 0; audioRef.current.play(); } else playNext(); };
-  const onSeek  = e => { const rect = e.currentTarget.getBoundingClientRect(); const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)); if (audioRef.current && dur) audioRef.current.currentTime = pct * dur; };
-  const onVol   = e => { const rect = e.currentTarget.getBoundingClientRect(); const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)); setVol(pct); if (pct > 0) setMuted(false); };
+  const getPos = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    return Math.max(0, Math.min(1, (cx - rect.left) / rect.width));
+  };
+  const onSeek  = e => { const pct = getPos(e); if (audioRef.current && dur) audioRef.current.currentTime = pct * dur; };
+  const onVol   = e => { const pct = getPos(e); setVol(pct); if (pct > 0) setMuted(false); };
 
   const prog   = dur ? (curTime / dur) * 100 : 0;
   const volPct = muted ? 0 : vol * 100;
@@ -193,7 +229,7 @@ export default function PlayerBar({
         </div>
         <div className="prog-wrap">
           <span className="p-time">{fmt(curTime)}</span>
-          <div className="prog-track" onClick={onSeek}>
+          <div className="prog-track" onClick={onSeek} onTouchStart={onSeek} onTouchMove={onSeek}>
             <div className="prog-fill" style={{ width: `${prog}%` }}/>
             <div className="prog-dot" style={{ left: `${prog}%` }}/>
           </div>
@@ -216,7 +252,7 @@ export default function PlayerBar({
               ? <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
               : <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>}
           </button>
-          <div className="vol-track" onClick={onVol}>
+          <div className="vol-track" onClick={onVol} onTouchStart={onVol} onTouchMove={onVol}>
             <div className="vol-fill" style={{ width: `${volPct}%` }}/>
           </div>
         </div>

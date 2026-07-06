@@ -26,7 +26,7 @@ export default defineConfig({
         },
       },
 
-      // ── JioSaavn web CDN (signed stream URLs always come from web.saavncdn.com) ──
+      // ── JioSaavn CDN proxy (signed stream URLs from web.saavncdn.com) ──
       '/saavn-stream': {
         target: 'https://web.saavncdn.com',
         changeOrigin: true,

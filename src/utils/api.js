@@ -2,9 +2,10 @@ import { API, SEARCH } from './constants';
 import { decodeHtml, parseDuration, toProxiedStream, normVercelSong, formatLyrics } from './helpers';
 
 // ─── CORE API: Get fresh signed stream URL ───────────────────────────────────
-export async function getStreamUrl(songId) {
+export async function getStreamUrl(songId, signal) {
   const detRes = await fetch(
-    `${API}?__call=song.getDetails&pids=${songId}&_format=json&_marker=0&ctx=web6dot0`
+    `${API}?__call=song.getDetails&pids=${songId}&_format=json&_marker=0&ctx=web6dot0`,
+    { signal }
   );
   if (!detRes.ok) throw new Error(`Song details failed: ${detRes.status}`);
   const detJson = await detRes.json();
@@ -13,7 +14,8 @@ export async function getStreamUrl(songId) {
 
   const encUrl   = encodeURIComponent(detail.encrypted_media_url);
   const tokRes   = await fetch(
-    `${API}?__call=song.generateAuthToken&url=${encUrl}&bitrate=320&api_version=4&_format=json&ctx=web6dot0&_marker=0`
+    `${API}?__call=song.generateAuthToken&url=${encUrl}&bitrate=320&api_version=4&_format=json&ctx=web6dot0&_marker=0`,
+    { signal }
   );
   if (!tokRes.ok) throw new Error(`Auth token failed: ${tokRes.status}`);
   const tokJson  = await tokRes.json();
