@@ -26,13 +26,6 @@
 # ── API Proxy Redirects ──────────────────────────────────
 # These replicate the Vite dev proxies for production
 
-# JioSaavn official API (song details + auth token)
-[[redirects]]
-  from = "/saavn-api"
-  to = "https://www.jiosaavn.com/api.php"
-  status = 200
-  force = true
-
 # Vercel JioSaavn API wrapper (search + lyrics)
 [[redirects]]
   from = "/saavn-search/*"
@@ -40,12 +33,14 @@
   status = 200
   force = true
 
-# JioSaavn CDN stream proxy
-[[redirects]]
-  from = "/saavn-stream/*"
-  to = "https://web.saavncdn.com/:splat"
-  status = 200
-  force = true
+# Edge Functions: proxy API + stream requests with proper JioSaavn headers
+[[edge_functions]]
+  function = "saavn-api"
+  path = "/saavn-api"
+
+[[edge_functions]]
+  function = "saavn-stream"
+  path = "/saavn-stream/*"
 
 # SPA fallback — must be LAST
 [[redirects]]
