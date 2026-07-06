@@ -60,6 +60,7 @@ export default function App() {
   const [isLight, setIsLight] = useState(() => LS.get('sw_theme', 'dark') === 'light');
   const [isSleepTimerOpen, setIsSleepTimerOpen] = useState(false);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [mobilePlayerOpen, setMobilePlayerOpen] = useState(false);
 
   const currentSong = playlist[currentIndex] || null;
   const panelOpen   = !!detailSong;
@@ -163,7 +164,7 @@ export default function App() {
       setCurrentIndex(ctxWithOffline.findIndex(s => s.id === song.id));
       setIsPlaying(true);
       addRecent(enriched);
-      setDetailSong(enriched);
+      if (window.innerWidth <= 767) setMobilePlayerOpen(true);
       return;
     }
 
@@ -178,7 +179,7 @@ export default function App() {
     setCurrentIndex(contextIdx != null ? contextIdx : ctx.findIndex(s => s.id === song.id));
     setIsPlaying(true);
     addRecent(song);
-    setDetailSong(song);
+    if (window.innerWidth <= 767) setMobilePlayerOpen(true);
   }, [addRecent, isOnline, showToast]);
 
   const playNext = useCallback(() => {
@@ -407,6 +408,8 @@ export default function App() {
         onDownload={handleDownload}
         timerRemainingActive={sleepTimerActive}
         formattedTimerTime={formatRemaining()}
+        mobileOpen={mobilePlayerOpen}
+        setMobileOpen={setMobilePlayerOpen}
       />
 
       {/* Mobile Mini Player display */}
@@ -415,7 +418,7 @@ export default function App() {
         isPlaying={isPlaying}
         setIsPlaying={setIsPlaying}
         onPlayNext={playNext}
-        onOpenDetails={() => setDetailSong(currentSong)}
+        onOpenDetails={() => setMobilePlayerOpen(true)}
       />
 
       {/* Mobile Bottom Tab navigation bar */}

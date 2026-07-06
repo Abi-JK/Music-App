@@ -44,17 +44,31 @@ export function pickBestCover(s) {
   if (s.images?.['500x500']) return s.images['500x500'];
   if (typeof s.image === 'string') return s.image.replace('150x150', '500x500');
   const imgs = s.image || [];
-  return imgs.find(i => i.quality === '500x500')?.link
-    || imgs.find(i => i.quality === '150x150')?.link
+  const pick = (q) => {
+    const hit = imgs.find(i => i.quality === q);
+    return hit?.url || hit?.link || null;
+  };
+  return pick('500x500')
+    || pick('150x150')
+    || imgs[imgs.length - 1]?.url
     || imgs[imgs.length - 1]?.link
     || null;
 }
 
-// Normalize a song returned by the Vercel search API
+// Normalize a song returned by any of the JioSaavn mirrors (saavn.dev
+// and the older Vercel wrapper have slightly different shapes; we
+// support both).
 export function normVercelSong(s) {
-  const primary  = decodeHtml(s.primaryArtists || s.primary_artists || '');
-  const featured = decodeHtml(s.featuredArtists || '');
+  const primaryFromNested =
+    s.artists?.primary?.map(a => a.name).join(', ') ||
+    s.artists?.all?.filter(a => a.role === 'primary_artists').map(a => a.name).join(', ') ||
+    '';
+  const featuredFromNested = s.artists?.featured?.map(a => a.name).join(', ') || '';
+
+  const primary  = decodeHtml(s.primaryArtists || s.primary_artists || primaryFromNested || '');
+  const featured = decodeHtml(s.featuredArtists || featuredFromNested || '');
   const singers  = [primary, featured].filter(Boolean).join(', ');
+
   return {
     id:        s.id,
     title:     decodeHtml(s.name || s.song || s.title || 'Unknown'),
