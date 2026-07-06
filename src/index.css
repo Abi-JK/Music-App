@@ -770,8 +770,20 @@ body {
     padding-bottom: 60px; /* Space for bottom nav */
   }
 
-  .sidebar, .player, .detail-panel {
+  .sidebar, .player {
     display: none !important;
+  }
+
+  /* Detail panel as full-screen overlay on mobile */
+  .detail-panel {
+    display: flex !important;
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    background: var(--bg-main);
+    flex-direction: column;
+    border: none;
+    animation: slideUp 0.3s var(--ease);
   }
 
   .mobile-nav {
@@ -845,5 +857,28 @@ body {
     width: 100%;
     order: 2;
     padding-bottom: 4px;
+  }
+
+  /* Hide theme toggle on mobile to fix flex layout */
+  .theme-toggle {
+    display: none;
+  }
+
+  /* Suggestions dropdown: scrollable + proper alignment */
+  .suggestions {
+    max-height: 50vh;
+    overflow-y: auto;
+    left: 0;
+    right: 0;
+  }
+
+  .suggestion-item {
+    padding: 12px 14px;
+    gap: 10px;
+  }
+
+  .suggestion-item img, .suggestion-item .s-ph {
+    width: 36px;
+    height: 36px;
   }
 }

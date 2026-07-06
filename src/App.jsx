@@ -128,10 +128,8 @@ export default function App() {
       const data = {};
       results.forEach(r => { data[r.key] = r; });
       setHomeData(data);
-      const all = results.flatMap(r => r.songs);
-      if (all.length && !playlist.length) { setPlaylist(all); setCurrentIndex(0); }
     }).finally(() => setHomeLoading(false));
-  }, [isOnline]); // eslint-disable-line
+  }, [isOnline]);
 
   // Handle SW updates
   useEffect(() => {
