@@ -51,6 +51,7 @@ export default function App() {
 
   const [likedSongs,      setLikedSongs]      = useState(() => LS.get('sw_liked', []));
   const [downloadedSongs, setDownloadedSongs] = useState([]);
+  const [dlLoading,       setDlLoading]       = useState(true);
   const [recentlyPlayed,  setRecentlyPlayed]  = useState(() => LS.get('sw_recent', []));
   const [ringtoneTarget,  setRingtoneTarget]  = useState(null);
   const [detailSong,      setDetailSong]      = useState(null);
@@ -98,9 +99,11 @@ export default function App() {
 
   // Load offline library
   const loadOfflineLibrary = useCallback(() => {
+    setDlLoading(true);
     listOfflineTracks()
       .then(records => setDownloadedSongs(records.map(r => ({ ...r.song, offline: true, localUrl: blobUrlForTrack(r) }))))
-      .catch(console.error);
+      .catch(console.error)
+      .finally(() => setDlLoading(false));
   }, []);
 
   useEffect(() => {
@@ -113,9 +116,10 @@ export default function App() {
 
   // Load Home feed
   useEffect(() => {
+    let cancelled = false;
     if (!isOnline) {
       setHomeLoading(false);
-      return;
+      return () => { cancelled = true; };
     }
     setHomeLoading(true);
     Promise.all(
@@ -125,10 +129,12 @@ export default function App() {
           .catch(() => ({ key: sec.key, label: sec.label, songs: [] }))
       )
     ).then(results => {
+      if (cancelled) return;
       const data = {};
       results.forEach(r => { data[r.key] = r; });
       setHomeData(data);
-    }).finally(() => setHomeLoading(false));
+    }).finally(() => { if (!cancelled) setHomeLoading(false); });
+    return () => { cancelled = true; };
   }, [isOnline]);
 
   // Handle SW updates
@@ -357,6 +363,7 @@ export default function App() {
           {activeTab === 'downloads' && (
             <DownloadsView 
               downloadedSongs={downloadedSongs}
+              dlLoading={dlLoading}
               currentSong={currentSong}
               isPlaying={isPlaying}
               playSong={playSong}

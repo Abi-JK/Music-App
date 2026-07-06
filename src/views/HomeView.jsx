@@ -33,6 +33,12 @@ export default function HomeView({ recentlyPlayed, currentSong, isPlaying, playS
           <div className="spinner"/>
           <p style={{ color: 'var(--text-muted)' }}>Loading music feed...</p>
         </div>
+      ) : HOME_SECTIONS.every(sec => !homeData[sec.key]?.songs?.length) ? (
+        <div className="empty">
+          <span style={{ fontSize: 48 }}>🎵</span>
+          <h3>No content available</h3>
+          <p>Check your connection or try again later.</p>
+        </div>
       ) : (
         HOME_SECTIONS.map(sec => {
           const d = homeData[sec.key];

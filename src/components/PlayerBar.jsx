@@ -36,6 +36,7 @@ export default function PlayerBar({
     // Offline song → use blob URL directly
     if (currentSong.localUrl) {
       setStreamUrl(currentSong.localUrl);
+      setLoading(false);
       return;
     }
 
@@ -49,7 +50,6 @@ export default function PlayerBar({
         .then(fresh => {
           if (ac.signal.aborted) return;
           setStreamUrl(fresh.streamUrl);
-          setLoading(false);
         })
         .catch(err => {
           if (ac.signal.aborted) return;
@@ -77,6 +77,9 @@ export default function PlayerBar({
     setCurTime(0); setDur(0); setLoading(true);
     a.src = streamUrl;
     a.load();
+    // Safety timeout: reset loading if audio events never fire (e.g. network stuck)
+    const t = setTimeout(() => setLoading(false), 8000);
+    return () => clearTimeout(t);
   }, [streamUrl]);
 
   // Play / pause

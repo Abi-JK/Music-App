@@ -9,11 +9,13 @@ export default function DetailPanel({ song, onClose, liked, toggleLike, onPlay, 
 
   useEffect(() => {
     if (!song) return;
+    let cancelled = false;
     setLyrics(null); setLyNone(false); setLyBusy(true);
     fetchLyrics(song.id)
-      .then(txt => { setLyrics(txt); if (!txt) setLyNone(true); })
-      .catch(() => setLyNone(true))
-      .finally(() => setLyBusy(false));
+      .then(txt => { if (!cancelled) { setLyrics(txt); if (!txt) setLyNone(true); } })
+      .catch(() => { if (!cancelled) setLyNone(true); })
+      .finally(() => { if (!cancelled) setLyBusy(false); });
+    return () => { cancelled = true; };
   }, [song?.id]);
 
   if (!song) return null;

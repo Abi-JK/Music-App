@@ -1,7 +1,13 @@
 import React from 'react';
 import SongRow from '../components/SongRow';
 
-export default function DownloadsView({ downloadedSongs, currentSong, isPlaying, playSong, handleDownload, toggleLike, isLiked, openRingtone, setDetailSong, handleDeleteOffline }) {
+export default function DownloadsView({ downloadedSongs, dlLoading, currentSong, isPlaying, playSong, handleDownload, toggleLike, isLiked, openRingtone, setDetailSong, handleDeleteOffline }) {
+  if (dlLoading) return (
+    <div className="spinner-wrap">
+      <div className="spinner"/>
+      <p style={{ color: 'var(--text-muted)' }}>Loading offline library...</p>
+    </div>
+  );
   if (downloadedSongs.length === 0) return (
     <div className="empty">
       <span style={{ fontSize: 48 }}>📴</span>

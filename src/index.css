@@ -252,6 +252,7 @@ body {
 .song-card:hover { background: var(--bg-card-hover); border-color: var(--border-card); transform: translateY(-2px); }
 .song-card.now-playing { border-color: var(--accent); }
 .song-card img, .song-card .sc-ph { width: 100%; aspect-ratio: 1; border-radius: var(--r-sm); margin-bottom: 11px; display: block; object-fit: cover; }
+.song-card img { background: var(--bg-card); }
 .song-card .sc-ph { background: linear-gradient(135deg, #1a2540, var(--bg-main)); display: flex; align-items: center; justify-content: center; font-size: 32px; }
 .card-play {
   position: absolute; bottom: 80px; right: 13px;
@@ -288,6 +289,7 @@ body {
 .row-num { font-size: 12.5px; color: var(--text-muted); text-align: center; }
 .row-info { display: flex; align-items: center; gap: 10px; overflow: hidden; }
 .row-info img, .row-info .r-ph { width: 40px; height: 40px; border-radius: 4px; flex-shrink: 0; object-fit: cover; }
+.row-info img { background: var(--bg-card); }
 .row-info .r-ph { background: var(--bg-card-hover); display: flex; align-items: center; justify-content: center; font-size: 16px; }
 .row-text h4 { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row-text p  { font-size: 11px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -367,7 +369,7 @@ body {
   padding-bottom: var(--safe-bottom);
 }
 .p-left { display: flex; align-items: center; gap: 11px; min-width: 0; }
-.p-img    { width: 54px; height: 54px; border-radius: var(--r-sm); object-fit: cover; flex-shrink: 0; border: 1px solid var(--border); }
+.p-img    { width: 54px; height: 54px; border-radius: var(--r-sm); object-fit: cover; flex-shrink: 0; border: 1px solid var(--border); background: var(--bg-card); }
 .p-img-ph { width: 54px; height: 54px; border-radius: var(--r-sm); background: var(--bg-card); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
 .p-info { overflow: hidden; cursor: pointer; }
 .p-info h4 { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary); }
