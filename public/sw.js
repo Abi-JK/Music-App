@@ -1,10 +1,20 @@
-// SoundAura Service Worker v1.0.0
-const CACHE_VERSION = 'soundaura-v1';
-const STATIC_CACHE = `${CACHE_VERSION}-static`;
-const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`;
-const IMAGE_CACHE = `${CACHE_VERSION}-images`;
+// SoundAura Service Worker v2.0.0
+// Strategy:
+//   • Precache the app shell on install (bare minimum so first offline
+//     open never shows a blank screen).
+//   • On activate, warm up the built /assets bundle by parsing the
+//     freshly cached index.html and caching every <script>/<link>.
+//   • Runtime: cache-first for hashed assets, stale-while-revalidate for
+//     images, network-first for API (/saavn-*), navigation preload for
+//     HTML with an offline.html fallback.
+//   • Never cache 206 (Range) responses — that corrupts audio playback.
+//   • Bumping CACHE_VERSION invalidates every old cache safely.
 
-// Files to pre-cache on install (app shell)
+const CACHE_VERSION = 'soundaura-v2.0.0';
+const STATIC_CACHE  = `${CACHE_VERSION}-static`;
+const DYNAMIC_CACHE = `${CACHE_VERSION}-dynamic`;
+const IMAGE_CACHE   = `${CACHE_VERSION}-images`;
+
 const PRECACHE_URLS = [
   '/',
   '/index.html',
@@ -13,73 +23,91 @@ const PRECACHE_URLS = [
   '/manifest.json',
 ];
 
-// ── Install: Pre-cache app shell ──────────────────────────
+// ── Install ──────────────────────────────────────────────
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing service worker...');
   event.waitUntil(
     caches.open(STATIC_CACHE)
-      .then((cache) => {
-        console.log('[SW] Pre-caching app shell');
-        return cache.addAll(PRECACHE_URLS);
-      })
+      .then((cache) => cache.addAll(PRECACHE_URLS))
       .then(() => self.skipWaiting())
+      .catch((err) => console.warn('[SW] Precache error:', err))
   );
 });
 
-// ── Activate: Clean old caches ────────────────────────────
+// ── Activate ─────────────────────────────────────────────
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating service worker...');
-  event.waitUntil(
-    caches.keys()
-      .then((keys) => {
-        return Promise.all(
-          keys
-            .filter((key) => key !== STATIC_CACHE && key !== DYNAMIC_CACHE && key !== IMAGE_CACHE)
-            .map((key) => {
-              console.log('[SW] Removing old cache:', key);
-              return caches.delete(key);
-            })
+  event.waitUntil((async () => {
+    // 1. Drop caches from previous versions
+    const keys = await caches.keys();
+    await Promise.all(
+      keys
+        .filter((k) => k.startsWith('soundaura-') &&
+                      k !== STATIC_CACHE && k !== DYNAMIC_CACHE && k !== IMAGE_CACHE)
+        .map((k) => caches.delete(k))
+    );
+
+    // 2. Enable navigation preload (faster first paint)
+    if (self.registration.navigationPreload) {
+      try { await self.registration.navigationPreload.enable(); } catch { /* ignore */ }
+    }
+
+    // 3. Warm up hashed assets referenced by index.html so a fully-cold
+    //    offline reload actually finds them.
+    try {
+      const cache = await caches.open(STATIC_CACHE);
+      const indexRes = await fetch('/index.html', { cache: 'no-cache' });
+      if (indexRes.ok) {
+        await cache.put('/index.html', indexRes.clone());
+        const html = await indexRes.text();
+        const urls = [
+          ...html.matchAll(/<script[^>]+src=["']([^"']+)["']/g),
+          ...html.matchAll(/<link[^>]+href=["']([^"']+)["']/g),
+        ]
+          .map((m) => m[1])
+          .filter((u) => u.startsWith('/assets/') || u.startsWith('/icons/'));
+        await Promise.all(
+          urls.map((u) => fetch(u).then((r) => r.ok && cache.put(u, r.clone())).catch(() => {}))
         );
-      })
-      .then(() => self.clients.claim())
-  );
+      }
+    } catch (err) {
+      console.warn('[SW] Asset warm-up skipped:', err);
+    }
+
+    await self.clients.claim();
+  })());
 });
 
-// ── Fetch: Caching strategies ─────────────────────────────
+// ── Fetch router ─────────────────────────────────────────
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  const url = new URL(request.url);
-
-  // Skip non-GET requests
   if (request.method !== 'GET') return;
 
-  // Skip chrome-extension, devtools etc
+  const url = new URL(request.url);
   if (!url.protocol.startsWith('http')) return;
 
-  // Strategy: Network-first for API calls
+  // JioSaavn proxy calls — network-first, never cache 206 responses.
   if (url.pathname.startsWith('/saavn-api') ||
       url.pathname.startsWith('/saavn-search') ||
       url.pathname.startsWith('/saavn-stream')) {
-    event.respondWith(networkFirst(request, DYNAMIC_CACHE));
+    event.respondWith(networkFirst(request, DYNAMIC_CACHE, /*audio=*/ url.pathname.startsWith('/saavn-stream')));
     return;
   }
 
-  // Strategy: Stale-while-revalidate for images from CDN
-  if (url.hostname.includes('saavncdn.com') ||
-      url.hostname.includes('googleapis.com') ||
-      url.hostname.includes('gstatic.com') ||
-      request.destination === 'image') {
+  // Images: stale-while-revalidate
+  if (request.destination === 'image' ||
+      url.hostname.includes('saavncdn.com') ||
+      url.hostname.includes('googleusercontent.com')) {
     event.respondWith(staleWhileRevalidate(request, IMAGE_CACHE));
     return;
   }
 
-  // Strategy: Cache-first for static assets (JS, CSS, fonts)
+  // Hashed static assets: cache-first
   if (url.pathname.startsWith('/assets/') ||
+      url.pathname.startsWith('/icons/') ||
       url.pathname.endsWith('.js') ||
       url.pathname.endsWith('.css') ||
       url.pathname.endsWith('.svg') ||
-      url.pathname.endsWith('.woff2') ||
       url.pathname.endsWith('.woff') ||
+      url.pathname.endsWith('.woff2') ||
       request.destination === 'font' ||
       request.destination === 'style' ||
       request.destination === 'script') {
@@ -87,110 +115,103 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Strategy: Network-first for navigation (HTML pages)
+  // HTML navigations: network with offline fallback
   if (request.mode === 'navigate') {
-    event.respondWith(navigationHandler(request));
+    event.respondWith(navigationHandler(event));
     return;
   }
 
-  // Default: Network-first with dynamic cache
   event.respondWith(networkFirst(request, DYNAMIC_CACHE));
 });
 
-// ── Caching Strategies ────────────────────────────────────
-
-// Cache-first: Check cache, fallback to network
+// ── Strategies ───────────────────────────────────────────
 async function cacheFirst(request, cacheName) {
   const cached = await caches.match(request);
   if (cached) return cached;
-
   try {
-    const response = await fetch(request);
-    if (response.ok) {
+    const res = await fetch(request);
+    if (res.ok && res.status !== 206) {
       const cache = await caches.open(cacheName);
-      cache.put(request, response.clone());
+      cache.put(request, res.clone());
     }
-    return response;
+    return res;
   } catch {
     return new Response('Offline', { status: 503 });
   }
 }
 
-// Network-first: Try network, fallback to cache
-async function networkFirst(request, cacheName) {
+async function networkFirst(request, cacheName, isAudio = false) {
   try {
-    const response = await fetch(request);
-    if (response.ok) {
+    const res = await fetch(request);
+    // Don't cache partial (206) responses — they break media playback.
+    // Don't cache audio streams at all (they use IndexedDB via the app).
+    if (res.ok && res.status !== 206 && !isAudio) {
       const cache = await caches.open(cacheName);
-      cache.put(request, response.clone());
+      cache.put(request, res.clone());
     }
-    return response;
+    return res;
   } catch {
     const cached = await caches.match(request);
     if (cached) return cached;
     return new Response(JSON.stringify({ error: 'offline' }), {
       status: 503,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
     });
   }
 }
 
-// Stale-while-revalidate: Return cache immediately, update in background
 async function staleWhileRevalidate(request, cacheName) {
   const cache = await caches.open(cacheName);
   const cached = await cache.match(request);
-
   const fetchPromise = fetch(request)
-    .then((response) => {
-      if (response.ok) {
-        cache.put(request, response.clone());
-      }
-      return response;
+    .then((res) => {
+      if (res.ok && res.status !== 206) cache.put(request, res.clone());
+      return res;
     })
     .catch(() => cached);
-
   return cached || fetchPromise;
 }
 
-// Navigation handler: Network-first with offline fallback
-async function navigationHandler(request) {
+async function navigationHandler(event) {
   try {
-    const response = await fetch(request);
-    if (response.ok) {
+    const preload = await event.preloadResponse;
+    if (preload) {
       const cache = await caches.open(STATIC_CACHE);
-      cache.put(request, response.clone());
+      cache.put('/index.html', preload.clone());
+      return preload;
     }
-    return response;
+    const res = await fetch(event.request);
+    if (res.ok) {
+      const cache = await caches.open(STATIC_CACHE);
+      cache.put('/index.html', res.clone());
+    }
+    return res;
   } catch {
-    const cached = await caches.match(request);
-    if (cached) return cached;
-    // Fallback to offline page
+    const cachedIndex = await caches.match('/index.html');
+    if (cachedIndex) return cachedIndex;
     const offlinePage = await caches.match('/offline.html');
     if (offlinePage) return offlinePage;
-    return new Response('<h1>Offline</h1><p>Please check your connection.</p>', {
-      status: 503,
-      headers: { 'Content-Type': 'text/html' }
-    });
+    return new Response(
+      '<h1>Offline</h1><p>Please check your connection.</p>',
+      { status: 503, headers: { 'Content-Type': 'text/html' } }
+    );
   }
 }
 
-// ── Cache size management ─────────────────────────────────
+// ── Cache size management ────────────────────────────────
 async function trimCache(cacheName, maxItems) {
   const cache = await caches.open(cacheName);
-  const keys = await cache.keys();
+  const keys  = await cache.keys();
   if (keys.length > maxItems) {
     await cache.delete(keys[0]);
     return trimCache(cacheName, maxItems);
   }
 }
 
-// Periodically trim image cache
 self.addEventListener('message', (event) => {
   if (event.data === 'TRIM_CACHES') {
-    trimCache(IMAGE_CACHE, 100);
-    trimCache(DYNAMIC_CACHE, 50);
+    trimCache(IMAGE_CACHE, 120);
+    trimCache(DYNAMIC_CACHE, 60);
   }
-  if (event.data === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
+  if (event.data === 'SKIP_WAITING') self.skipWaiting();
 });
