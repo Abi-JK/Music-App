@@ -107,6 +107,31 @@ export default function PlayerBar({
   // Volume
   useEffect(() => { if (audioRef.current) audioRef.current.volume = muted ? 0 : vol; }, [vol, muted]);
 
+  // Wake Lock: prevent device sleep during playback
+  useEffect(() => {
+    let wakeLock = null;
+    if (!isPlaying || !('wakeLock' in navigator)) {
+      if (wakeLock) { wakeLock.release(); wakeLock = null; }
+      return;
+    }
+    navigator.wakeLock.request('screen').then(wl => {
+      wakeLock = wl;
+      wl.addEventListener('release', () => { wakeLock = null; });
+    }).catch(() => {});
+    return () => { if (wakeLock) wakeLock.release(); };
+  }, [isPlaying]);
+
+  // Re-acquire wake lock when page becomes visible again
+  useEffect(() => {
+    const handler = () => {
+      if (document.visibilityState === 'visible' && isPlaying && 'wakeLock' in navigator) {
+        navigator.wakeLock.request('screen').catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', handler);
+    return () => document.removeEventListener('visibilitychange', handler);
+  }, [isPlaying]);
+
   // Media Session API for lock screen / headphone controls
   useEffect(() => {
     if (!('mediaSession' in navigator) || !currentSong) return;
@@ -118,7 +143,22 @@ export default function PlayerBar({
     navigator.mediaSession.setActionHandler('pause',         () => setIsPlaying(false));
     navigator.mediaSession.setActionHandler('nexttrack',     playNext);
     navigator.mediaSession.setActionHandler('previoustrack', playPrev);
+    navigator.mediaSession.setActionHandler('seekto', (d) => {
+      if (audioRef.current && d.seekTime != null) audioRef.current.currentTime = d.seekTime;
+    });
   }, [currentSong?.id, playNext, playPrev, setIsPlaying]);
+
+  // Report playback position to Media Session
+  useEffect(() => {
+    if (!('mediaSession' in navigator) || !dur) return;
+    setInterval(() => {
+      navigator.mediaSession.setPositionState({
+        duration: dur,
+        playbackRate: 1,
+        position: audioRef.current?.currentTime || 0,
+      });
+    }, 1000);
+  }, [dur]);
 
   // Spacebar shortcut
   useEffect(() => {

@@ -17,7 +17,12 @@ export default function MiniPlayer({ currentSong, isPlaying, setIsPlaying, onPla
         </div>
       </div>
       <div className="mini-player-right" onClick={e => e.stopPropagation()}>
-        <button className="mini-play-btn" onClick={() => setIsPlaying(!isPlaying)}>
+        <button className="mini-ctrl-btn" onClick={onPlayNext} title="Next">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
+          </svg>
+        </button>
+        <button className="mini-play-btn" onClick={() => setIsPlaying(!isPlaying)} title={isPlaying ? 'Pause' : 'Play'}>
           {loading ? (
             <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1.5 }} />
           ) : isPlaying ? (
@@ -29,11 +34,6 @@ export default function MiniPlayer({ currentSong, isPlaying, setIsPlaying, onPla
               <path d="M8 5v14l11-7z"/>
             </svg>
           )}
-        </button>
-        <button className="mini-ctrl-btn" onClick={onPlayNext}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/>
-          </svg>
         </button>
       </div>
     </div>

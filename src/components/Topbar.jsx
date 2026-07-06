@@ -13,11 +13,13 @@ export default function Topbar({ q, setQ, activeLang, setLang, onSearch, onSugge
   useEffect(() => {
     if (!debouncedQ.trim() || debouncedQ.length < 2) { setSuggestions([]); setShowSugg(false); return; }
     setSuggBusy(true);
-    searchSongs(debouncedQ, 8)
+    const langTerm = LANG_QUERIES.find(l => l.label === activeLang)?.term;
+    const searchTerm = langTerm ? `${debouncedQ} ${langTerm}` : debouncedQ;
+    searchSongs(searchTerm, 12)
       .then(res => { setSuggestions(res); setShowSugg(res.length > 0); })
       .catch(() => setSuggestions([]))
       .finally(() => setSuggBusy(false));
-  }, [debouncedQ]);
+  }, [debouncedQ, activeLang]);
 
   useEffect(() => {
     const close = e => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setShowSugg(false); };
