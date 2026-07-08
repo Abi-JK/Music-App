@@ -8,7 +8,7 @@ export default function PlayerBar({
   currentSong, isPlaying, setIsPlaying, playNext, playPrev,
   liked, toggleLike, onRingtone, onDetails, showToast, shuffle, setShuffle,
   onDownload, timerRemainingActive, formattedTimerTime,
-  queue, onRemoveFromQueue, onPlaySimilar
+  queue, onRemoveFromQueue, onPlaySimilar, onSearchArtist
 }) {
   const audioRef    = useRef(null);
   const abortRef    = useRef(null);
@@ -227,9 +227,14 @@ export default function PlayerBar({
       {/* Left */}
       <div className="p-left">
         {currentSong.coverUrl ? <img src={currentSong.coverUrl} alt="" className="p-img"/> : <div className="p-img-ph">🎵</div>}
-        <div className="p-info" onClick={() => onDetails(currentSong)}>
-          <h4>{currentSong.title}</h4>
-          <p>{currentSong.artist}{currentSong.year ? ` • ${currentSong.year}` : ''}</p>
+        <div className="p-info">
+          <h4 onClick={() => onDetails(currentSong)}>{currentSong.title}</h4>
+          <p>
+            <span className="p-artist-link" onClick={e => { e.stopPropagation(); onSearchArtist?.(currentSong.artist); }}>
+              {currentSong.artist}
+            </span>
+            {currentSong.year ? ` • ${currentSong.year}` : ''}
+          </p>
         </div>
         <div className="p-left-acts">
           {currentSong.offline && <span className="offline-badge">📴</span>}

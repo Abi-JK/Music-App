@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { fmt } from '../utils/helpers';
 import { fetchLyrics } from '../utils/api';
 
-export default function DetailPanel({ song, onClose, liked, toggleLike, onPlay, isPlaying, showToast, onDownload, onRingtone, onAddToQueue }) {
+export default function DetailPanel({ song, onClose, liked, toggleLike, onPlay, isPlaying, showToast, onDownload, onRingtone, onAddToQueue, onSearchArtist }) {
   const [lyrics, setLyrics]     = useState(null);
   const [lyricsBusy, setLyBusy] = useState(false);
   const [lyricsNone, setLyNone] = useState(false);
@@ -43,7 +43,11 @@ export default function DetailPanel({ song, onClose, liked, toggleLike, onPlay, 
           <div className="panel-top-row">
             <div className="panel-titles">
               <div className="panel-title">{song.title}</div>
-              <div className="panel-artist">{song.artist}</div>
+              <div className="panel-artist">
+                {onSearchArtist
+                  ? <span className="p-artist-link" onClick={() => { onSearchArtist(song.artist); onClose(); }}>{song.artist}</span>
+                  : song.artist}
+              </div>
             </div>
             <button className={`icon-btn ${isLiked ? 'liked' : ''}`} onClick={() => toggleLike(song)}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill={isLiked ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">

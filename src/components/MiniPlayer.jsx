@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function MiniPlayer({ currentSong, isPlaying, setIsPlaying, onPlayNext, onOpenDetails, loading }) {
+export default function MiniPlayer({ currentSong, isPlaying, setIsPlaying, onPlayNext, onOpenDetails, loading, onSearchArtist }) {
   if (!currentSong) return null;
 
   return (
@@ -11,10 +11,14 @@ export default function MiniPlayer({ currentSong, isPlaying, setIsPlaying, onPla
         ) : (
           <div className="mini-player-img-ph">🎵</div>
         )}
-        <div className="mini-player-info">
-          <h4>{currentSong.title}</h4>
-          <p>{currentSong.artist}</p>
-        </div>
+          <div className="mini-player-info">
+            <h4>{currentSong.title}</h4>
+            <p>
+              {onSearchArtist
+                ? <span className="mini-artist-link" onClick={e => { e.stopPropagation(); onSearchArtist(currentSong.artist); }}>{currentSong.artist}</span>
+                : currentSong.artist}
+            </p>
+          </div>
       </div>
       <div className="mini-player-right" onClick={e => e.stopPropagation()}>
         <button className="mini-ctrl-btn" onClick={onPlayNext} title="Next">

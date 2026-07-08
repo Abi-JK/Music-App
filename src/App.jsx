@@ -232,6 +232,25 @@ export default function App() {
     setQueue(prev => prev.filter((_, i) => i !== index));
   }, []);
 
+  // Click artist name → search all songs by that artist
+  const searchArtist = useCallback((artistName) => {
+    if (!artistName) return;
+    const langObj = LANG_QUERIES.find(l => l.label === activeLang);
+    const term = langObj?.term ? `${artistName} ${langObj.term}` : artistName;
+    setSearchQ(artistName);
+    setActiveTab('search');
+    setSearched(true);
+    setSearchLoading(true);
+    searchSongs(term, 50)
+      .then(songs => {
+        setSearchResults(songs);
+        if (songs.length) { setPlaylist(songs); setCurrentIndex(0); setIsPlaying(true); }
+        else showToast('No songs found for this artist.');
+      })
+      .catch(() => showToast('⚠️ Search failed.'))
+      .finally(() => setSearchLoading(false));
+  }, [activeLang, showToast]);
+
   const playSimilar = useCallback((song) => {
     if (!song) return;
     const q = `${song.artist} ${song.album || ''}`.trim() || song.title;
@@ -462,6 +481,7 @@ export default function App() {
           onDownload={handleDownload} 
           onRingtone={openRingtone}
           onAddToQueue={addToQueue}
+          onSearchArtist={searchArtist}
         />
       )}
 
@@ -485,6 +505,7 @@ export default function App() {
         queue={queue}
         onRemoveFromQueue={removeFromQueue}
         onPlaySimilar={playSimilar}
+        onSearchArtist={searchArtist}
       />
 
       {/* Mobile Mini Player display */}
@@ -494,6 +515,7 @@ export default function App() {
         setIsPlaying={setIsPlaying}
         onPlayNext={playNext}
         onOpenDetails={() => setDetailSong(currentSong)}
+        onSearchArtist={searchArtist}
       />
 
       {/* Mobile Bottom Tab navigation bar */}
