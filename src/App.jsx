@@ -232,6 +232,31 @@ export default function App() {
     setQueue(prev => prev.filter((_, i) => i !== index));
   }, []);
 
+  const playSimilar = useCallback((song) => {
+    if (!song) return;
+    const q = `${song.artist} ${song.album || ''}`.trim() || song.title;
+    const langObj = LANG_QUERIES.find(l => l.label === activeLang);
+    const term = langObj?.term ? `${q} ${langObj.term}` : q;
+    setSearchQ(q);
+    setActiveTab('search');
+    setSearched(true);
+    setSearchLoading(true);
+    searchSongs(term, 30)
+      .then(songs => {
+        // Filter out the current song if possible
+        const filtered = songs.filter(s => s.id !== song.id);
+        const results = filtered.length > 0 ? filtered : songs;
+        setSearchResults(results);
+        if (results.length) {
+          setPlaylist(results);
+          setCurrentIndex(0);
+          setIsPlaying(true);
+        }
+      })
+      .catch(() => showToast('⚠️ Could not load similar songs'))
+      .finally(() => setSearchLoading(false));
+  }, [activeLang, showToast]);
+
   const playPrev = useCallback(() => {
     if (!playlist.length) return;
     const prev = (currentIndex - 1 + playlist.length) % playlist.length;
@@ -385,6 +410,8 @@ export default function App() {
               openRingtone={openRingtone}
               setDetailSong={setDetailSong}
               addToQueue={addToQueue}
+              showToast={showToast}
+              doSearch={(q) => doSearch(q)}
             />
           )}
           {activeTab === 'liked' && (
@@ -457,6 +484,7 @@ export default function App() {
         formattedTimerTime={formatRemaining()}
         queue={queue}
         onRemoveFromQueue={removeFromQueue}
+        onPlaySimilar={playSimilar}
       />
 
       {/* Mobile Mini Player display */}

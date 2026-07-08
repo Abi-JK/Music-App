@@ -91,6 +91,36 @@ export const fetchLyrics = async (songId) => {
   return null;
 };
 
+// ─── ALBUM SEARCH ────────────────────────────────────────────────────────────
+export const searchAlbums = async (query, limit = 10) => {
+  const res = await fetch(
+    `${SEARCH}/search/albums?query=${encodeURIComponent(query)}&limit=${limit}`
+  );
+  if (!res.ok) throw new Error(`Album search failed: ${res.status}`);
+  const j = await res.json();
+  return (j.data?.results || j.results || []).map(normalizeAlbum);
+};
+
+export const getAlbumSongs = async (albumId) => {
+  const res = await fetch(`${SEARCH}/albums?id=${albumId}`);
+  if (!res.ok) throw new Error(`Album fetch failed: ${res.status}`);
+  const j = await res.json();
+  const data = j.data || j;
+  const songs = data.songs || [];
+  return songs.map(normVercelSong);
+};
+
+function normalizeAlbum(a) {
+  return {
+    id: a.id,
+    name: a.name || a.title || '',
+    image: a.image ? (typeof a.image === 'string' ? a.image.replace('150x150', '500x500') : '') : '',
+    songCount: a.songCount || a.songs?.length || 0,
+    year: a.year || '',
+    primaryArtists: a.primaryArtists || a.artist || '',
+  };
+}
+
 // ─── DOWNLOAD: fetch blob through proxy ──────────────────────────────────────
 export async function fetchStreamBlob(authUrl) {
   const proxied = toProxiedStream(authUrl);
