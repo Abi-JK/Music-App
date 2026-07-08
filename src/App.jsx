@@ -136,7 +136,7 @@ export default function App() {
     setHomeLoading(true);
     Promise.all(
       HOME_SECTIONS.map(sec =>
-        searchSongs(sec.term, 12)
+        searchSongs(sec.term, 8)
           .then(songs => ({ key: sec.key, label: sec.label, songs }))
           .catch(() => ({ key: sec.key, label: sec.label, songs: [] }))
       )
@@ -340,17 +340,61 @@ export default function App() {
     try {
       const langObj = LANG_QUERIES.find(l => l.label === activeLang);
       const term    = langObj?.term ? `${q} ${langObj.term}` : q;
-      const [songs, albums] = await Promise.all([
+      const [songs, apiAlbums] = await Promise.all([
         searchSongs(term, 50),
         searchAlbums(q, 8).catch(() => []),
       ]);
       setSearchResults(songs);
-      setSearchAlbumsRes(albums);
+
+      // Merge API albums + virtual albums (created from fetched songs)
+      let resolvedAlbums = apiAlbums;
+      if (songs.length > 0) {
+        const virt = createVirtualAlbums(q, songs);
+        if (apiAlbums.length >= 3) {
+          // Supplement with virtual (dedupe by name)
+          const apiNames = new Set(apiAlbums.map(a => a.name.toLowerCase()));
+          resolvedAlbums = [...apiAlbums, ...virt.filter(v => !apiNames.has(v.name.toLowerCase()))];
+        } else {
+          // API returned few/none — use virtual albums as primary
+          resolvedAlbums = virt;
+        }
+      }
+      setSearchAlbumsRes(resolvedAlbums);
+
       if (songs.length) { setPlaylist(songs); setCurrentIndex(0); }
-      else if (!albums.length) showToast('No results found.');
+      else if (!resolvedAlbums.length) showToast('No results found.');
     } catch { showToast('⚠️ Search failed.'); }
     finally { setSearchLoading(false); }
   }, [searchQ, activeLang, showToast]);
+
+function createVirtualAlbums(query, songs) {
+  if (!songs?.length) return [];
+  const albums = [];
+  // 1) Virtual movie/query album — ALL songs
+  albums.push({
+    id: `vq_${query.replace(/[^a-z0-9]/gi, '_')}`,
+    name: query,
+    image: songs[0].coverUrl || '',
+    songCount: songs.length,
+    year: songs.find(s => s.year)?.year || '',
+    primaryArtists: '',
+    isVirtual: true, queryType: 'query',
+    songs: songs.slice(),
+  });
+  // 2) Artist albums (top with 3+ songs)
+  const groups = {};
+  songs.forEach(s => { const a = s.artist || 'Unknown'; if (!groups[a]) groups[a] = []; groups[a].push(s); });
+  Object.entries(groups).filter(([, ss]) => ss.length >= 3).sort(([, a], [, b]) => b.length - a.length).slice(0, 4)
+    .forEach(([artist, ss]) => {
+      albums.push({
+        id: `va_${artist.replace(/[^a-z0-9]/gi, '_')}`,
+        name: artist, image: ss[0].coverUrl || '', songCount: ss.length,
+        year: ss.find(s2 => s2.year)?.year || '', primaryArtists: artist,
+        isVirtual: true, queryType: 'artist', songs: ss.slice(),
+      });
+    });
+  return albums;
+}
 
   const handleSuggestionClick = useCallback((song) => {
     setSearchResults([song]); setPlaylist([song]); setCurrentIndex(0);

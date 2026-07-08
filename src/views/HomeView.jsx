@@ -1,6 +1,23 @@
 import React from 'react';
-import SongCard from '../components/SongCard';
 import { HOME_SECTIONS } from '../utils/constants';
+
+function groupByAlbum(songs) {
+  const map = {};
+  songs.forEach(s => {
+    const key = s.album || 'Other Songs';
+    if (!map[key]) map[key] = [];
+    map[key].push(s);
+  });
+  return Object.entries(map)
+    .map(([name, list]) => ({
+      name,
+      songs: list,
+      image: list[0]?.coverUrl || '',
+      songCount: list.length,
+      year: list.find(s => s.year)?.year || '',
+    }))
+    .sort((a, b) => b.songCount - a.songCount);
+}
 
 export default function HomeView({ recentlyPlayed, currentSong, isPlaying, playSong, homeLoading, homeData, doSearch, setDetailSong }) {
   return (
@@ -33,28 +50,31 @@ export default function HomeView({ recentlyPlayed, currentSong, isPlaying, playS
           <div className="spinner"/>
           <p style={{ color: 'var(--text-muted)' }}>Loading music feed...</p>
         </div>
-      ) : HOME_SECTIONS.every(sec => !homeData[sec.key]?.songs?.length) ? (
-        <div className="empty">
-          <span style={{ fontSize: 48 }}>🎵</span>
-          <h3>No content available</h3>
-          <p>Check your connection or try again later.</p>
-        </div>
       ) : (
         HOME_SECTIONS.map(sec => {
           const d = homeData[sec.key];
           if (!d?.songs?.length) return null;
+          const albums = groupByAlbum(d.songs);
           return (
-            <div key={sec.key}>
+            <div key={sec.key} style={{ marginBottom: 28 }}>
               <div className="sec-head">
                 <h3>{sec.label}</h3>
                 <button className="see-all" onClick={() => doSearch(sec.term)}>See All</button>
               </div>
-              <div className="song-scroll">
-                {d.songs.map((song, i) => (
-                  <SongCard key={song.id} song={song}
-                    isActive={currentSong?.id === song.id} isPlaying={isPlaying}
-                    onPlay={() => playSong(song, d.songs, i)}
-                    onDetails={setDetailSong}/>
+              <div className="album-card-grid">
+                {albums.slice(0, 10).map(album => (
+                  <div key={album.name} className="album-card"
+                    onClick={() => doSearch(album.name)}>
+                    <div className="album-card-img-wrap">
+                      {album.image
+                        ? <img src={album.image} alt={album.name} loading="lazy"/>
+                        : <div className="album-card-ph">🎵</div>}
+                    </div>
+                    <div className="album-card-info">
+                      <h4>{album.name}</h4>
+                      <p>{album.songCount} songs{album.year ? ` • ${album.year}` : ''}</p>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
