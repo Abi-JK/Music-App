@@ -1,9 +1,50 @@
 import React, { useState } from 'react';
 import SongRow from '../components/SongRow';
-import { getAlbumSongs, searchAlbumSongs } from '../utils/api';
 
-export default function SearchView({ searchLoading, searched, searchResults, searchAlbums, currentSong, isPlaying, playSong, handleDownload, toggleLike, isLiked, openRingtone, setDetailSong, addToQueue, showToast, doSearch }) {
+// Create virtual albums from song results (always works, no API dependency)
+function deriveAlbums(songs, query) {
+  if (!songs?.length) return [];
+  const albums = [];
+  // 1) Query-based album (movie / search term)
+  albums.push({
+    id: `vq_${(query || 'search').replace(/[^a-z0-9]/gi, '_')}`,
+    name: query || songs[0]?.album || 'All Songs',
+    image: songs[0]?.coverUrl || '',
+    songCount: songs.length,
+    year: songs.find(s => s.year)?.year || '',
+    isVirtual: true,
+    songs: songs.slice(),
+  });
+  // 2) Artist albums (artists with 3+ songs)
+  const groups = {};
+  songs.forEach(s => {
+    const a = s.artist || 'Unknown';
+    if (!groups[a]) groups[a] = [];
+    groups[a].push(s);
+  });
+  Object.entries(groups)
+    .filter(([, ss]) => ss.length >= 3)
+    .sort(([, a], [, b]) => b.length - a.length)
+    .slice(0, 4)
+    .forEach(([artist, ss]) => {
+      albums.push({
+        id: `va_${artist.replace(/[^a-z0-9]/gi, '_')}`,
+        name: artist,
+        image: ss[0]?.coverUrl || '',
+        songCount: ss.length,
+        year: ss.find(s2 => s2.year)?.year || '',
+        isVirtual: true,
+        songs: ss.slice(),
+      });
+    });
+  return albums;
+}
+
+export default function SearchView({ searchLoading, searched, searchResults, currentSong, isPlaying, playSong, handleDownload, toggleLike, isLiked, openRingtone, setDetailSong, addToQueue, showToast, doSearch }) {
   const [albumLoading, setAlbumLoading] = useState(null);
+  const [viewAlbum, setViewAlbum] = useState(null); // null = default, album object = showing its songs
+
+  const albums = React.useMemo(() => deriveAlbums(searchResults, ''), [searchResults]);
 
   const handlePlayAlbum = (songs, shuffle = false) => {
     const order = shuffle ? [...songs].sort(() => Math.random() - 0.5) : songs;
@@ -11,34 +52,17 @@ export default function SearchView({ searchLoading, searched, searchResults, sea
   };
 
   const handleAlbumClick = async (album) => {
+    if (viewAlbum?.id === album.id) { setViewAlbum(null); return; }
+    setViewAlbum(album);
     setAlbumLoading(album.id);
-    showToast(album.isVirtual ? `🎤 Loading: ${album.name}...` : `📂 Loading: ${album.name}...`);
-    try {
-      let songs;
-      if (album.isVirtual) {
-        // Virtual album — songs already fetched or search by artist/query
-        if (album.songs?.length) {
-          songs = album.songs;
-        } else {
-          songs = await searchAlbumSongs(album.name, 40);
-        }
-      } else {
-        // Real album from API
-        songs = await getAlbumSongs(album.id);
-      }
-      if (songs?.length) {
-        playSong(songs[0], songs, 0);
-        showToast(`▶️ ${album.name} — ${songs.length} songs`);
-      } else {
-        showToast('⚠️ No songs found for this album.');
-      }
-    } catch {
-      showToast('⚠️ Could not load album songs.');
+    showToast(`📂 ${album.name} — ${album.songs.length} songs`);
+    if (album.songs?.length) {
+      playSong(album.songs[0], album.songs, 0);
     }
     setAlbumLoading(null);
   };
 
-  // Group song results by album
+  // Group song results by album for the "grouped" view
   const albumMap = {};
   searchResults.forEach(s => {
     const key = s.album || 'Other Songs';
@@ -62,30 +86,76 @@ export default function SearchView({ searchLoading, searched, searchResults, sea
         <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
       </svg>
       <h3>Search songs, movies, artists</h3>
-      <p>Type in the search box — live suggestions appear as you type</p>
+      <p>Type to search — album cards appear for every result</p>
     </div>
   );
 
-  if (!searchResults.length && !searchAlbums?.length) return (
+  if (!searchResults.length) return (
     <div className="empty">
       <h3>No results found</h3>
       <p>Try a different query</p>
     </div>
   );
 
+  // If viewing a specific album's songs
+  if (viewAlbum) {
+    const songs = viewAlbum.songs || [];
+    return (
+      <div className="search-songs-wrap">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+          <button className="icon-btn" onClick={() => setViewAlbum(null)} title="Back">
+            <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path d="M19 12H5M12 19l-7-7 7-7"/>
+            </svg>
+          </button>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 700 }}>{viewAlbum.name}</div>
+            <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{songs.length} songs</div>
+          </div>
+        </div>
+        <div className="album-group-actions" style={{ marginBottom: 12, display: 'flex', gap: 8 }}>
+          <button className="btn-primary" style={{ padding: '6px 16px', fontSize: 12 }} onClick={() => handlePlayAlbum(songs)}>
+            ▶ Play All
+          </button>
+          <button className="btn-primary" style={{ padding: '6px 16px', fontSize: 12, background: 'var(--bg-card)' }} onClick={() => handlePlayAlbum(songs, true)}>
+            🔀 Shuffle
+          </button>
+        </div>
+        <div className="table-head">
+          <span>#</span>
+          <span>SONG</span>
+          <span>ALBUM</span>
+          <span>DURATION</span>
+          <span></span>
+        </div>
+        <div className="song-table">
+          {songs.map((song, i) => (
+            <SongRow key={song.id} song={song} idx={i}
+              isActive={currentSong?.id === song.id} isPlaying={isPlaying}
+              onPlay={() => playSong(song, songs, i)}
+              onDownload={handleDownload} onLike={toggleLike}
+              liked={isLiked(song.id)} onRingtone={openRingtone}
+              onDetails={setDetailSong} onAddToQueue={addToQueue}/>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <>
+    <div className="search-songs-wrap">
       <div style={{ marginBottom: 14, color: 'var(--text-secondary)', fontSize: 12 }}>
-        {searchResults.length} songs{searchAlbums?.length ? ` • ${searchAlbums.length} albums` : ''}
+        {searchResults.length} songs · {albums.length} albums
       </div>
 
-      {/* Album cards — real + virtual */}
-      {searchAlbums?.length > 0 && (
+      {/* Album cards — always shown */}
+      {albums.length > 0 && (
         <div className="album-search-results">
           <div className="sec-title" style={{ fontSize: 15 }}>Albums</div>
           <div className="album-card-grid">
-            {searchAlbums.map(album => (
-              <div key={album.id} className="album-card" onClick={() => handleAlbumClick(album)}>
+            {albums.map(album => (
+              <div key={album.id} className={`album-card ${viewAlbum?.id === album.id ? 'active' : ''}`}
+                onClick={() => handleAlbumClick(album)}>
                 <div className="album-card-img-wrap">
                   {album.image
                     ? <img src={album.image} alt={album.name} />
@@ -98,7 +168,7 @@ export default function SearchView({ searchLoading, searched, searchResults, sea
                 </div>
                 <div className="album-card-info">
                   <h4>{album.name}</h4>
-                  <p>{album.songCount} songs{album.year ? ` • ${album.year}` : ''}{album.isVirtual ? ' • auto' : ''}</p>
+                  <p>{album.songCount} songs{album.year ? ` • ${album.year}` : ''}</p>
                 </div>
               </div>
             ))}
@@ -107,70 +177,68 @@ export default function SearchView({ searchLoading, searched, searchResults, sea
       )}
 
       {/* Song results grouped by album */}
-      {searchResults.length > 0 && (
-        showFlat ? (
-          <>
-            <div className="table-head">
-              <span>#</span>
-              <span>SONG</span>
-              <span>ALBUM</span>
-              <span>DURATION</span>
-              <span></span>
+      {showFlat ? (
+        <>
+          <div className="table-head">
+            <span>#</span>
+            <span>SONG</span>
+            <span>ALBUM</span>
+            <span>DURATION</span>
+            <span></span>
+          </div>
+          <div className="song-table">
+            {searchResults.map((song, i) => (
+              <SongRow key={song.id} song={song} idx={i}
+                isActive={currentSong?.id === song.id} isPlaying={isPlaying}
+                onPlay={() => playSong(song, searchResults, i)}
+                onDownload={handleDownload} onLike={toggleLike}
+                liked={isLiked(song.id)} onRingtone={openRingtone}
+                onDetails={setDetailSong} onAddToQueue={addToQueue}/>
+            ))}
+          </div>
+        </>
+      ) : (
+        albumEntries.map(([album, songs]) => (
+          <div key={album} className="album-group">
+            <div className="album-group-header">
+              <div className="album-group-info">
+                <span className="album-group-cover">
+                  {songs[0]?.coverUrl ? <img src={songs[0].coverUrl} alt="" /> : <span>🎵</span>}
+                </span>
+                <div>
+                  <div className="album-group-name">{album}</div>
+                  <div className="album-group-meta">
+                    {songs[0]?.language ? `${songs[0].language} • ` : ''}{songs.length} songs
+                    {songs[0]?.year ? ` • ${songs[0].year}` : ''}
+                  </div>
+                </div>
+              </div>
+              <div className="album-group-actions">
+                <button className="icon-btn btn-accent" title="Play All"
+                  onClick={() => handlePlayAlbum(songs)}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                </button>
+                <button className="icon-btn" title="Shuffle Play"
+                  onClick={() => handlePlayAlbum(songs, true)}>
+                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>
+                  </svg>
+                </button>
+              </div>
             </div>
             <div className="song-table">
-              {searchResults.map((song, i) => (
+              {songs.map((song, i) => (
                 <SongRow key={song.id} song={song} idx={i}
                   isActive={currentSong?.id === song.id} isPlaying={isPlaying}
-                  onPlay={() => playSong(song, searchResults, i)}
+                  onPlay={() => playSong(song, searchResults, searchResults.indexOf(song))}
                   onDownload={handleDownload} onLike={toggleLike}
                   liked={isLiked(song.id)} onRingtone={openRingtone}
                   onDetails={setDetailSong} onAddToQueue={addToQueue}/>
               ))}
             </div>
-          </>
-        ) : (
-          albumEntries.map(([album, songs]) => (
-            <div key={album} className="album-group">
-              <div className="album-group-header">
-                <div className="album-group-info">
-                  <span className="album-group-cover">
-                    {songs[0]?.coverUrl ? <img src={songs[0].coverUrl} alt="" /> : <span>🎵</span>}
-                  </span>
-                  <div>
-                    <div className="album-group-name">{album}</div>
-                    <div className="album-group-meta">
-                      {songs[0]?.language ? `${songs[0].language} • ` : ''}{songs.length} songs
-                      {songs[0]?.year ? ` • ${songs[0].year}` : ''}
-                    </div>
-                  </div>
-                </div>
-                <div className="album-group-actions">
-                  <button className="icon-btn btn-accent" title="Play All"
-                    onClick={() => handlePlayAlbum(songs)}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                  </button>
-                  <button className="icon-btn" title="Shuffle Play"
-                    onClick={() => handlePlayAlbum(songs, true)}>
-                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-              <div className="song-table">
-                {songs.map((song, i) => (
-                  <SongRow key={song.id} song={song} idx={i}
-                    isActive={currentSong?.id === song.id} isPlaying={isPlaying}
-                    onPlay={() => playSong(song, searchResults, searchResults.indexOf(song))}
-                    onDownload={handleDownload} onLike={toggleLike}
-                    liked={isLiked(song.id)} onRingtone={openRingtone}
-                    onDetails={setDetailSong} onAddToQueue={addToQueue}/>
-                ))}
-              </div>
-            </div>
-          ))
-        )
+          </div>
+        ))
       )}
-    </>
+    </div>
   );
 }
