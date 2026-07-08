@@ -6,7 +6,7 @@ import {
   saveOfflineTrack, getOfflineTrack, listOfflineTracks, deleteOfflineTrack, blobUrlForTrack, clearAllTrackUrls
 } from './offlineStore';
 import { LS } from './utils/helpers';
-import { searchSongs, getStreamUrl, fetchStreamBlob } from './utils/api';
+import { searchSongs, searchAlbums, getStreamUrl, fetchStreamBlob } from './utils/api';
 import { LANG_QUERIES, HOME_SECTIONS } from './utils/constants';
 
 // Hooks
@@ -46,6 +46,7 @@ export default function App() {
   const [homeData,        setHomeData]        = useState({});
   const [homeLoading,     setHomeLoading]     = useState(true);
   const [searchResults,   setSearchResults]   = useState([]);
+  const [searchAlbumsRes, setSearchAlbumsRes] = useState([]);
   const [searchLoading,   setSearchLoading]   = useState(false);
   const [searched,        setSearched]        = useState(false);
 
@@ -335,13 +336,18 @@ export default function App() {
     setActiveTab('search'); 
     setSearched(true); 
     setSearchLoading(true);
+    setSearchAlbumsRes([]);
     try {
       const langObj = LANG_QUERIES.find(l => l.label === activeLang);
       const term    = langObj?.term ? `${q} ${langObj.term}` : q;
-      const songs   = await searchSongs(term, 50);
+      const [songs, albums] = await Promise.all([
+        searchSongs(term, 50),
+        searchAlbums(q, 8).catch(() => []),
+      ]);
       setSearchResults(songs);
+      setSearchAlbumsRes(albums);
       if (songs.length) { setPlaylist(songs); setCurrentIndex(0); }
-      else showToast('No results found.');
+      else if (!albums.length) showToast('No results found.');
     } catch { showToast('⚠️ Search failed.'); }
     finally { setSearchLoading(false); }
   }, [searchQ, activeLang, showToast]);
@@ -420,6 +426,7 @@ export default function App() {
               searchLoading={searchLoading}
               searched={searched}
               searchResults={searchResults}
+              searchAlbums={searchAlbumsRes}
               currentSong={currentSong}
               isPlaying={isPlaying}
               playSong={playSong}

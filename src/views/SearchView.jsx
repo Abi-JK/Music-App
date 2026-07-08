@@ -1,11 +1,39 @@
 import React, { useState } from 'react';
 import SongRow from '../components/SongRow';
-import { searchAlbumSongs } from '../utils/api';
+import { getAlbumSongs, searchAlbumSongs } from '../utils/api';
 
-export default function SearchView({ searchLoading, searched, searchResults, currentSong, isPlaying, playSong, handleDownload, toggleLike, isLiked, openRingtone, setDetailSong, addToQueue, showToast, doSearch }) {
+export default function SearchView({ searchLoading, searched, searchResults, searchAlbums, currentSong, isPlaying, playSong, handleDownload, toggleLike, isLiked, openRingtone, setDetailSong, addToQueue, showToast, doSearch }) {
   const [albumLoading, setAlbumLoading] = useState(null);
 
-  // Group songs by album name
+  const handlePlayAlbum = (songs, shuffle = false) => {
+    const order = shuffle ? [...songs].sort(() => Math.random() - 0.5) : songs;
+    playSong(order[0], order, 0);
+  };
+
+  const handleAlbumClick = async (album) => {
+    setAlbumLoading(album.id);
+    showToast(`📂 Loading: ${album.name}...`);
+    try {
+      const songs = await getAlbumSongs(album.id);
+      if (songs?.length) {
+        playSong(songs[0], songs, 0);
+        doSearch(album.name);
+        showToast(`📂 ${album.name} — ${songs.length} songs`);
+      } else {
+        // Fallback: search by album name
+        const fallback = await searchAlbumSongs(album.name, 30);
+        if (fallback?.length) {
+          playSong(fallback[0], fallback, 0);
+          doSearch(album.name);
+        }
+      }
+    } catch {
+      showToast('⚠️ Could not load album songs.');
+    }
+    setAlbumLoading(null);
+  };
+
+  // Group song results by album
   const albums = {};
   searchResults.forEach(s => {
     const key = s.album || 'Other Songs';
@@ -13,31 +41,8 @@ export default function SearchView({ searchLoading, searched, searchResults, cur
     albums[key].push(s);
   });
   const albumEntries = Object.entries(albums);
-  // If most songs have no album, show flat list instead of grouping
   const noAlbumCount = searchResults.filter(s => !s.album).length;
   const showFlat = noAlbumCount > searchResults.length * 0.6 && searchResults.length > 5;
-
-  const handlePlayAlbum = (songs, shuffle = false) => {
-    const order = shuffle ? [...songs].sort(() => Math.random() - 0.5) : songs;
-    playSong(order[0], order, 0);
-  };
-
-  const handleLoadAlbum = async (albumName) => {
-    setAlbumLoading(albumName);
-    try {
-      const res = await searchAlbumSongs(albumName, 30);
-      if (res?.length) {
-        playSong(res[0], res, 0);
-        // Update search results to show full album
-        if (typeof doSearch === 'function') doSearch(albumName);
-      } else {
-        if (typeof doSearch === 'function') doSearch(albumName);
-      }
-    } catch {
-      if (typeof doSearch === 'function') doSearch(albumName);
-    }
-    setAlbumLoading(null);
-  };
 
   if (searchLoading) return (
     <div className="spinner-wrap">
@@ -56,7 +61,7 @@ export default function SearchView({ searchLoading, searched, searchResults, cur
     </div>
   );
 
-  if (!searchResults.length) return (
+  if (!searchResults.length && !searchAlbums?.length) return (
     <div className="empty">
       <h3>No results found</h3>
       <p>Try a different query</p>
@@ -66,79 +71,100 @@ export default function SearchView({ searchLoading, searched, searchResults, cur
   return (
     <>
       <div style={{ marginBottom: 14, color: 'var(--text-secondary)', fontSize: 12 }}>
-        {searchResults.length} results{!showFlat ? ` in ${albumEntries.length} albums` : ''}
+        {searchResults.length} songs{searchAlbums?.length ? ` • ${searchAlbums.length} albums` : ''}
       </div>
-      {showFlat ? (
-        <>
-          <div className="table-head">
-            <span>#</span>
-            <span>SONG</span>
-            <span>ALBUM</span>
-            <span>DURATION</span>
-            <span></span>
-          </div>
-          <div className="song-table">
-            {searchResults.map((song, i) => (
-              <SongRow key={song.id} song={song} idx={i}
-                isActive={currentSong?.id === song.id} isPlaying={isPlaying}
-                onPlay={() => playSong(song, searchResults, i)}
-                onDownload={handleDownload} onLike={toggleLike}
-                liked={isLiked(song.id)} onRingtone={openRingtone}
-                onDetails={setDetailSong} onAddToQueue={addToQueue}/>
-            ))}
-          </div>
-        </>
-      ) : (
-        albumEntries.map(([album, songs]) => (
-          <div key={album} className="album-group">
-            <div className="album-group-header">
-              <div className="album-group-info">
-                <span className="album-group-cover">
-                  {songs[0]?.coverUrl
-                    ? <img src={songs[0].coverUrl} alt="" />
-                    : <span>🎵</span>}
-                </span>
-                <div>
-                  <div className="album-group-name">{album}</div>
-                  <div className="album-group-meta">
-                    {songs[0]?.language ? `${songs[0].language} • ` : ''}{songs.length} songs
-                    {songs[0]?.year ? ` • ${songs[0].year}` : ''}
-                  </div>
+
+      {/* Album cards at top */}
+      {searchAlbums?.length > 0 && (
+        <div className="album-search-results">
+          <div className="sec-title" style={{ fontSize: 15 }}>Albums</div>
+          <div className="album-card-grid">
+            {searchAlbums.map(album => (
+              <div key={album.id} className="album-card" onClick={() => handleAlbumClick(album)}>
+                <div className="album-card-img-wrap">
+                  {album.image
+                    ? <img src={album.image} alt={album.name} />
+                    : <div className="album-card-ph">🎵</div>}
+                  {albumLoading === album.id && (
+                    <div className="album-card-loading">
+                      <div className="spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
+                    </div>
+                  )}
+                </div>
+                <div className="album-card-info">
+                  <h4>{album.name}</h4>
+                  <p>{album.songCount} songs{album.year ? ` • ${album.year}` : ''}</p>
                 </div>
               </div>
-              <div className="album-group-actions">
-                <button className="icon-btn btn-accent" title="Play All"
-                  onClick={() => handlePlayAlbum(songs)}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-                </button>
-                <button className="icon-btn" title="Shuffle Play"
-                  onClick={() => handlePlayAlbum(songs, true)}>
-                  <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>
-                  </svg>
-                </button>
-                <button className="icon-btn" title="Load full album"
-                  onClick={() => handleLoadAlbum(album)} disabled={albumLoading === album}>
-                  {albumLoading === album
-                    ? <div className="spinner" style={{ width: 12, height: 12, borderWidth: 1.5 }} />
-                    : <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
-                      </svg>}
-                </button>
-              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Song results grouped by album */}
+      {searchResults.length > 0 && (
+        showFlat ? (
+          <>
+            <div className="table-head">
+              <span>#</span>
+              <span>SONG</span>
+              <span>ALBUM</span>
+              <span>DURATION</span>
+              <span></span>
             </div>
             <div className="song-table">
-              {songs.map((song, i) => (
+              {searchResults.map((song, i) => (
                 <SongRow key={song.id} song={song} idx={i}
                   isActive={currentSong?.id === song.id} isPlaying={isPlaying}
-                  onPlay={() => playSong(song, searchResults, searchResults.indexOf(song))}
+                  onPlay={() => playSong(song, searchResults, i)}
                   onDownload={handleDownload} onLike={toggleLike}
                   liked={isLiked(song.id)} onRingtone={openRingtone}
                   onDetails={setDetailSong} onAddToQueue={addToQueue}/>
               ))}
             </div>
-          </div>
-        ))
+          </>
+        ) : (
+          albumEntries.map(([album, songs]) => (
+            <div key={album} className="album-group">
+              <div className="album-group-header">
+                <div className="album-group-info">
+                  <span className="album-group-cover">
+                    {songs[0]?.coverUrl ? <img src={songs[0].coverUrl} alt="" /> : <span>🎵</span>}
+                  </span>
+                  <div>
+                    <div className="album-group-name">{album}</div>
+                    <div className="album-group-meta">
+                      {songs[0]?.language ? `${songs[0].language} • ` : ''}{songs.length} songs
+                      {songs[0]?.year ? ` • ${songs[0].year}` : ''}
+                    </div>
+                  </div>
+                </div>
+                <div className="album-group-actions">
+                  <button className="icon-btn btn-accent" title="Play All"
+                    onClick={() => handlePlayAlbum(songs)}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                  </button>
+                  <button className="icon-btn" title="Shuffle Play"
+                    onClick={() => handlePlayAlbum(songs, true)}>
+                    <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              <div className="song-table">
+                {songs.map((song, i) => (
+                  <SongRow key={song.id} song={song} idx={i}
+                    isActive={currentSong?.id === song.id} isPlaying={isPlaying}
+                    onPlay={() => playSong(song, searchResults, searchResults.indexOf(song))}
+                    onDownload={handleDownload} onLike={toggleLike}
+                    liked={isLiked(song.id)} onRingtone={openRingtone}
+                    onDetails={setDetailSong} onAddToQueue={addToQueue}/>
+                ))}
+              </div>
+            </div>
+          ))
+        )
       )}
     </>
   );
