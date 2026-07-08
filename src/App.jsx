@@ -65,6 +65,16 @@ export default function App() {
   const currentSong = playlist[currentIndex] || null;
   const panelOpen   = !!detailSong;
 
+  // Back button handling: push history state when detail panel opens,
+  // intercept popstate to close panel instead of navigating away
+  useEffect(() => {
+    if (!panelOpen) return;
+    window.history.pushState({ panel: true }, '');
+    const onPop = () => { setDetailSong(null); };
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [panelOpen]);
+
   // Custom Hooks integration
   const isOnline = useOnlineStatus();
   

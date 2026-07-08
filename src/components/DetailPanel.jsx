@@ -10,13 +10,16 @@ export default function DetailPanel({ song, onClose, liked, toggleLike, onPlay, 
   useEffect(() => {
     if (!song) return;
     let cancelled = false;
-    setLyrics(null); setLyNone(false); setLyBusy(true);
+    setLyrics(null); setLyNone(false);
+    // Skip API call if song explicitly has no lyrics
+    if (song.hasLyrics === false) { setLyNone(true); return; }
+    setLyBusy(true);
     fetchLyrics(song.id)
       .then(txt => { if (!cancelled) { setLyrics(txt); if (!txt) setLyNone(true); } })
       .catch(() => { if (!cancelled) setLyNone(true); })
       .finally(() => { if (!cancelled) setLyBusy(false); });
     return () => { cancelled = true; };
-  }, [song?.id]);
+  }, [song?.id, song?.hasLyrics]);
 
   if (!song) return null;
   const isLiked = liked(song.id);

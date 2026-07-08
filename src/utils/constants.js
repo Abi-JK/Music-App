@@ -13,6 +13,13 @@ export const LANG_QUERIES = [
   { label: 'Malayalam', term: 'malayalam' },
   { label: 'Kannada',   term: 'kannada' },
   { label: 'Punjabi',   term: 'punjabi' },
+  { label: 'Bengali',   term: 'bengali' },
+  { label: 'Bhojpuri',  term: 'bhojpuri' },
+  { label: 'Gujarati',  term: 'gujarati' },
+  { label: 'Marathi',   term: 'marathi' },
+  { label: 'Odia',      term: 'odia' },
+  { label: 'Urdu',      term: 'urdu' },
+  { label: 'Devotional',term: 'bhakti songs devotional' },
   { label: '90s Hits',  term: '90s hits' },
   { label: 'Retro',     term: 'retro hits' },
 ];
@@ -28,6 +35,12 @@ export const HOME_SECTIONS = [
   { key: 'telugu_new',   term: 'telugu hits 2025',       label: '🎶 Telugu Melodies' },
   { key: 'malayalam_n',  term: 'malayalam hits 2025',    label: '🌴 Malayalam Hits' },
   { key: 'punjabi_new',  term: 'punjabi hits 2025',      label: '🎉 Punjabi Beats' },
+  { key: 'bengali_new',  term: 'bengali hits 2025',      label: '🎸 Bengali Hits' },
+  { key: 'devotional',   term: 'bhakti devotional songs', label: '🛕 Devotional' },
+  { key: 'kannada_new',  term: 'kannada hits 2025',      label: '🏔️ Kannada Hits' },
+  { key: 'bhojpuri_new', term: 'bhojpuri hits 2025',     label: '🎭 Bhojpuri Hits' },
+  { key: 'marathi_new',  term: 'marathi hits 2025',      label: '🎤 Marathi Hits' },
+  { key: 'gujarati_new', term: 'gujarati hits 2025',     label: '🎧 Gujarati Hits' },
 ];
 
 export const SIDEBAR_PLAYLISTS = [

@@ -60,6 +60,7 @@ export const searchSongs = async (query, limit = 24) => {
 
 // ─── LYRICS API ──────────────────────────────────────────────────────────────
 export const fetchLyrics = async (songId) => {
+  // Try Vercel search API first
   try {
     const res = await fetch(`${SEARCH}/lyrics?id=${songId}`);
     if (res.ok) {
@@ -69,7 +70,23 @@ export const fetchLyrics = async (songId) => {
       if (f) return f;
     }
   } catch {
-    // Silently fail — lyrics are optional
+    // fall through to next source
+  }
+  // Fallback: fetch via main JioSaavn API
+  try {
+    const res = await fetch(
+      `${API}?__call=lyrics.getLyrics&lyrics_id=${songId}&_format=json&_marker=0&ctx=web6dot0`
+    );
+    if (res.ok) {
+      const j = await res.json();
+      const raw = j.lyrics || '';
+      if (raw) {
+        const f = formatLyrics(raw);
+        if (f) return f;
+      }
+    }
+  } catch {
+    // lyrics are optional
   }
   return null;
 };
