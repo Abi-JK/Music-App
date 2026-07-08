@@ -110,6 +110,19 @@ export const getAlbumSongs = async (albumId) => {
   return songs.map(normVercelSong);
 };
 
+// Search album by name — tries multiple strategies to find album songs
+export const searchAlbumSongs = async (albumName, limit = 30) => {
+  // Strategy 1: Search for the album name directly
+  const songs = await searchSongs(albumName, limit);
+  if (songs.length > 0) {
+    // Filter to only songs that match the album name
+    const nameLower = albumName.toLowerCase();
+    const exact = songs.filter(s => s.album?.toLowerCase().includes(nameLower));
+    return exact.length >= 3 ? exact : songs;
+  }
+  return songs;
+};
+
 function normalizeAlbum(a) {
   return {
     id: a.id,

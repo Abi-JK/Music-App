@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 export function useInstallPrompt() {
-  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const deferredPrompt = useRef(null);
+  const [canInstall, setCanInstall] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
 
   useEffect(() => {
-    // Check if already installed
     if (window.matchMedia('(display-mode: standalone)').matches ||
         window.navigator.standalone === true) {
       setIsInstalled(true);
@@ -14,12 +14,14 @@ export function useInstallPrompt() {
 
     const handleBeforeInstall = (e) => {
       e.preventDefault();
-      setDeferredPrompt(e);
+      deferredPrompt.current = e;
+      setCanInstall(true);
     };
 
     const handleAppInstalled = () => {
       setIsInstalled(true);
-      setDeferredPrompt(null);
+      deferredPrompt.current = null;
+      setCanInstall(false);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
@@ -32,16 +34,14 @@ export function useInstallPrompt() {
   }, []);
 
   const promptInstall = async () => {
-    if (!deferredPrompt) return false;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    setDeferredPrompt(null);
+    const prompt = deferredPrompt.current;
+    if (!prompt) return false;
+    prompt.prompt();
+    const { outcome } = await prompt.userChoice;
+    deferredPrompt.current = null;
+    setCanInstall(false);
     return outcome === 'accepted';
   };
 
-  return {
-    canInstall: !!deferredPrompt && !isInstalled,
-    isInstalled,
-    promptInstall,
-  };
+  return { canInstall: canInstall && !isInstalled, isInstalled, promptInstall };
 }
