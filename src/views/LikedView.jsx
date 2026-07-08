@@ -1,7 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import SongRow from '../components/SongRow';
 
-export default function LikedView({ likedSongs, currentSong, isPlaying, playSong, handleDownload, toggleLike, isLiked, openRingtone, setDetailSong }) {
+export default function LikedView({ likedSongs, currentSong, isPlaying, playSong, handleDownload, toggleLike, isLiked, openRingtone, setDetailSong, addToQueue }) {
+  const [filter, setFilter] = useState('');
+
+  const filtered = likedSongs.filter(s =>
+    !filter.trim() ||
+    s.title?.toLowerCase().includes(filter.toLowerCase()) ||
+    s.artist?.toLowerCase().includes(filter.toLowerCase()) ||
+    s.album?.toLowerCase().includes(filter.toLowerCase())
+  );
+
   if (likedSongs.length === 0) return (
     <div className="empty">
       <span style={{ fontSize: 48 }}>❤️</span>
@@ -13,23 +22,43 @@ export default function LikedView({ likedSongs, currentSong, isPlaying, playSong
   return (
     <>
       <div className="sec-title">❤️ Liked Songs ({likedSongs.length})</div>
-      <div className="table-head">
-        <span>#</span>
-        <span>SONG</span>
-        <span>ALBUM</span>
-        <span>DURATION</span>
-        <span></span>
+
+      <div className="liked-search-wrap">
+        <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <input
+          type="text" placeholder="Search in liked songs..."
+          value={filter} onChange={e => setFilter(e.target.value)}
+        />
+        {filter && <button className="clear-btn" onClick={() => setFilter('')}>✕</button>}
       </div>
-      <div className="song-table">
-        {likedSongs.map((song, i) => (
-          <SongRow key={song.id} song={song} idx={i}
-            isActive={currentSong?.id === song.id} isPlaying={isPlaying}
-            onPlay={() => playSong(song, likedSongs, i)}
-            onDownload={handleDownload} onLike={toggleLike}
-            liked={isLiked(song.id)} onRingtone={openRingtone}
-            onDetails={setDetailSong}/>
-        ))}
-      </div>
+
+      {filtered.length === 0 ? (
+        <div className="empty" style={{ paddingTop: 20 }}>
+          <p>No songs match your search</p>
+        </div>
+      ) : (
+        <>
+          <div className="table-head">
+            <span>#</span>
+            <span>SONG</span>
+            <span>ALBUM</span>
+            <span>DURATION</span>
+            <span></span>
+          </div>
+          <div className="song-table">
+            {filtered.map((song, i) => (
+              <SongRow key={song.id} song={song} idx={likedSongs.indexOf(song)}
+                isActive={currentSong?.id === song.id} isPlaying={isPlaying}
+                onPlay={() => playSong(song, likedSongs, likedSongs.indexOf(song))}
+                onDownload={handleDownload} onLike={toggleLike}
+                liked={isLiked(song.id)} onRingtone={openRingtone}
+                onDetails={setDetailSong} onAddToQueue={addToQueue}/>
+            ))}
+          </div>
+        </>
+      )}
     </>
   );
 }

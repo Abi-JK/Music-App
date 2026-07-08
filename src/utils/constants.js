@@ -41,6 +41,16 @@ export const HOME_SECTIONS = [
   { key: 'bhojpuri_new', term: 'bhojpuri hits 2025',     label: '🎭 Bhojpuri Hits' },
   { key: 'marathi_new',  term: 'marathi hits 2025',      label: '🎤 Marathi Hits' },
   { key: 'gujarati_new', term: 'gujarati hits 2025',     label: '🎧 Gujarati Hits' },
+  // Singer-specific sections
+  { key: 'singer_spb',   term: 's p balasubrahmanyam hits',   label: '🎙️ SPB Hits' },
+  { key: 'singer_ks',    term: 'k j yesudas hits',            label: '🎙️ K.J. Yesudas' },
+  { key: 'singer_harish',term: 'harish jayaraj hits',         label: '🎙️ Harish Jayaraj' },
+  { key: 'singer_gv',    term: 'g v prakash hits',            label: '🎙️ G.V. Prakash' },
+  { key: 'singer_ym',    term: 'yuvan shankar raja hits',     label: '🎙️ Yuvan Shankar Raja' },
+  { key: 'singer_sid',   term: 'siddharth hits',              label: '🎙️ Sid Sriram' },
+  { key: 'singer_shreya',term: 'shreya ghoshal hits',         label: '🎙️ Shreya Ghoshal' },
+  { key: 'singer_arijit',term: 'arijit singh hits',           label: '🎙️ Arijit Singh' },
+  { key: 'singer_neha',  term: 'neha kakkar hits',            label: '🎙️ Neha Kakkar' },
 ];
 
 export const SIDEBAR_PLAYLISTS = [

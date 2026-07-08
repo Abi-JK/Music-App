@@ -7,7 +7,8 @@ const MAX_SKIP_COUNT = 3;
 export default function PlayerBar({ 
   currentSong, isPlaying, setIsPlaying, playNext, playPrev,
   liked, toggleLike, onRingtone, onDetails, showToast, shuffle, setShuffle,
-  onDownload, timerRemainingActive, formattedTimerTime 
+  onDownload, timerRemainingActive, formattedTimerTime,
+  queue, onRemoveFromQueue 
 }) {
   const audioRef    = useRef(null);
   const abortRef    = useRef(null);
@@ -20,6 +21,7 @@ export default function PlayerBar({
   const [repeat,  setRepeat]  = useState(false);
   const [loading, setLoading] = useState(false);
   const [streamUrl, setStreamUrl] = useState(null);
+  const [showQueue, setShowQueue] = useState(false);
 
   // KEY: Resolve a fresh signed stream URL every time the song changes
   useEffect(() => {
@@ -289,6 +291,38 @@ export default function PlayerBar({
           </svg>
           Download
         </button>
+        <div className="queue-wrap">
+          <button className={`ctrl-btn queue-btn ${showQueue ? 'on' : ''} ${queue?.length > 0 ? 'has-items' : ''}`}
+            onClick={() => setShowQueue(s => !s)} title="Queue">
+            <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+            </svg>
+            {queue?.length > 0 && <span className="queue-badge">{queue.length}</span>}
+          </button>
+          {showQueue && (
+            <div className="queue-dropdown">
+              <div className="queue-dropdown-header">
+                <span>Up Next ({queue?.length || 0})</span>
+                <button className="clear-btn" onClick={() => setShowQueue(false)}>✕</button>
+              </div>
+              {(!queue || queue.length === 0) ? (
+                <div className="queue-empty">Queue is empty</div>
+              ) : (
+                queue.map((song, i) => (
+                  <div key={song.id + i} className="queue-item">
+                    {song.coverUrl ? <img src={song.coverUrl} alt=""/> : <div className="q-ph">🎵</div>}
+                    <div className="queue-item-info">
+                      <span className="queue-item-title">{song.title}</span>
+                      <span className="queue-item-artist">{song.artist}</span>
+                    </div>
+                    <button className="queue-remove-btn"
+                      onClick={() => onRemoveFromQueue(i)} title="Remove">✕</button>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
         <div className="vol-wrap">
           <button className="ctrl-btn" onClick={() => setMuted(m => !m)}>
             {muted || vol === 0

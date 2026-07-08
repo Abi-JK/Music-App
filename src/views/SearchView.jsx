@@ -1,7 +1,7 @@
 import React from 'react';
 import SongRow from '../components/SongRow';
 
-export default function SearchView({ searchLoading, searched, searchResults, currentSong, isPlaying, playSong, handleDownload, toggleLike, isLiked, openRingtone, setDetailSong }) {
+export default function SearchView({ searchLoading, searched, searchResults, currentSong, isPlaying, playSong, handleDownload, toggleLike, isLiked, openRingtone, setDetailSong, addToQueue }) {
   if (searchLoading) return (
     <div className="spinner-wrap">
       <div className="spinner"/>
@@ -45,7 +45,7 @@ export default function SearchView({ searchLoading, searched, searchResults, cur
             onPlay={() => playSong(song, searchResults, i)}
             onDownload={handleDownload} onLike={toggleLike}
             liked={isLiked(song.id)} onRingtone={openRingtone}
-            onDetails={setDetailSong}/>
+            onDetails={setDetailSong} onAddToQueue={addToQueue}/>
         ))}
       </div>
     </>

@@ -1,7 +1,7 @@
 import React from 'react';
 import SongRow from '../components/SongRow';
 
-export default function DownloadsView({ downloadedSongs, dlLoading, currentSong, isPlaying, playSong, handleDownload, toggleLike, isLiked, openRingtone, setDetailSong, handleDeleteOffline }) {
+export default function DownloadsView({ downloadedSongs, dlLoading, currentSong, isPlaying, playSong, handleDownload, toggleLike, isLiked, openRingtone, setDetailSong, handleDeleteOffline, addToQueue }) {
   if (dlLoading) return (
     <div className="spinner-wrap">
       <div className="spinner"/>
@@ -37,7 +37,8 @@ export default function DownloadsView({ downloadedSongs, dlLoading, currentSong,
             onDownload={handleDownload} onLike={toggleLike}
             liked={isLiked(song.id)} onRingtone={openRingtone}
             onDetails={setDetailSong}
-            onDelete={handleDeleteOffline}/>
+            onDelete={handleDeleteOffline}
+            onAddToQueue={addToQueue}/>
         ))}
       </div>
     </>

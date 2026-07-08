@@ -183,13 +183,21 @@ body {
   color: var(--text-muted); padding: 10px 16px 6px;
 }
 .suggestion-item {
-  display: flex; align-items: center; gap: 12px;
-  padding: 10px 16px; cursor: pointer;
+  display: flex; align-items: center;
+  padding: 0; cursor: pointer;
   transition: background var(--t) var(--ease);
   border-bottom: 1px solid var(--border-subtle);
 }
 .suggestion-item:last-child { border-bottom: none; }
 .suggestion-item:hover { background: var(--bg-card-hover); }
+.suggestion-main { display: flex; align-items: center; gap: 12px; flex: 1; padding: 10px 12px; min-width: 0; }
+.suggestion-like {
+  background: none; border: none; color: var(--text-muted); cursor: pointer;
+  padding: 8px 12px; display: flex; align-items: center; flex-shrink: 0;
+  transition: color var(--t) var(--ease);
+}
+.suggestion-like:hover { color: var(--accent); }
+.suggestion-like.liked { color: #ff4080; }
 .suggestion-item img { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; flex-shrink: 0; }
 .s-ph { width: 40px; height: 40px; border-radius: 6px; background: var(--bg-card); display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
 .s-info { flex: 1; min-width: 0; }
@@ -298,6 +306,23 @@ body {
 .row-acts  { display: flex; align-items: center; justify-content: flex-end; gap: 2px; }
 .icon-btn { background: none; border: none; cursor: pointer; color: var(--text-muted); display: flex; align-items: center; padding: 5px; border-radius: 50%; transition: all var(--t) var(--ease); }
 .icon-btn:hover { color: var(--accent); background: var(--accent-dim); }
+
+/* ── Liked Songs Search ────────────────── */
+.liked-search-wrap {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--bg-card); border: 1.5px solid var(--border-card);
+  border-radius: 500px; padding: 8px 14px; margin-bottom: 16px;
+  max-width: 400px;
+}
+.liked-search-wrap:focus-within { border-color: var(--accent); }
+.liked-search-wrap input {
+  background: none; border: none; outline: none; color: var(--text-primary);
+  font-size: 13px; width: 100%; font-family: inherit;
+}
+.liked-search-wrap input::placeholder { color: var(--text-muted); }
+.liked-search-wrap .clear-btn {
+  background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 14px; padding: 0;
+}
 .icon-btn.liked { color: var(--accent); }
 .icon-btn.saved svg path { stroke: var(--accent); }
 
@@ -318,6 +343,8 @@ body {
 .panel-cover { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
 .panel-cover-ph { width: 100%; aspect-ratio: 1; background: linear-gradient(135deg, var(--bg-card-hover), var(--bg-main)); display: flex; align-items: center; justify-content: center; font-size: 64px; }
 .panel-info { padding: 16px 18px; }
+.panel-top-row { display: flex; align-items: flex-start; gap: 12px; }
+.panel-titles { flex: 1; min-width: 0; }
 .panel-title  { font-size: 17px; font-weight: 800; margin-bottom: 3px; line-height: 1.3; }
 .panel-artist { font-size: 13px; color: var(--accent); font-weight: 600; }
 .panel-action-row { display: flex; gap: 8px; margin: 14px 0; flex-wrap: wrap; }
@@ -428,6 +455,43 @@ body {
   white-space: nowrap;
 }
 
+/* ── Queue ─────────────────────────────── */
+.queue-wrap { position: relative; display: flex; align-items: center; }
+.queue-btn { position: relative; }
+.queue-btn.has-items { color: var(--accent); }
+.queue-badge {
+  position: absolute; top: -4px; right: -6px;
+  font-size: 8px; font-weight: 700; min-width: 16px; height: 16px;
+  background: var(--accent); color: #000; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 4px; line-height: 1;
+}
+.queue-dropdown {
+  position: absolute; bottom: 100%; right: 0; margin-bottom: 8px;
+  width: 300px; max-height: 320px; overflow-y: auto;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--r-lg); box-shadow: 0 16px 50px rgba(0,0,0,0.5);
+  z-index: 999; padding: 4px 0;
+}
+.queue-dropdown-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; font-size: 12px; font-weight: 700;
+  color: var(--text-secondary); border-bottom: 1px solid var(--border-subtle);
+}
+.queue-empty { padding: 24px; text-align: center; font-size: 13px; color: var(--text-muted); }
+.queue-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px; transition: background var(--t) var(--ease);
+}
+.queue-item:hover { background: var(--bg-card-hover); }
+.queue-item img, .q-ph { width: 32px; height: 32px; border-radius: 4px; object-fit: cover; flex-shrink: 0; }
+.q-ph { background: var(--bg-card); display: flex; align-items: center; justify-content: center; font-size: 14px; }
+.queue-item-info { flex: 1; min-width: 0; }
+.queue-item-title { display: block; font-size: 12px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.queue-item-artist { display: block; font-size: 10px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.queue-remove-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 12px; padding: 4px; }
+.queue-remove-btn:hover { color: var(--accent); }
+
 /* ── PWA UI Elements ─────────────────────── */
 
 /* Offline indicator banner */
@@ -486,6 +550,14 @@ body {
 }
 .install-banner h4 { font-size: 14px; font-weight: 700; color: var(--text-primary); }
 .install-banner p { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+.install-banner-actions { display: flex; align-items: center; gap: 8px; }
+.dismiss-btn { width: 28px; height: 28px; padding: 0 !important; border-radius: 50% !important; display: flex; align-items: center; justify-content: center; }
+.install-guide {
+  width: 100%; margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 12px; color: var(--text-secondary); line-height: 1.7;
+}
+.install-guide strong { color: var(--text-primary); }
 
 /* Theme switcher trigger toggle button */
 .theme-toggle {
@@ -876,13 +948,44 @@ body {
     right: 0;
   }
 
+  .suggestion-main {
+    padding: 10px 8px;
+    gap: 8px;
+  }
+
   .suggestion-item {
-    padding: 12px 14px;
-    gap: 10px;
+    padding: 0;
   }
 
   .suggestion-item img, .suggestion-item .s-ph {
     width: 36px;
     height: 36px;
   }
+
+  .s-info h5 { font-size: 12px; }
+  .s-info p { font-size: 10px; }
+
+  .suggestion-like { padding: 6px 8px; }
+
+  .liked-search-wrap { max-width: 100%; }
+
+  .detail-panel .panel-action-row .btn-outline { font-size: 11px; padding: 7px 10px; }
+}
+
+/* Extra small screens (320px-400px) */
+@media (max-width: 400px) {
+  .main-scroll { padding: 12px 8px; }
+  .sec-title { font-size: 18px; }
+  .quick-grid { grid-template-columns: 1fr; }
+  .song-card { min-width: 110px; max-width: 110px; padding: 6px; }
+  .song-card h4 { font-size: 10px; }
+  .song-card p { font-size: 9px; }
+  .mini-player { height: 50px; padding: 0 8px; }
+  .mini-player-img { width: 32px; height: 32px; }
+  .mini-player-info h4 { font-size: 11px; }
+  .mini-player-info p { font-size: 9px; }
+  .install-banner { padding: 10px 14px; }
+  .install-logo-badge { width: 36px; height: 36px; font-size: 18px; }
+  .install-banner h4 { font-size: 12px; }
+  .install-banner p { font-size: 10px; }
 }

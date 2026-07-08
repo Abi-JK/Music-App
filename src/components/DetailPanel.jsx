@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { fmt } from '../utils/helpers';
 import { fetchLyrics } from '../utils/api';
 
-export default function DetailPanel({ song, onClose, liked, toggleLike, onPlay, isPlaying, showToast, onDownload, onRingtone }) {
+export default function DetailPanel({ song, onClose, liked, toggleLike, onPlay, isPlaying, showToast, onDownload, onRingtone, onAddToQueue }) {
   const [lyrics, setLyrics]     = useState(null);
   const [lyricsBusy, setLyBusy] = useState(false);
   const [lyricsNone, setLyNone] = useState(false);
@@ -63,6 +63,14 @@ export default function DetailPanel({ song, onClose, liked, toggleLike, onPlay, 
               {song.offline ? 'Saved ✓' : 'Save Offline'}
             </button>
             <button className="btn-outline" onClick={() => onRingtone(song)} title="Make Ringtone">✂️</button>
+            {onAddToQueue && (
+              <button className="btn-outline" onClick={() => { onAddToQueue(song); showToast('➕ Added to queue'); }} title="Add to Queue">
+                <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Queue
+              </button>
+            )}
           </div>
 
           <div className="panel-meta">

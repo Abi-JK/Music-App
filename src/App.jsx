@@ -56,6 +56,7 @@ export default function App() {
   const [ringtoneTarget,  setRingtoneTarget]  = useState(null);
   const [detailSong,      setDetailSong]      = useState(null);
   const [shuffle,         setShuffle]         = useState(false);
+  const [queue,           setQueue]           = useState([]);
 
   // New PWA & Features States
   const [isLight, setIsLight] = useState(() => LS.get('sw_theme', 'dark') === 'light');
@@ -196,6 +197,20 @@ export default function App() {
   }, [addRecent, isOnline, showToast]);
 
   const playNext = useCallback(() => {
+    // If queue has items, play from queue first
+    if (queue.length > 0) {
+      const nextSong = queue[0];
+      setQueue(prev => prev.slice(1));
+      setPlaylist(prev => {
+        const idx = prev.length; // append to end conceptually, then switch
+        return prev;
+      });
+      setPlaylist([nextSong]);
+      setCurrentIndex(0);
+      setIsPlaying(true);
+      addRecent(nextSong);
+      return;
+    }
     if (!playlist.length) return;
     let next = shuffle && playlist.length > 1
       ? (() => { let i; do { i = Math.floor(Math.random() * playlist.length); } while (i === currentIndex); return i; })()
@@ -203,7 +218,19 @@ export default function App() {
     setCurrentIndex(next);
     setIsPlaying(true);
     if (playlist[next]) addRecent(playlist[next]);
-  }, [playlist, currentIndex, shuffle, addRecent]);
+  }, [playlist, currentIndex, shuffle, addRecent, queue]);
+
+  const addToQueue = useCallback((song) => {
+    setQueue(prev => {
+      if (prev.some(s => s.id === song.id)) return prev; // no duplicates
+      return [...prev, song];
+    });
+    showToast(`➕ Added to queue: ${song.title}`);
+  }, [showToast]);
+
+  const removeFromQueue = useCallback((index) => {
+    setQueue(prev => prev.filter((_, i) => i !== index));
+  }, []);
 
   const playPrev = useCallback(() => {
     if (!playlist.length) return;
@@ -316,16 +343,18 @@ export default function App() {
       />
 
       <div className="body">
-        <Topbar 
-          q={searchQ} 
-          setQ={setSearchQ}
-          activeLang={activeLang} 
-          setLang={handleLangChip}
-          onSearch={() => doSearch()}
-          onSuggestionClick={handleSuggestionClick}
-          isLight={isLight}
-          onToggleTheme={() => setIsLight(!isLight)}
-        />
+          <Topbar 
+            q={searchQ} 
+            setQ={setSearchQ}
+            activeLang={activeLang} 
+            setLang={handleLangChip}
+            onSearch={() => doSearch()}
+            onSuggestionClick={handleSuggestionClick}
+            isLight={isLight}
+            onToggleTheme={() => setIsLight(!isLight)}
+            isSongLiked={isLiked}
+            onToggleLike={toggleLike}
+          />
         
         <div className="main-scroll">
           <InstallBanner showToast={showToast} />
@@ -355,6 +384,7 @@ export default function App() {
               isLiked={isLiked}
               openRingtone={openRingtone}
               setDetailSong={setDetailSong}
+              addToQueue={addToQueue}
             />
           )}
           {activeTab === 'liked' && (
@@ -368,6 +398,7 @@ export default function App() {
               isLiked={isLiked}
               openRingtone={openRingtone}
               setDetailSong={setDetailSong}
+              addToQueue={addToQueue}
             />
           )}
           {activeTab === 'downloads' && (
@@ -383,6 +414,7 @@ export default function App() {
               openRingtone={openRingtone}
               setDetailSong={setDetailSong}
               handleDeleteOffline={handleDeleteOffline}
+              addToQueue={addToQueue}
             />
           )}
         </div>
@@ -402,6 +434,7 @@ export default function App() {
           showToast={showToast} 
           onDownload={handleDownload} 
           onRingtone={openRingtone}
+          onAddToQueue={addToQueue}
         />
       )}
 
@@ -422,6 +455,8 @@ export default function App() {
         onDownload={handleDownload}
         timerRemainingActive={sleepTimerActive}
         formattedTimerTime={formatRemaining()}
+        queue={queue}
+        onRemoveFromQueue={removeFromQueue}
       />
 
       {/* Mobile Mini Player display */}

@@ -1,18 +1,24 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useInstallPrompt } from '../hooks/useInstallPrompt';
 
 export default function InstallBanner({ showToast }) {
-  const { canInstall, promptInstall } = useInstallPrompt();
+  const { canInstall, promptInstall, isInstalled } = useInstallPrompt();
+  const [showGuide, setShowGuide] = useState(false);
 
-  if (!canInstall) return null;
+  // Only show banner when installable OR when not already installed and service worker is active
+  if (isInstalled) return null;
 
   const handleInstallClick = async () => {
-    showToast('✨ Opening installation prompt...');
-    const result = await promptInstall();
-    if (result) {
-      showToast('🎉 SoundAura installed successfully!');
+    if (canInstall) {
+      showToast('✨ Opening installation prompt...');
+      const result = await promptInstall();
+      if (result) {
+        showToast('🎉 SoundAura installed successfully!');
+      } else {
+        showToast('ℹ️ Installation cancelled.');
+      }
     } else {
-      showToast('ℹ️ Installation cancelled.');
+      setShowGuide(true);
     }
   };
 
@@ -25,9 +31,19 @@ export default function InstallBanner({ showToast }) {
           <p>Get fast offline playback, background controls, and lockscreen integration.</p>
         </div>
       </div>
-      <button className="btn-primary install-btn" onClick={handleInstallClick}>
-        Install Now
-      </button>
+      <div className="install-banner-actions">
+        <button className="btn-primary install-btn" onClick={handleInstallClick}>
+          {canInstall ? 'Install Now' : 'How to Install'}
+        </button>
+        <button className="btn-outline dismiss-btn" onClick={() => setShowGuide(false)}>✕</button>
+      </div>
+      {showGuide && (
+        <div className="install-guide">
+          <p><strong>Chrome/Android:</strong> Tap ⋮ → "Add to Home screen"</p>
+          <p><strong>Safari/iOS:</strong> Tap Share → "Add to Home Screen"</p>
+          <p><strong>Desktop:</strong> Click the install icon in the address bar</p>
+        </div>
+      )}
     </div>
   );
 }

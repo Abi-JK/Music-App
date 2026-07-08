@@ -3,7 +3,7 @@ import { useDebounce } from '../hooks/useDebounce';
 import { searchSongs } from '../utils/api';
 import { LANG_QUERIES } from '../utils/constants';
 
-export default function Topbar({ q, setQ, activeLang, setLang, onSearch, onSuggestionClick, isLight, onToggleTheme }) {
+export default function Topbar({ q, setQ, activeLang, setLang, onSearch, onSuggestionClick, isLight, onToggleTheme, isSongLiked, onToggleLike }) {
   const [suggestions, setSuggestions] = useState([]);
   const [showSugg, setShowSugg]       = useState(false);
   const [suggBusy, setSuggBusy]       = useState(false);
@@ -59,11 +59,22 @@ export default function Topbar({ q, setQ, activeLang, setLang, onSearch, onSugge
           <div className="suggestions">
             <div className="sugg-header">Songs & Movies</div>
             {suggestions.map(song => (
-              <div key={song.id} className="suggestion-item"
-                onClick={() => { setShowSugg(false); setQ(song.title); onSuggestionClick(song); }}>
-                {song.coverUrl ? <img src={song.coverUrl} alt=""/> : <div className="s-ph">🎵</div>}
-                <div className="s-info"><h5>{song.title}</h5><p>{song.artist}{song.album ? ` • ${song.album}` : ''}</p></div>
-                <svg className="s-play-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              <div key={song.id} className="suggestion-item">
+                <div className="suggestion-main" onClick={() => { setShowSugg(false); setQ(song.title); onSuggestionClick(song); }}>
+                  {song.coverUrl ? <img src={song.coverUrl} alt=""/> : <div className="s-ph">🎵</div>}
+                  <div className="s-info"><h5>{song.title}</h5><p>{song.artist}{song.album ? ` • ${song.album}` : ''}</p></div>
+                  <svg className="s-play-icon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                </div>
+                {onToggleLike && (
+                  <button className={`suggestion-like ${isSongLiked?.(song.id) ? 'liked' : ''}`}
+                    onClick={e => { e.stopPropagation(); onToggleLike(song); }}>
+                    <svg width="13" height="13" viewBox="0 0 24 24"
+                      fill={isSongLiked?.(song.id) ? 'currentColor' : 'none'}
+                      stroke="currentColor" strokeWidth="2">
+                      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                    </svg>
+                  </button>
+                )}
               </div>
             ))}
           </div>

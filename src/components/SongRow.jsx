@@ -1,7 +1,7 @@
 import React from 'react';
 import { fmt } from '../utils/helpers';
 
-export default function SongRow({ song, idx, isActive, isPlaying, onPlay, onDownload, onLike, liked, onRingtone, onDetails, onDelete }) {
+export default function SongRow({ song, idx, isActive, isPlaying, onPlay, onDownload, onLike, liked, onRingtone, onDetails, onDelete, onAddToQueue }) {
   return (
     <div className={`song-row ${isActive ? 'now-playing' : ''}`}
       onClick={() => { onPlay(); onDetails(song); }}>
@@ -35,6 +35,13 @@ export default function SongRow({ song, idx, isActive, isPlaying, onPlay, onDown
         </button>
         {onRingtone && (
           <button className="icon-btn" title="Ringtone Cutter" onClick={e => { e.stopPropagation(); onRingtone(song); }}>✂️</button>
+        )}
+        {onAddToQueue && (
+          <button className="icon-btn" title="Add to Queue" onClick={e => { e.stopPropagation(); onAddToQueue(song); }}>
+            <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </button>
         )}
         {onDelete && (
           <button className="icon-btn delete-btn" title="Remove" onClick={e => { e.stopPropagation(); onDelete(song); }}>
