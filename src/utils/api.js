@@ -93,12 +93,86 @@ export const fetchLyrics = async (songId) => {
 
 // ─── ALBUM SEARCH ────────────────────────────────────────────────────────────
 export const searchAlbums = async (query, limit = 10) => {
-  const res = await fetch(
-    `${SEARCH}/search/albums?query=${encodeURIComponent(query)}&limit=${limit}`
-  );
-  if (!res.ok) throw new Error(`Album search failed: ${res.status}`);
-  const j = await res.json();
-  return (j.data?.results || j.results || []).map(normalizeAlbum);
+  // Try Vercel API first
+  let apiAlbums = [];
+  try {
+    const res = await fetch(
+      `${SEARCH}/search/albums?query=${encodeURIComponent(query)}&limit=${limit}`
+    );
+    if (res.ok) {
+      const j = await res.json();
+      apiAlbums = (j.data?.results || j.results || []).map(normalizeAlbum);
+    }
+  } catch { /* fall through */ }
+
+  // If API returned enough albums, use them
+  if (apiAlbums.length >= 2) return apiAlbums;
+
+  // Fallback: search songs and create virtual albums from artists/query
+  try {
+    const songs = await searchSongs(query, 50);
+    if (!songs.length) return apiAlbums;
+
+    const virtualAlbums = [];
+    const queryLC = query.toLowerCase();
+
+    // 1) Virtual album for the search query itself (e.g. movie name)
+    const querySongs = songs.filter(s =>
+      s.album?.toLowerCase().includes(queryLC) ||
+      s.title?.toLowerCase().includes(queryLC)
+    );
+    if (querySongs.length >= 2) {
+      virtualAlbums.push({
+        id: `virtual_query_${query.replace(/\s+/g, '_')}`,
+        name: query,
+        image: querySongs[0].coverUrl || '',
+        songCount: querySongs.length,
+        year: querySongs.find(s => s.year)?.year || '',
+        primaryArtists: '',
+        isVirtual: true,
+        queryType: 'query',
+        songs: querySongs,
+      });
+    }
+
+    // 2) One virtual album per top artist (with 3+ songs in results)
+    const artistGroups = {};
+    songs.forEach(s => {
+      const artist = s.artist || 'Unknown';
+      if (!artistGroups[artist]) artistGroups[artist] = [];
+      artistGroups[artist].push(s);
+    });
+    Object.entries(artistGroups)
+      .filter(([, s]) => s.length >= 3)
+      .sort(([, a], [, b]) => b.length - a.length)
+      .slice(0, 4)
+      .forEach(([artist, s]) => {
+        virtualAlbums.push({
+          id: `virtual_artist_${artist.replace(/\s+/g, '_')}`,
+          name: artist,
+          image: s[0].coverUrl || '',
+          songCount: s.length,
+          year: s.find(s2 => s2.year)?.year || '',
+          primaryArtists: artist,
+          isVirtual: true,
+          queryType: 'artist',
+          songs: s,
+        });
+      });
+
+    // Merge: API albums first, then virtual ones (avoid duplicates by name)
+    const apiNames = new Set(apiAlbums.map(a => a.name.toLowerCase()));
+    const merged = [...apiAlbums];
+    virtualAlbums.forEach(va => {
+      if (!apiNames.has(va.name.toLowerCase())) {
+        merged.push(va);
+        apiNames.add(va.name.toLowerCase());
+      }
+    });
+    return merged;
+  } catch {
+    return apiAlbums;
+  }
 };
 
 export const getAlbumSongs = async (albumId) => {
@@ -112,10 +186,8 @@ export const getAlbumSongs = async (albumId) => {
 
 // Search album by name — tries multiple strategies to find album songs
 export const searchAlbumSongs = async (albumName, limit = 30) => {
-  // Strategy 1: Search for the album name directly
   const songs = await searchSongs(albumName, limit);
   if (songs.length > 0) {
-    // Filter to only songs that match the album name
     const nameLower = albumName.toLowerCase();
     const exact = songs.filter(s => s.album?.toLowerCase().includes(nameLower));
     return exact.length >= 3 ? exact : songs;
@@ -131,6 +203,8 @@ function normalizeAlbum(a) {
     songCount: a.songCount || a.songs?.length || 0,
     year: a.year || '',
     primaryArtists: a.primaryArtists || a.artist || '',
+    isVirtual: false,
+    queryType: 'album',
   };
 }
 

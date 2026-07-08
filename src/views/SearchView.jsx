@@ -12,20 +12,25 @@ export default function SearchView({ searchLoading, searched, searchResults, sea
 
   const handleAlbumClick = async (album) => {
     setAlbumLoading(album.id);
-    showToast(`📂 Loading: ${album.name}...`);
+    showToast(album.isVirtual ? `🎤 Loading: ${album.name}...` : `📂 Loading: ${album.name}...`);
     try {
-      const songs = await getAlbumSongs(album.id);
+      let songs;
+      if (album.isVirtual) {
+        // Virtual album — songs already fetched or search by artist/query
+        if (album.songs?.length) {
+          songs = album.songs;
+        } else {
+          songs = await searchAlbumSongs(album.name, 40);
+        }
+      } else {
+        // Real album from API
+        songs = await getAlbumSongs(album.id);
+      }
       if (songs?.length) {
         playSong(songs[0], songs, 0);
-        doSearch(album.name);
-        showToast(`📂 ${album.name} — ${songs.length} songs`);
+        showToast(`▶️ ${album.name} — ${songs.length} songs`);
       } else {
-        // Fallback: search by album name
-        const fallback = await searchAlbumSongs(album.name, 30);
-        if (fallback?.length) {
-          playSong(fallback[0], fallback, 0);
-          doSearch(album.name);
-        }
+        showToast('⚠️ No songs found for this album.');
       }
     } catch {
       showToast('⚠️ Could not load album songs.');
@@ -34,13 +39,13 @@ export default function SearchView({ searchLoading, searched, searchResults, sea
   };
 
   // Group song results by album
-  const albums = {};
+  const albumMap = {};
   searchResults.forEach(s => {
     const key = s.album || 'Other Songs';
-    if (!albums[key]) albums[key] = [];
-    albums[key].push(s);
+    if (!albumMap[key]) albumMap[key] = [];
+    albumMap[key].push(s);
   });
-  const albumEntries = Object.entries(albums);
+  const albumEntries = Object.entries(albumMap);
   const noAlbumCount = searchResults.filter(s => !s.album).length;
   const showFlat = noAlbumCount > searchResults.length * 0.6 && searchResults.length > 5;
 
@@ -74,7 +79,7 @@ export default function SearchView({ searchLoading, searched, searchResults, sea
         {searchResults.length} songs{searchAlbums?.length ? ` • ${searchAlbums.length} albums` : ''}
       </div>
 
-      {/* Album cards at top */}
+      {/* Album cards — real + virtual */}
       {searchAlbums?.length > 0 && (
         <div className="album-search-results">
           <div className="sec-title" style={{ fontSize: 15 }}>Albums</div>
@@ -93,7 +98,7 @@ export default function SearchView({ searchLoading, searched, searchResults, sea
                 </div>
                 <div className="album-card-info">
                   <h4>{album.name}</h4>
-                  <p>{album.songCount} songs{album.year ? ` • ${album.year}` : ''}</p>
+                  <p>{album.songCount} songs{album.year ? ` • ${album.year}` : ''}{album.isVirtual ? ' • auto' : ''}</p>
                 </div>
               </div>
             ))}
