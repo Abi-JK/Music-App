@@ -5,9 +5,9 @@ import './index.css';
 import {
   saveOfflineTrack, getOfflineTrack, listOfflineTracks, deleteOfflineTrack, blobUrlForTrack, clearAllTrackUrls
 } from './offlineStore';
-import { LS } from './utils/helpers';
+import { LS, idbSaveLiked, idbLoadLiked } from './utils/helpers';
 import { searchSongs, getStreamUrl, fetchStreamBlob } from './utils/api';
-import { LANG_QUERIES, HOME_SECTIONS } from './utils/constants';
+import { LANG_QUERIES, HOME_SECTIONS, BROAD_TERMS } from './utils/constants';
 
 // Hooks
 import { useOnlineStatus } from './hooks/useOnlineStatus';
@@ -32,6 +32,7 @@ import HomeView from './views/HomeView';
 import SearchView from './views/SearchView';
 import LikedView from './views/LikedView';
 import DownloadsView from './views/DownloadsView';
+import AlbumView from './views/AlbumView';
 
 export default function App() {
   const [activeTab,       setActiveTab]       = useState('home');
@@ -49,7 +50,17 @@ export default function App() {
   const [searchLoading,   setSearchLoading]   = useState(false);
   const [searched,        setSearched]        = useState(false);
 
-  const [likedSongs,      setLikedSongs]      = useState(() => LS.get('sw_liked', []));
+  const [likedSongs,      setLikedSongs]      = useState([]);
+  useEffect(() => {
+    // Load liked songs: localStorage (fast) then IndexedDB (reliable)
+    const local = LS.get('sw_liked', []);
+    if (local.length) setLikedSongs(local);
+    idbLoadLiked().then(idb => {
+      if (idb.length > local.length) setLikedSongs(idb);
+      // Sync localStorage if IDB has more
+      if (idb.length > local.length) LS.set('sw_liked', idb);
+    });
+  }, []);
   const [downloadedSongs, setDownloadedSongs] = useState([]);
   const [dlLoading,       setDlLoading]       = useState(true);
   const [recentlyPlayed,  setRecentlyPlayed]  = useState(() => LS.get('sw_recent', []));
@@ -57,6 +68,38 @@ export default function App() {
   const [detailSong,      setDetailSong]      = useState(null);
   const [shuffle,         setShuffle]         = useState(false);
   const [queue,           setQueue]           = useState([]);
+
+  // User-created albums
+  const [userAlbums, setUserAlbums] = useState(() => LS.get('sw_albums', []));
+  const createAlbum = useCallback((name) => {
+    const album = { id: Date.now().toString(36), name, songs: [], createdAt: Date.now() };
+    setUserAlbums(prev => { const next = [...prev, album]; LS.set('sw_albums', next); return next; });
+    return album;
+  }, []);
+  const addToAlbum = useCallback((song, albumId) => {
+    setUserAlbums(prev => {
+      const next = prev.map(a => {
+        if (a.id !== albumId) return a;
+        if (a.songs.some(s => s.id === song.id)) return a;
+        return { ...a, songs: [...a.songs, song] };
+      });
+      LS.set('sw_albums', next);
+      return next;
+    });
+  }, []);
+  const removeFromAlbum = useCallback((songId, albumId) => {
+    setUserAlbums(prev => {
+      const next = prev.map(a => {
+        if (a.id !== albumId) return a;
+        return { ...a, songs: a.songs.filter(s => s.id !== songId) };
+      });
+      LS.set('sw_albums', next);
+      return next;
+    });
+  }, []);
+  const deleteAlbum = useCallback((albumId) => {
+    setUserAlbums(prev => { const next = prev.filter(a => a.id !== albumId); LS.set('sw_albums', next); return next; });
+  }, []);
 
   // New PWA & Features States
   const [isLight, setIsLight] = useState(() => LS.get('sw_theme', 'dark') === 'light');
@@ -290,6 +333,7 @@ export default function App() {
       const already = prev.some(s => s.id === song.id);
       const next    = already ? prev.filter(s => s.id !== song.id) : [...prev, song];
       LS.set('sw_liked', next);
+      idbSaveLiked(next);
       showToast(already ? '💔 Removed from Liked Songs' : '❤️ Added to Liked Songs');
       return next;
     });
@@ -336,9 +380,22 @@ export default function App() {
     setSearched(true); 
     setSearchLoading(true);
     try {
+      let songs;
       const langObj = LANG_QUERIES.find(l => l.label === activeLang);
-      const term    = langObj?.term ? `${q} ${langObj.term}` : q;
-      const songs = await searchSongs(term, 50);
+      if (langObj?.label === 'All') {
+        // Multi-language search: plain query + major languages, merge & dedupe
+        const queries = [q, ...BROAD_TERMS.map(t => `${q} ${t}`)];
+        const results = await Promise.all(queries.map(query => searchSongs(query, 15).catch(() => [])));
+        const seen = new Set();
+        songs = results.flat().filter(s => { if (seen.has(s.id)) return false; seen.add(s.id); return true; });
+        // Sort: prefer songs from the plain query first, then by language
+        const plainIds = new Set(results[0]?.map(s => s.id) || []);
+        songs.sort((a, b) => (plainIds.has(a.id) ? 0 : 1) - (plainIds.has(b.id) ? 0 : 1));
+        songs = songs.slice(0, 60);
+      } else {
+        const term = langObj?.term ? `${q} ${langObj.term}` : q;
+        songs = await searchSongs(term, 50);
+      }
       setSearchResults(songs);
       if (songs.length) { setPlaylist(songs); setCurrentIndex(0); }
       else showToast('No results found.');
@@ -431,6 +488,9 @@ export default function App() {
               addToQueue={addToQueue}
               showToast={showToast}
               doSearch={(q) => doSearch(q)}
+              userAlbums={userAlbums}
+              onAddToAlbum={addToAlbum}
+              onCreateAlbum={createAlbum}
             />
           )}
           {activeTab === 'liked' && (
@@ -461,6 +521,24 @@ export default function App() {
               setDetailSong={setDetailSong}
               handleDeleteOffline={handleDeleteOffline}
               addToQueue={addToQueue}
+            />
+          )}
+          {activeTab === 'albums' && (
+            <AlbumView 
+              albums={userAlbums}
+              onCreateAlbum={createAlbum}
+              onDeleteAlbum={deleteAlbum}
+              onRemoveFromAlbum={removeFromAlbum}
+              currentSong={currentSong}
+              isPlaying={isPlaying}
+              playSong={playSong}
+              handleDownload={handleDownload}
+              toggleLike={toggleLike}
+              isLiked={isLiked}
+              openRingtone={openRingtone}
+              setDetailSong={setDetailSong}
+              addToQueue={addToQueue}
+              showToast={showToast}
             />
           )}
         </div>

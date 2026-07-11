@@ -1,7 +1,7 @@
 import React from 'react';
 import { fmt } from '../utils/helpers';
 
-export default function SongRow({ song, idx, isActive, isPlaying, onPlay, onDownload, onLike, liked, onRingtone, onDetails, onDelete, onAddToQueue }) {
+export default function SongRow({ song, idx, isActive, isPlaying, onPlay, onDownload, onLike, liked, onRingtone, onDetails, onDelete, onAddToQueue, onAddToAlbum }) {
   return (
     <div className={`song-row ${isActive ? 'now-playing' : ''}`}
       onClick={() => { onPlay(); onDetails(song); }}>
@@ -40,6 +40,13 @@ export default function SongRow({ song, idx, isActive, isPlaying, onPlay, onDown
           <button className="icon-btn" title="Add to Queue" onClick={e => { e.stopPropagation(); onAddToQueue(song); }}>
             <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+          </button>
+        )}
+        {onAddToAlbum && (
+          <button className="icon-btn" title="Add to Album" onClick={e => { e.stopPropagation(); onAddToAlbum(song); }}>
+            <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
             </svg>
           </button>
         )}

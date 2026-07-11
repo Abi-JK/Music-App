@@ -78,6 +78,11 @@ export const SIDEBAR_PLAYLISTS = [
   { label: '🎹 A.R. Rahman Specials', term: 'ar rahman hits' },
 ];
 
+// Language terms used for broad multi-language search when "All" is selected
+export const BROAD_TERMS = [
+  'tamil', 'hindi', 'telugu', 'kannada', 'malayalam', 'punjabi', 'bengali',
+];
+
 export const SLEEP_TIMER_OPTIONS = [
   { label: '5 minutes',  value: 5 },
   { label: '10 minutes', value: 10 },

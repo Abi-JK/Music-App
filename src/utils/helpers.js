@@ -93,6 +93,23 @@ export const LS = {
   set: (k, v)        => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
 };
 
+// ─── INDEXED DB for reliable liked-song persistence ─────────
+const IDB_NAME = 'soundaura_user', IDB_VER = 1, IDB_STORE = 'liked';
+function idbOpen() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open(IDB_NAME, IDB_VER);
+    r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains(IDB_STORE)) r.result.createObjectStore(IDB_STORE, { keyPath: 'id' }); };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+export async function idbSaveLiked(songs) {
+  try { const db = await idbOpen(); const tx = db.transaction(IDB_STORE, 'readwrite'); const store = tx.objectStore(IDB_STORE); store.clear(); songs.forEach(s => store.put(s)); await new Promise((res, rej) => { tx.oncomplete = res; tx.onerror = rej; }); db.close(); } catch {}
+}
+export async function idbLoadLiked() {
+  try { const db = await idbOpen(); const tx = db.transaction(IDB_STORE, 'readonly'); const r = tx.objectStore(IDB_STORE).getAll(); return await new Promise((res, rej) => { r.onsuccess = () => { db.close(); res(r.result || []); }; r.onerror = () => { db.close(); rej(r.error); }; }); } catch { return []; }
+}
+
 // ─── WAV ENCODER ─────────────────────────────────────────────────────────────
 export function audioBufferToWav(buf) {
   const numCh = buf.numberOfChannels, sr = buf.sampleRate, n = buf.length;

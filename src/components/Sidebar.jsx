@@ -1,13 +1,6 @@
 import React from 'react';
 
 export default function Sidebar({ activeTab, setActiveTab, likedCount, dlCount, onPlaylistSearch, onOpenSleepTimer, onOpenUpload }) {
-  const navItems = [
-    { id: 'home',      label: 'Home',     icon: '🏠' },
-    { id: 'search',    label: 'Search',   icon: '🔍' },
-    { id: 'liked',     label: `Liked Songs${likedCount > 0 ? ` (${likedCount})` : ''}`, icon: '❤️' },
-    { id: 'downloads', label: `Downloads${dlCount > 0 ? ` (${dlCount})` : ''}`, icon: 'downloads' }, // Using emoji or label
-  ];
-
   const playlists = [
     { label: '🎵 My Top Songs',         term: 'top hits 2025' },
     { label: '⭐ Tamil Kuthu Hits',     term: 'tamil kuthu hits' },
@@ -30,6 +23,9 @@ export default function Sidebar({ activeTab, setActiveTab, likedCount, dlCount, 
         </button>
         <button className={`nav-item ${activeTab === 'search' ? 'active' : ''}`} onClick={() => setActiveTab('search')}>
           <span style={{ fontSize: 16 }}>🔍</span>Search
+        </button>
+        <button className={`nav-item ${activeTab === 'albums' ? 'active' : ''}`} onClick={() => setActiveTab('albums')}>
+          <span style={{ fontSize: 16 }}>💿</span>My Albums
         </button>
         <button className={`nav-item ${activeTab === 'liked' ? 'active' : ''}`} onClick={() => setActiveTab('liked')}>
           <span style={{ fontSize: 16 }}>❤️</span>Liked Songs {likedCount > 0 && <span className="sidebar-badge">{likedCount}</span>}

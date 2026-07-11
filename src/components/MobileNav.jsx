@@ -11,6 +11,10 @@ export default function MobileNav({ activeTab, setActiveTab, likedCount, dlCount
         <span className="mobile-nav-icon">🔍</span>
         <span className="mobile-nav-label">Search</span>
       </button>
+      <button className={`mobile-nav-item ${activeTab === 'albums' ? 'active' : ''}`} onClick={() => setActiveTab('albums')}>
+        <span className="mobile-nav-icon">💿</span>
+        <span className="mobile-nav-label">Albums</span>
+      </button>
       <button className={`mobile-nav-item ${activeTab === 'liked' ? 'active' : ''}`} onClick={() => setActiveTab('liked')}>
         <span className="mobile-nav-icon">❤️</span>
         <span className="mobile-nav-label">Liked</span>
