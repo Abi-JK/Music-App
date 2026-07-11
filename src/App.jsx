@@ -385,16 +385,15 @@ export default function App() {
       if (langObj?.label === 'All') {
         // Multi-language search: plain query + major languages, merge & dedupe
         const queries = [q, ...BROAD_TERMS.map(t => `${q} ${t}`)];
-        const results = await Promise.all(queries.map(query => searchSongs(query, 15).catch(() => [])));
+        const results = await Promise.all(queries.map(query => searchSongs(query, 30).catch(() => [])));
         const seen = new Set();
         songs = results.flat().filter(s => { if (seen.has(s.id)) return false; seen.add(s.id); return true; });
-        // Sort: prefer songs from the plain query first, then by language
         const plainIds = new Set(results[0]?.map(s => s.id) || []);
         songs.sort((a, b) => (plainIds.has(a.id) ? 0 : 1) - (plainIds.has(b.id) ? 0 : 1));
-        songs = songs.slice(0, 60);
+        songs = songs.slice(0, 80);
       } else {
         const term = langObj?.term ? `${q} ${langObj.term}` : q;
-        songs = await searchSongs(term, 50);
+        songs = await searchSongs(term, 60);
       }
       setSearchResults(songs);
       if (songs.length) { setPlaylist(songs); setCurrentIndex(0); }
@@ -560,6 +559,7 @@ export default function App() {
           onRingtone={openRingtone}
           onAddToQueue={addToQueue}
           onSearchArtist={searchArtist}
+          onPlaySong={(s) => { playSong(s, [s], 0); setDetailSong(s); }}
         />
       )}
 

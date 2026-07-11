@@ -18,7 +18,7 @@ export default function AlbumView({ albums, onCreateAlbum, onDeleteAlbum, onRemo
 
   if (album) {
     return (
-      <div style={{ minHeight: '100%' }}>
+      <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <button className="icon-btn" onClick={() => setViewAlbumId(null)} title="Back">
             <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -78,7 +78,7 @@ export default function AlbumView({ albums, onCreateAlbum, onDeleteAlbum, onRemo
   }
 
   return (
-    <div style={{ minHeight: '100%' }}>
+    <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <div className="sec-title">My Albums</div>
         <button className="btn-primary" style={{ padding: '6px 14px', fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}

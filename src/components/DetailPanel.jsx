@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { fmt } from '../utils/helpers';
-import { fetchLyrics } from '../utils/api';
+import { fetchLyrics, searchSongs } from '../utils/api';
 
-export default function DetailPanel({ song, onClose, liked, toggleLike, onPlay, isPlaying, showToast, onDownload, onRingtone, onAddToQueue, onSearchArtist }) {
+export default function DetailPanel({ song, onClose, liked, toggleLike, onPlay, isPlaying, showToast, onDownload, onRingtone, onAddToQueue, onSearchArtist, onPlaySong }) {
   const [lyrics, setLyrics]     = useState(null);
   const [lyricsBusy, setLyBusy] = useState(false);
   const [lyricsNone, setLyNone] = useState(false);
+  const [related, setRelated]   = useState([]);
 
   useEffect(() => {
     if (!song) return;
     let cancelled = false;
     setLyrics(null); setLyNone(false);
-    // Skip API call if song explicitly has no lyrics
     if (song.hasLyrics === false) { setLyNone(true); return; }
     setLyBusy(true);
     fetchLyrics(song.id)
@@ -21,13 +21,26 @@ export default function DetailPanel({ song, onClose, liked, toggleLike, onPlay, 
     return () => { cancelled = true; };
   }, [song?.id, song?.hasLyrics]);
 
+  // Fetch related songs based on artist + album
+  useEffect(() => {
+    if (!song) return;
+    let cancelled = false;
+    const q = [song.artist, song.album].filter(Boolean).join(' ').trim() || song.title;
+    searchSongs(q, 12)
+      .then(songs => {
+        if (!cancelled) setRelated(songs.filter(s => s.id !== song.id).slice(0, 8));
+      })
+      .catch(() => { if (!cancelled) setRelated([]); });
+    return () => { cancelled = true; };
+  }, [song?.id, song?.artist, song?.album, song?.title]);
+
   if (!song) return null;
   const isLiked = liked(song.id);
 
   return (
     <div className="detail-panel">
       <div className="panel-header">
-        <h3>Now Playing Details</h3>
+        <h3>Now Playing</h3>
         <button className="close-btn" onClick={onClose}>
           <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -58,13 +71,13 @@ export default function DetailPanel({ song, onClose, liked, toggleLike, onPlay, 
 
           <div className="panel-action-row">
             <button className="btn-primary" style={{ flex: 1, justifyContent: 'center' }} onClick={onPlay}>
-              {isPlaying ? '⏸ Pause' : '▶ Play Song'}
+              {isPlaying ? '⏸ Pause' : '▶ Play'}
             </button>
             <button className="btn-outline" onClick={() => onDownload(song)}>
               <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
               </svg>
-              {song.offline ? 'Saved ✓' : 'Save Offline'}
+              {song.offline ? 'Saved ✓' : 'Save'}
             </button>
             <button className="btn-outline" onClick={() => onRingtone(song)} title="Make Ringtone">✂️</button>
             {onAddToQueue && (
@@ -82,14 +95,33 @@ export default function DetailPanel({ song, onClose, liked, toggleLike, onPlay, 
             {song.year     && <div className="meta-row"><span className="meta-label">Year</span><span className="meta-value">{song.year}</span></div>}
             {song.duration > 0 && <div className="meta-row"><span className="meta-label">Duration</span><span className="meta-value">{fmt(song.duration)}</span></div>}
             {song.singers  && <div className="meta-row"><span className="meta-label">Singers</span><span className="meta-value">{song.singers}</span></div>}
-            {song.label    && <div className="meta-row"><span className="meta-label">Label</span><span className="meta-value">{song.label}</span></div>}
             {song.language && <div className="meta-row"><span className="meta-label">Language</span><span className="meta-value" style={{ textTransform: 'capitalize' }}>{song.language}</span></div>}
-            <div className="meta-row">
-              <span className="meta-label">Quality</span>
-              <span className="quality-badge">{song.offline ? '📴 Offline' : '🎧 320kbps HD'}</span>
-            </div>
           </div>
 
+          {/* Related songs */}
+          {related.length > 0 && (
+            <div style={{ marginTop: 20 }}>
+              <div className="panel-section-title">RELATED SONGS</div>
+              {related.map((rs, i) => (
+                <div key={rs.id} className="related-row"
+                  onClick={() => { if (onPlaySong) onPlaySong(rs); }}>
+                  <div className="related-idx" style={{ color: 'var(--text-muted)', fontSize: 11, width: 20, flexShrink: 0 }}>{i + 1}</div>
+                  <div className="row-info" style={{ flex: 1, minWidth: 0 }}>
+                    {rs.coverUrl
+                      ? <img src={rs.coverUrl} alt="" style={{ width: 32, height: 32, borderRadius: 4, objectFit: 'cover', flexShrink: 0, background: 'var(--bg-card)' }}/>
+                      : <div style={{ width: 32, height: 32, borderRadius: 4, background: 'var(--bg-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>🎵</div>}
+                    <div style={{ marginLeft: 8, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rs.title}</div>
+                      <div style={{ fontSize: 10, color: 'var(--text-secondary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{rs.artist}</div>
+                    </div>
+                  </div>
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)', flexShrink: 0 }}>{fmt(rs.duration)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Lyrics */}
           <div className="lyrics-section">
             <div className="panel-section-title">LYRICS</div>
             {lyricsBusy ? (
