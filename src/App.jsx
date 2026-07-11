@@ -383,17 +383,28 @@ export default function App() {
       let songs;
       const langObj = LANG_QUERIES.find(l => l.label === activeLang);
       if (langObj?.label === 'All') {
-        // Multi-language search: plain query + major languages, merge & dedupe
+        // Multi-language search: 2 pages per language query, merge & dedupe
         const queries = [q, ...BROAD_TERMS.map(t => `${q} ${t}`)];
-        const results = await Promise.all(queries.map(query => searchSongs(query, 30).catch(() => [])));
+        const pageResults = await Promise.all(
+          queries.flatMap(query => [
+            searchSongs(query, 60, 1).catch(() => []),
+            searchSongs(query, 60, 2).catch(() => []),
+          ])
+        );
+        // pageResults[0..1] = plain query pages 1-2
         const seen = new Set();
-        songs = results.flat().filter(s => { if (seen.has(s.id)) return false; seen.add(s.id); return true; });
-        const plainIds = new Set(results[0]?.map(s => s.id) || []);
+        songs = pageResults.flat().filter(s => { if (seen.has(s.id)) return false; seen.add(s.id); return true; });
+        const plainIds = new Set();
+        pageResults.slice(0, 2).forEach(arr => arr.forEach(s => plainIds.add(s.id)));
         songs.sort((a, b) => (plainIds.has(a.id) ? 0 : 1) - (plainIds.has(b.id) ? 0 : 1));
-        songs = songs.slice(0, 80);
+        songs = songs.slice(0, 200);
       } else {
         const term = langObj?.term ? `${q} ${langObj.term}` : q;
-        songs = await searchSongs(term, 60);
+        const [p1, p2] = await Promise.all([
+          searchSongs(term, 80, 1).catch(() => []),
+          searchSongs(term, 80, 2).catch(() => []),
+        ]);
+        songs = [...p1, ...p2].slice(0, 150);
       }
       setSearchResults(songs);
       if (songs.length) { setPlaylist(songs); setCurrentIndex(0); }

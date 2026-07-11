@@ -53,17 +53,19 @@ export default function SearchView({ searchLoading, searched, searchResults, cur
   const handleAlbumClick = async (album) => {
     if (viewAlbum?.id === album.id) { setViewAlbum(null); return; }
     setAlbumLoading(album.id);
-    showToast(`🔍 Fetching all songs for ${album.name}...`);
+    showToast(`🔍 Loading all songs for ${album.name}...`);
     try {
-      let songs = album.songs;
-      if (songs.length < 10) {
-        const fresh = await searchAlbumSongs(album.name, 50);
-        if (fresh?.length > songs.length) songs = fresh;
-      }
-      if (songs.length < 5) {
-        const broader = await searchSongs(album.name, 50);
-        if (broader?.length > songs.length) songs = broader;
-      }
+      // Fetch multiple pages & strategies, merge, dedupe
+      const [p1, p2, albumSongResult] = await Promise.all([
+        searchSongs(album.name, 80, 1).catch(() => []),
+        searchSongs(album.name, 80, 2).catch(() => []),
+        searchAlbumSongs(album.name, 60).catch(() => []),
+      ]);
+      const seen = new Set();
+      const merged = [...p1, ...p2, ...albumSongResult, ...album.songs]
+        .filter(s => { if (!s?.id || seen.has(s.id)) return false; seen.add(s.id); return true; })
+        .slice(0, 100);
+      const songs = merged.length > 0 ? merged : album.songs;
       const albumData = { ...album, songs };
       setViewAlbum(albumData);
       if (songs.length) {

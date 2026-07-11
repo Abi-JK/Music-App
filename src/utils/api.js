@@ -49,9 +49,9 @@ export async function getStreamUrl(songId, signal) {
 }
 
 // ─── SEARCH API ──────────────────────────────────────────────────────────────
-export const searchSongs = async (query, limit = 24) => {
+export const searchSongs = async (query, limit = 24, page = 1) => {
   const res = await fetch(
-    `${SEARCH}/search/songs?query=${encodeURIComponent(query)}&limit=${limit}`
+    `${SEARCH}/search/songs?query=${encodeURIComponent(query)}&limit=${limit}&page=${page}`
   );
   if (!res.ok) throw new Error(`Search failed: ${res.status}`);
   const j = await res.json();
@@ -112,7 +112,12 @@ export const getAlbumSongs = async (albumId) => {
 
 // Search album by name — tries multiple strategies to find album songs
 export const searchAlbumSongs = async (albumName, limit = 30) => {
-  const songs = await searchSongs(albumName, limit);
+  // Fetch first 2 pages and merge
+  const [p1, p2] = await Promise.all([
+    searchSongs(albumName, limit, 1).catch(() => []),
+    searchSongs(albumName, limit, 2).catch(() => []),
+  ]);
+  const songs = [...p1, ...p2];
   if (songs.length > 0) {
     const nameLower = albumName.toLowerCase();
     const exact = songs.filter(s => s.album?.toLowerCase().includes(nameLower));
