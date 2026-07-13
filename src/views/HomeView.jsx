@@ -1,5 +1,5 @@
 import React from 'react';
-import { HOME_SECTIONS } from '../utils/constants';
+import { HOME_PLAYLISTS } from '../utils/constants';
 
 function groupByAlbum(songs) {
   const map = {};
@@ -51,7 +51,7 @@ export default function HomeView({ recentlyPlayed, currentSong, isPlaying, playS
           <p style={{ color: 'var(--text-muted)' }}>Loading music feed...</p>
         </div>
       ) : (
-        HOME_SECTIONS.map(sec => {
+        HOME_PLAYLISTS.map(sec => {
           const d = homeData[sec.key];
           if (!d?.songs?.length) return null;
           const albums = groupByAlbum(d.songs);
@@ -59,7 +59,7 @@ export default function HomeView({ recentlyPlayed, currentSong, isPlaying, playS
             <div key={sec.key} style={{ marginBottom: 28 }}>
               <div className="sec-head">
                 <h3>{sec.label}</h3>
-                <button className="see-all" onClick={() => doSearch(sec.term)}>See All</button>
+                <button className="see-all" onClick={() => doSearch(sec.label.replace(/[^\w\s]/g, '').trim())}>See All</button>
               </div>
               <div className="album-card-grid">
                 {albums.slice(0, 10).map(album => (

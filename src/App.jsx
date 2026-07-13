@@ -6,8 +6,8 @@ import {
   saveOfflineTrack, getOfflineTrack, listOfflineTracks, deleteOfflineTrack, blobUrlForTrack, clearAllTrackUrls
 } from './offlineStore';
 import { LS, idbSaveLiked, idbLoadLiked } from './utils/helpers';
-import { searchSongs, getStreamUrl, fetchStreamBlob } from './utils/api';
-import { LANG_QUERIES, HOME_SECTIONS, BROAD_TERMS } from './utils/constants';
+import { searchSongs, getStreamUrl, fetchStreamBlob, fetchPlaylistSongs } from './utils/api';
+import { LANG_QUERIES, HOME_PLAYLISTS, BROAD_TERMS } from './utils/constants';
 
 // Hooks
 import { useOnlineStatus } from './hooks/useOnlineStatus';
@@ -168,7 +168,7 @@ export default function App() {
     };
   }, [loadOfflineLibrary]);
 
-  // Load Home feed
+  // Load Home feed using curated playlists
   useEffect(() => {
     let cancelled = false;
     if (!isOnline) {
@@ -177,10 +177,10 @@ export default function App() {
     }
     setHomeLoading(true);
     Promise.all(
-      HOME_SECTIONS.map(sec =>
-        searchSongs(sec.term, 12)
-          .then(songs => ({ key: sec.key, label: sec.label, songs }))
-          .catch(() => ({ key: sec.key, label: sec.label, songs: [] }))
+      HOME_PLAYLISTS.map(pl =>
+        fetchPlaylistSongs(pl.listid, 12)
+          .then(songs => ({ key: pl.key, label: pl.label, songs }))
+          .catch(() => ({ key: pl.key, label: pl.label, songs: [] }))
       )
     ).then(results => {
       if (cancelled) return;

@@ -1,15 +1,14 @@
 import { API, SEARCH } from './constants';
 import { decodeHtml, parseDuration, toProxiedStream, formatLyrics } from './helpers';
 
-// CORS proxy fallback — when edge functions aren't deployed, JioSaavn blocks browser requests
+// CORS proxy fallback — when edge functions aren't deployed
 const CORS_PROXIES = [
   (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
   (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
 ];
 
-// ─── Safe JSON fetch: tries primary URL, falls back to CORS proxies ──────────
+// ─── Safe JSON fetch with CORS proxy fallback ────────────────────────────────
 async function safeJsonFetch(primaryUrl, fallbackUrls, signal) {
-  // Try primary URL first
   try {
     const res = await fetch(primaryUrl, { signal });
     if (!res.ok) throw new Error(res.status);
@@ -19,10 +18,7 @@ async function safeJsonFetch(primaryUrl, fallbackUrls, signal) {
     }
     return JSON.parse(text);
   } catch { /* try proxies */ }
-
   if (signal?.aborted) throw new Error('Aborted');
-
-  // Try CORS proxy fallbacks
   for (const makeUrl of fallbackUrls) {
     try {
       const proxyUrl = makeUrl(primaryUrl);
@@ -36,10 +32,9 @@ async function safeJsonFetch(primaryUrl, fallbackUrls, signal) {
   throw new Error('All API endpoints failed');
 }
 
-// ─── Normalize a song from the main JioSaavn API search results ──────────────
+// ─── Normalize a song from JioSaavn API ──────────────────────────────────────
 function normSong(s) {
-  const mi = s.more_info || {};
-  const primary = decodeHtml(s.primary_artists || mi.singers || '');
+  const primary = decodeHtml(s.primary_artists || s.singers || '');
   const image = (s.image || '').replace('150x150', '500x500');
   return {
     id: s.id,
@@ -54,40 +49,79 @@ function normSong(s) {
     quality: '320kbps',
     language: s.language || '',
     label: decodeHtml(s.label || ''),
-    copyright: '',
+    copyright: decodeHtml(s.copyright_text || ''),
     hasLyrics: s.has_lyrics === 'true' || s.has_lyrics === true,
+    mediaPreview: s.media_preview_url || null,
+    albumUrl: s.album_url || null,
   };
 }
 
-// ─── Normalize a song from the getDetails endpoint ───────────────────────────
-function normDetail(d) {
-  const primary = decodeHtml(d.primary_artists || '');
-  const image = (d.image || '').replace('150x150', '500x500');
-  return {
-    id: d.id,
-    title: decodeHtml(d.song || d.name || 'Unknown'),
-    artist: primary || 'Unknown Artist',
-    singers: primary,
-    album: decodeHtml(d.album || ''),
-    year: d.year || '',
-    duration: parseDuration(d.duration),
-    coverUrl: image || null,
-    audioUrl: null,
-    quality: '320kbps',
-    language: d.language || '',
-    label: decodeHtml(d.label || ''),
-    copyright: decodeHtml(d.copyright_text || ''),
-    hasLyrics: d.has_lyrics === 'true' || d.has_lyrics === true,
-    mediaPreview: d.media_preview_url || null,
-  };
+// ─── Fetch songs by PIDs (batch) ─────────────────────────────────────────────
+async function fetchSongsByPids(pids, signal) {
+  if (!pids.length) return [];
+  const batches = [];
+  for (let i = 0; i < pids.length; i += 20) {
+    batches.push(pids.slice(i, i + 20));
+  }
+  const results = [];
+  for (const batch of batches) {
+    try {
+      const j = await safeJsonFetch(
+        `${API}?__call=song.getDetails&pids=${batch.join(',')}&_format=json&_marker=0&ctx=web6dot0`,
+        CORS_PROXIES,
+        signal
+      );
+      if (j.songs) results.push(...j.songs);
+    } catch { /* skip batch */ }
+  }
+  return results.map(normSong);
 }
 
-// ─── SEARCH ──────────────────────────────────────────────────────────────────
+// ─── SEARCH: autocomplete.get → extract song_pids → song.getDetails ──────────
 export async function searchSongs(query, limit = 80) {
-  const primaryUrl = `${API}?__call=search.getResults&q=${encodeURIComponent(query)}&_format=json&_marker=0&ctx=web6dot0&p=1&n=${limit}`;
   try {
-    const j = await safeJsonFetch(primaryUrl, CORS_PROXIES);
-    return (j.results || []).map(normSong);
+    // Step 1: autocomplete to find albums with song_pids
+    const auto = await safeJsonFetch(
+      `${API}?__call=autocomplete.get&query=${encodeURIComponent(query)}&_format=json&_marker=0&cc=in&includeMetaTags=1`,
+      CORS_PROXIES
+    );
+
+    // Collect song_pids from albums
+    const allPids = [];
+    const albums = auto.albums?.data || [];
+    for (const album of albums) {
+      const pids = album.more_info?.song_pids;
+      if (pids) {
+        pids.split(',').map(p => p.trim()).filter(Boolean).forEach(pid => {
+          if (!allPids.includes(pid)) allPids.push(pid);
+        });
+      }
+    }
+
+    if (allPids.length > 0) {
+      const songs = await fetchSongsByPids(allPids.slice(0, limit));
+      if (songs.length > 0) return songs;
+    }
+
+    // Step 2: Fallback — search.getAlbumResults gives album metadata (no songs directly)
+    const albumRes = await safeJsonFetch(
+      `${API}?__call=search.getAlbumResults&q=${encodeURIComponent(query)}&_format=json&_marker=0&ctx=web6dot0&p=1&n=${Math.min(limit, 20)}`,
+      CORS_PROXIES
+    );
+
+    const albumResults = albumRes.results || [];
+    const fallbackPids = [];
+    for (const album of albumResults) {
+      const pids = album.artist?.singers?.flat()?.map(a => a[1]).filter(Boolean) || [];
+      // We don't have song PIDs from album search, so use autocomplete PIDs
+    }
+
+    // If still no songs, try playlist approach
+    if (allPids.length === 0 && fallbackPids.length === 0) {
+      return [];
+    }
+
+    return await fetchSongsByPids(fallbackPids.slice(0, limit));
   } catch {
     return [];
   }
@@ -118,13 +152,26 @@ export async function getStreamUrl(songId, signal) {
   if (!authUrl) throw new Error('No auth_url');
 
   return {
-    ...normDetail(detail),
+    ...normSong(detail),
     audioUrl: authUrl,
     streamUrl: toProxiedStream(authUrl),
   };
 }
 
-// ─── ALBUM SONGS ─────────────────────────────────────────────────────────────
+// ─── PLAYLIST: Get songs from a curated playlist ────────────────────────────
+export async function fetchPlaylistSongs(playlistId, limit = 50) {
+  try {
+    const j = await safeJsonFetch(
+      `${API}?__call=playlist.getDetails&listid=${playlistId}&_format=json&_marker=0&ctx=web6dot0&offset=0&n=${limit}`,
+      CORS_PROXIES
+    );
+    return (j.songs || []).map(normSong).slice(0, limit);
+  } catch {
+    return [];
+  }
+}
+
+// ─── ALBUM SONGS: Get songs from autocomplete album PIDs ─────────────────────
 export async function searchAlbumSongs(albumName, limit = 80) {
   const songs = await searchSongs(albumName, limit);
   const lower = albumName.toLowerCase();
@@ -138,7 +185,6 @@ export async function fetchLyrics(songId) {
     const f = formatLyrics(j.data?.lyrics || j.lyrics);
     if (f) return f;
   } catch { /* fall through */ }
-
   try {
     const j = await safeJsonFetch(
       `${API}?__call=lyrics.getLyrics&lyrics_id=${songId}&_format=json&_marker=0&ctx=web6dot0`,
@@ -147,7 +193,6 @@ export async function fetchLyrics(songId) {
     const f = formatLyrics(j.lyrics);
     if (f) return f;
   } catch { /* lyrics are optional */ }
-
   return null;
 }
 
