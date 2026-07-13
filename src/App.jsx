@@ -454,7 +454,7 @@ export default function App() {
           />
         
         <div className="main-scroll">
-          <InstallBanner showToast={showToast} />
+          <InstallBanner />
           
           {activeTab === 'home' && (
             <HomeView 

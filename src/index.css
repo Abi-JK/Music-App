@@ -647,14 +647,33 @@ body {
 }
 .install-banner h4 { font-size: 14px; font-weight: 700; color: var(--text-primary); }
 .install-banner p { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
-.install-banner-actions { display: flex; align-items: center; gap: 8px; }
-.dismiss-btn { width: 28px; height: 28px; padding: 0 !important; border-radius: 50% !important; display: flex; align-items: center; justify-content: center; }
-.install-guide {
-  width: 100%; margin-top: 10px; padding-top: 10px;
-  border-top: 1px solid var(--border-subtle);
-  font-size: 12px; color: var(--text-secondary); line-height: 1.7;
+.install-banner-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.btn-install {
+  background: var(--accent);
+  color: #000;
+  border: none;
+  border-radius: var(--r-sm);
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all var(--t) var(--ease);
+  white-space: nowrap;
 }
-.install-guide strong { color: var(--text-primary); }
+.btn-install:hover { background: var(--accent-light); box-shadow: var(--accent-glow); transform: translateY(-1px); }
+.btn-dismiss {
+  width: 28px; height: 28px;
+  padding: 0 !important;
+  border-radius: 50% !important;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  transition: all var(--t) var(--ease);
+}
+.btn-dismiss:hover { color: var(--text-primary); border-color: var(--border); }
 
 /* Theme switcher trigger toggle button */
 .theme-toggle {
