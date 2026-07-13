@@ -11,6 +11,18 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "autoplay=(self), fullscreen=(self)"
 
+# CORS for API responses
+[[headers]]
+  for = "/saavn-api"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Cache-Control = "public, max-age=300"
+
+[[headers]]
+  for = "/saavn-stream/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+
 # Cache static assets aggressively
 [[headers]]
   for = "/assets/*"
@@ -22,6 +34,12 @@
   for = "/sw.js"
   [headers.values]
     Cache-Control = "no-cache, no-store, must-revalidate"
+
+# Manifest must not be cached
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Cache-Control = "no-cache, must-revalidate"
 
 # ── API Proxy Redirects ──────────────────────────────────
 # These replicate the Vite dev proxies for production

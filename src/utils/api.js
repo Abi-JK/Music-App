@@ -1,5 +1,40 @@
 import { API, SEARCH } from './constants';
-import { decodeHtml, parseDuration, toProxiedStream, normVercelSong, formatLyrics } from './helpers';
+import { decodeHtml, parseDuration, toProxiedStream, formatLyrics } from './helpers';
+
+// CORS proxy fallback — when edge functions aren't deployed, JioSaavn blocks browser requests
+const CORS_PROXIES = [
+  (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+];
+
+// ─── Safe JSON fetch: tries primary URL, falls back to CORS proxies ──────────
+async function safeJsonFetch(primaryUrl, fallbackUrls, signal) {
+  // Try primary URL first
+  try {
+    const res = await fetch(primaryUrl, { signal });
+    if (!res.ok) throw new Error(res.status);
+    const text = await res.text();
+    if (text.trimStart().startsWith('<!') || text.trimStart().startsWith('<html')) {
+      throw new Error('Got HTML instead of JSON');
+    }
+    return JSON.parse(text);
+  } catch { /* try proxies */ }
+
+  if (signal?.aborted) throw new Error('Aborted');
+
+  // Try CORS proxy fallbacks
+  for (const makeUrl of fallbackUrls) {
+    try {
+      const proxyUrl = makeUrl(primaryUrl);
+      const res = await fetch(proxyUrl, { signal });
+      if (!res.ok) continue;
+      const text = await res.text();
+      if (text.trimStart().startsWith('<!') || text.trimStart().startsWith('<html')) continue;
+      return JSON.parse(text);
+    } catch { /* next proxy */ }
+  }
+  throw new Error('All API endpoints failed');
+}
 
 // ─── Normalize a song from the main JioSaavn API search results ──────────────
 function normSong(s) {
@@ -49,12 +84,9 @@ function normDetail(d) {
 
 // ─── SEARCH ──────────────────────────────────────────────────────────────────
 export async function searchSongs(query, limit = 80) {
+  const primaryUrl = `${API}?__call=search.getResults&q=${encodeURIComponent(query)}&_format=json&_marker=0&ctx=web6dot0&p=1&n=${limit}`;
   try {
-    const res = await fetch(
-      `${API}?__call=search.getResults&q=${encodeURIComponent(query)}&_format=json&_marker=0&ctx=web6dot0&p=1&n=${limit}`
-    );
-    if (!res.ok) return [];
-    const j = await res.json();
+    const j = await safeJsonFetch(primaryUrl, CORS_PROXIES);
     return (j.results || []).map(normSong);
   } catch {
     return [];
@@ -63,28 +95,24 @@ export async function searchSongs(query, limit = 80) {
 
 // ─── PLAYBACK: Get fresh signed stream URL ───────────────────────────────────
 export async function getStreamUrl(songId, signal) {
-  const fetchDetails = () =>
-    fetch(`${API}?__call=song.getDetails&pids=${songId}&_format=json&_marker=0&ctx=web6dot0`, { signal })
-      .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
-
-  const fetchToken = (encUrl) =>
-    fetch(`${API}?__call=song.generateAuthToken&url=${encodeURIComponent(encUrl)}&bitrate=320&api_version=4&_format=json&ctx=web6dot0&_marker=0`, { signal })
-      .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+  const detailsUrl = `${API}?__call=song.getDetails&pids=${songId}&_format=json&_marker=0&ctx=web6dot0`;
+  const tokenBaseUrl = `${API}?__call=song.generateAuthToken&bitrate=320&api_version=4&_format=json&ctx=web6dot0&_marker=0`;
 
   let detJson;
   try {
-    detJson = await fetchDetails();
+    detJson = await safeJsonFetch(detailsUrl, CORS_PROXIES, signal);
   } catch {
-    detJson = await fetchDetails(); // retry once
+    detJson = await safeJsonFetch(detailsUrl, CORS_PROXIES, signal);
   }
   const detail = detJson.songs?.[0];
   if (!detail) throw new Error('Song not found');
 
+  const tokenUrl = `${tokenBaseUrl}&url=${encodeURIComponent(detail.encrypted_media_url)}`;
   let tokJson;
   try {
-    tokJson = await fetchToken(detail.encrypted_media_url);
+    tokJson = await safeJsonFetch(tokenUrl, CORS_PROXIES, signal);
   } catch {
-    tokJson = await fetchToken(detail.encrypted_media_url); // retry once
+    tokJson = await safeJsonFetch(tokenUrl, CORS_PROXIES, signal);
   }
   const authUrl = tokJson.auth_url;
   if (!authUrl) throw new Error('No auth_url');
@@ -105,26 +133,19 @@ export async function searchAlbumSongs(albumName, limit = 80) {
 
 // ─── LYRICS ──────────────────────────────────────────────────────────────────
 export async function fetchLyrics(songId) {
-  // Try Vercel lyrics API first
   try {
-    const res = await fetch(`${SEARCH}/lyrics?id=${songId}`);
-    if (res.ok) {
-      const j = await res.json();
-      const f = formatLyrics(j.data?.lyrics || j.lyrics);
-      if (f) return f;
-    }
+    const j = await safeJsonFetch(`${SEARCH}/lyrics?id=${songId}`, CORS_PROXIES);
+    const f = formatLyrics(j.data?.lyrics || j.lyrics);
+    if (f) return f;
   } catch { /* fall through */ }
 
-  // Fallback: main JioSaavn API
   try {
-    const res = await fetch(
-      `${API}?__call=lyrics.getLyrics&lyrics_id=${songId}&_format=json&_marker=0&ctx=web6dot0`
+    const j = await safeJsonFetch(
+      `${API}?__call=lyrics.getLyrics&lyrics_id=${songId}&_format=json&_marker=0&ctx=web6dot0`,
+      CORS_PROXIES
     );
-    if (res.ok) {
-      const j = await res.json();
-      const f = formatLyrics(j.lyrics);
-      if (f) return f;
-    }
+    const f = formatLyrics(j.lyrics);
+    if (f) return f;
   } catch { /* lyrics are optional */ }
 
   return null;
