@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 export function useInstallPrompt() {
   const deferredPrompt = useRef(null);
@@ -33,7 +33,7 @@ export function useInstallPrompt() {
     };
   }, []);
 
-  const promptInstall = async () => {
+  const promptInstall = useCallback(async () => {
     const prompt = deferredPrompt.current;
     if (!prompt) return false;
     prompt.prompt();
@@ -41,7 +41,7 @@ export function useInstallPrompt() {
     deferredPrompt.current = null;
     setCanInstall(false);
     return outcome === 'accepted';
-  };
+  }, []);
 
   return { canInstall: canInstall && !isInstalled, isInstalled, promptInstall };
 }

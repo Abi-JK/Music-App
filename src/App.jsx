@@ -6,7 +6,7 @@ import {
   saveOfflineTrack, getOfflineTrack, listOfflineTracks, deleteOfflineTrack, blobUrlForTrack, clearAllTrackUrls
 } from './offlineStore';
 import { LS, idbSaveLiked, idbLoadLiked } from './utils/helpers';
-import { searchSongs, getStreamUrl, fetchStreamBlob } from './utils/api';
+import { searchSongs, searchSongsDeep, getStreamUrl, fetchStreamBlob } from './utils/api';
 import { LANG_QUERIES, HOME_SECTIONS, BROAD_TERMS } from './utils/constants';
 
 // Hooks
@@ -178,7 +178,7 @@ export default function App() {
     setHomeLoading(true);
     Promise.all(
       HOME_SECTIONS.map(sec =>
-        searchSongs(sec.term, 8)
+        searchSongs(sec.term, 12)
           .then(songs => ({ key: sec.key, label: sec.label, songs }))
           .catch(() => ({ key: sec.key, label: sec.label, songs: [] }))
       )
@@ -383,28 +383,17 @@ export default function App() {
       let songs;
       const langObj = LANG_QUERIES.find(l => l.label === activeLang);
       if (langObj?.label === 'All') {
-        // Multi-language search: 2 pages per language query, merge & dedupe
+        // Multi-language search: plain + language-specific queries, merge & dedupe
         const queries = [q, ...BROAD_TERMS.map(t => `${q} ${t}`)];
-        const pageResults = await Promise.all(
-          queries.flatMap(query => [
-            searchSongs(query, 60, 1).catch(() => []),
-            searchSongs(query, 60, 2).catch(() => []),
-          ])
-        );
-        // pageResults[0..1] = plain query pages 1-2
+        const results = await Promise.all(queries.map(query => searchSongs(query, 60).catch(() => [])));
         const seen = new Set();
-        songs = pageResults.flat().filter(s => { if (seen.has(s.id)) return false; seen.add(s.id); return true; });
-        const plainIds = new Set();
-        pageResults.slice(0, 2).forEach(arr => arr.forEach(s => plainIds.add(s.id)));
+        songs = results.flat().filter(s => { if (seen.has(s.id)) return false; seen.add(s.id); return true; });
+        const plainIds = new Set(results[0]?.map(s => s.id) || []);
         songs.sort((a, b) => (plainIds.has(a.id) ? 0 : 1) - (plainIds.has(b.id) ? 0 : 1));
         songs = songs.slice(0, 200);
       } else {
         const term = langObj?.term ? `${q} ${langObj.term}` : q;
-        const [p1, p2] = await Promise.all([
-          searchSongs(term, 80, 1).catch(() => []),
-          searchSongs(term, 80, 2).catch(() => []),
-        ]);
-        songs = [...p1, ...p2].slice(0, 150);
+        songs = await searchSongs(term, 100);
       }
       setSearchResults(songs);
       if (songs.length) { setPlaylist(songs); setCurrentIndex(0); }
@@ -421,7 +410,7 @@ export default function App() {
 
   const handlePlaylistSearch = useCallback((term, label) => {
     setSearchQ(term); setActiveTab('search'); setSearched(true); setSearchLoading(true);
-    searchSongs(term, 40)
+    searchSongsDeep(term, 40)
       .then(songs => { setSearchResults(songs); if (songs.length) { setPlaylist(songs); setCurrentIndex(0); } showToast(`📂 ${label}`); })
       .catch(() => showToast('⚠️ Could not load.'))
       .finally(() => setSearchLoading(false));
@@ -433,7 +422,7 @@ export default function App() {
     const langObj = LANG_QUERIES.find(l => l.label === lang);
     if (!langObj?.term) return;
     setSearchQ(lang); setSearched(true); setActiveTab('search'); setSearchLoading(true);
-    searchSongs(langObj.term, 40)
+    searchSongsDeep(langObj.term, 40)
       .then(songs => { setSearchResults(songs); if (songs.length) { setPlaylist(songs); setCurrentIndex(0); } })
       .catch(() => showToast('⚠️ Could not load.'))
       .finally(() => setSearchLoading(false));

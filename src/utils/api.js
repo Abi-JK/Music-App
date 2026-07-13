@@ -48,14 +48,74 @@ export async function getStreamUrl(songId, signal) {
   return song;
 }
 
-// ─── SEARCH API ──────────────────────────────────────────────────────────────
-export const searchSongs = async (query, limit = 24, page = 1) => {
-  const res = await fetch(
-    `${SEARCH}/search/songs?query=${encodeURIComponent(query)}&limit=${limit}&page=${page}`
+// ─── Normalize a song from the main JioSaavn API search results ──────────────
+function normJioSaavnSearchSong(s) {
+  const mi = s.more_info || {};
+  const primary = decodeHtml(s.primary_artists || s.singers || mi.singers || '');
+  const image   = (s.image || '').replace('150x150', '500x500');
+  return {
+    id:        s.id,
+    title:     decodeHtml(s.song || s.title || 'Unknown'),
+    artist:    primary || 'Unknown Artist',
+    singers:   primary,
+    album:     decodeHtml(s.album || ''),
+    year:      s.year || '',
+    duration:  parseDuration(s.duration),
+    coverUrl:  image || null,
+    audioUrl:  null,
+    quality:   '320kbps',
+    language:  s.language || '',
+    label:     decodeHtml(s.label || ''),
+    copyright: '',
+    hasLyrics: s.has_lyrics === 'true' || s.has_lyrics === true,
+  };
+}
+
+// ─── SEARCH: Try Vercel API first, fallback to main JioSaavn API ─────────────
+export const searchSongs = async (query, limit = 24) => {
+  // Try Vercel search API
+  try {
+    const res = await fetch(
+      `${SEARCH}/search/songs?query=${encodeURIComponent(query)}&limit=${limit}`
+    );
+    if (res.ok) {
+      const j = await res.json();
+      const results = (j.data?.results || j.results || []).map(normVercelSong);
+      if (results.length > 0) return results;
+    }
+  } catch { /* fall through */ }
+
+  // Fallback: main JioSaavn API
+  try {
+    const res = await fetch(
+      `${API}?__call=search.getResults&q=${encodeURIComponent(query)}&_format=json&_marker=0&ctx=web6dot0&p=1&n=${limit}`
+    );
+    if (res.ok) {
+      const j = await res.json();
+      const results = (j.results || []).map(normJioSaavnSearchSong);
+      if (results.length > 0) return results;
+    }
+  } catch { /* fall through */ }
+
+  return [];
+};
+
+// ─── SEARCH with multiple variations for maximum results ──────────────────────
+export const searchSongsDeep = async (query, limit = 40) => {
+  const variations = [
+    query,
+    `${query} songs`,
+    `${query} hits`,
+  ];
+  const results = await Promise.all(
+    variations.map(q => searchSongs(q, limit).catch(() => []))
   );
-  if (!res.ok) throw new Error(`Search failed: ${res.status}`);
-  const j = await res.json();
-  return (j.data?.results || j.results || []).map(normVercelSong);
+  const seen = new Set();
+  return results.flat().filter(s => {
+    if (!s?.id || seen.has(s.id)) return false;
+    seen.add(s.id);
+    return true;
+  });
 };
 
 // ─── LYRICS API ──────────────────────────────────────────────────────────────
@@ -110,14 +170,9 @@ export const getAlbumSongs = async (albumId) => {
   return songs.map(normVercelSong);
 };
 
-// Search album by name — tries multiple strategies to find album songs
-export const searchAlbumSongs = async (albumName, limit = 30) => {
-  // Fetch first 2 pages and merge
-  const [p1, p2] = await Promise.all([
-    searchSongs(albumName, limit, 1).catch(() => []),
-    searchSongs(albumName, limit, 2).catch(() => []),
-  ]);
-  const songs = [...p1, ...p2];
+// Search album by name — uses deep search for more results, then filters
+export const searchAlbumSongs = async (albumName, limit = 40) => {
+  const songs = await searchSongsDeep(albumName, limit);
   if (songs.length > 0) {
     const nameLower = albumName.toLowerCase();
     const exact = songs.filter(s => s.album?.toLowerCase().includes(nameLower));

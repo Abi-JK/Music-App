@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import SongRow from '../components/SongRow';
-import { searchSongs, searchAlbumSongs } from '../utils/api';
+import { searchSongs, searchSongsDeep, searchAlbumSongs } from '../utils/api';
 
 function deriveAlbums(songs, query) {
   if (!songs?.length) return [];
@@ -55,14 +55,13 @@ export default function SearchView({ searchLoading, searched, searchResults, cur
     setAlbumLoading(album.id);
     showToast(`🔍 Loading all songs for ${album.name}...`);
     try {
-      // Fetch multiple pages & strategies, merge, dedupe
-      const [p1, p2, albumSongResult] = await Promise.all([
-        searchSongs(album.name, 80, 1).catch(() => []),
-        searchSongs(album.name, 80, 2).catch(() => []),
-        searchAlbumSongs(album.name, 60).catch(() => []),
+      // Deep search: multiple query variations, merges & dedupes
+      const [deep, albumFiltered] = await Promise.all([
+        searchSongsDeep(album.name, 50).catch(() => []),
+        searchAlbumSongs(album.name, 40).catch(() => []),
       ]);
       const seen = new Set();
-      const merged = [...p1, ...p2, ...albumSongResult, ...album.songs]
+      const merged = [...deep, ...albumFiltered, ...album.songs]
         .filter(s => { if (!s?.id || seen.has(s.id)) return false; seen.add(s.id); return true; })
         .slice(0, 100);
       const songs = merged.length > 0 ? merged : album.songs;
