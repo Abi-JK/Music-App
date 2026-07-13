@@ -674,6 +674,7 @@ body {
   transition: all var(--t) var(--ease);
 }
 .btn-dismiss:hover { color: var(--text-primary); border-color: var(--border); }
+.btn-install:disabled { opacity: 0.65; cursor: not-allowed; transform: none; }
 
 /* Theme switcher trigger toggle button */
 .theme-toggle {
