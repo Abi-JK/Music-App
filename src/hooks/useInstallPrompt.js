@@ -3,12 +3,12 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 export function useInstallPrompt() {
   const deferredPrompt = useRef(null);
   const [canInstall, setCanInstall] = useState(false);
-  const [isInstalled, setIsInstalled] = useState(false);
+  const [wasInstalled, setWasInstalled] = useState(false);
 
   useEffect(() => {
     if (window.matchMedia('(display-mode: standalone)').matches ||
         window.navigator.standalone === true) {
-      setIsInstalled(true);
+      setWasInstalled(true);
       return;
     }
 
@@ -19,7 +19,7 @@ export function useInstallPrompt() {
     };
 
     const handleAppInstalled = () => {
-      setIsInstalled(true);
+      setWasInstalled(true);
       deferredPrompt.current = null;
       setCanInstall(false);
     };
@@ -37,11 +37,13 @@ export function useInstallPrompt() {
     const prompt = deferredPrompt.current;
     if (!prompt) return false;
     prompt.prompt();
-    const { outcome } = await prompt.userChoice;
+    // userChoice can say 'accepted' even when install silently fails
+    // We do NOT rely on it. appinstalled event is the real signal.
+    await prompt.userChoice;
     deferredPrompt.current = null;
     setCanInstall(false);
-    return outcome === 'accepted';
+    return true; // dialog was shown — we told the user to check their phone
   }, []);
 
-  return { canInstall: canInstall && !isInstalled, isInstalled, promptInstall };
+  return { canInstall: canInstall && !wasInstalled, wasInstalled, promptInstall };
 }
