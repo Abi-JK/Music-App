@@ -1,13 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
-function isMobile() {
-  return /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-}
-
-function isAndroid() {
-  return /Android/i.test(navigator.userAgent);
-}
-
 function isStandalone() {
   return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
 }
@@ -15,8 +7,6 @@ function isStandalone() {
 export default function InstallBanner() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isInstalled, setIsInstalled] = useState(false);
-  const [userDismissed, setUserDismissed] = useState(false);
-  const [showDownloadOption, setShowDownloadOption] = useState(false);
 
   useEffect(() => {
     const onBeforeInstall = (e) => {
@@ -30,7 +20,6 @@ export default function InstallBanner() {
 
     window.addEventListener('beforeinstallprompt', onBeforeInstall);
     window.addEventListener('appinstalled', onAppInstalled);
-
     if (isStandalone()) setIsInstalled(true);
 
     return () => {
@@ -40,95 +29,31 @@ export default function InstallBanner() {
   }, []);
 
   const handleInstall = useCallback(async () => {
-    if (deferredPrompt) {
-      try {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        if (outcome === 'accepted') {
-          setDeferredPrompt(null);
-        } else {
-          // User cancelled the native install prompt
-          setUserDismissed(true);
-          setShowDownloadOption(true);
-        }
-      } catch {
-        // Fallback: show download option
-        setShowDownloadOption(true);
-      }
-    }
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') setDeferredPrompt(null);
   }, [deferredPrompt]);
 
-  const handleDismiss = useCallback(() => {
-    setUserDismissed(true);
-    setShowDownloadOption(true);
-  }, []);
-
-  const handleDownloadApp = useCallback(() => {
-    // On Android, try to trigger APK-style download via direct link
-    // This opens the PWA URL which can be added to homescreen
-    if (isAndroid()) {
-      // Open in new tab — Android will prompt to add to homescreen
-      window.open(window.location.href, '_blank');
-    } else {
-      // For iOS/desktop, open the app URL
-      window.open(window.location.href, '_blank');
-    }
-  }, []);
-
-  const handleCloseBanner = useCallback(() => {
-    setUserDismissed(true);
-    setShowDownloadOption(false);
-  }, []);
-
-  if (isInstalled) return null;
-
-  // Show the compact "Download App" option after user dismissed the native prompt
-  if (showDownloadOption && userDismissed) {
-    return (
-      <div className="install-banner download-option-banner">
-        <div className="install-banner-content">
-          <span className="install-logo-badge">⚡</span>
-          <div>
-            <h4>Download SoundAura</h4>
-            <p>Add to home screen for the best experience</p>
-          </div>
-        </div>
-        <div className="install-banner-actions">
-          <button className="btn-install" onClick={handleDownloadApp}>
-            Download App
-          </button>
-          <button className="btn-dismiss" onClick={handleCloseBanner}>✕</button>
-        </div>
-      </div>
-    );
-  }
-
-  // Don't show banner if user dismissed and not showing download option
-  if (userDismissed) return null;
+  if (isInstalled || !deferredPrompt) return null;
 
   return (
     <div className="install-banner">
       <div className="install-banner-content">
-        <span className="install-logo-badge">⚡</span>
-        <div>
-          <h4>Install SoundAura</h4>
-          {deferredPrompt ? (
-            <p>Tap Install to add to your device</p>
-          ) : isMobile() ? (
-            <p>Tap the browser menu (⋮) then &quot;Add to Home Screen&quot;</p>
-          ) : (
-            <p>Install this app on your device for offline access</p>
-          )}
-        </div>
+        <svg width="48" height="48" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="512" height="512" rx="96" fill="#0a0e1a"/>
+          <path d="M140 290 C140 155, 372 155, 372 290" fill="none" stroke="var(--accent)" stroke-width="30" strokeLinecap="round"/>
+          <rect x="110" y="260" width="62" height="86" rx="18" fill="var(--accent)"/>
+          <rect x="340" y="260" width="62" height="86" rx="18" fill="var(--accent)"/>
+          <rect x="215" y="278" width="10" height="36" rx="5" fill="var(--accent-light)" opacity="0.7"/>
+          <rect x="235" y="268" width="10" height="56" rx="5" fill="var(--accent-light)" opacity="0.85"/>
+          <rect x="255" y="260" width="10" height="72" rx="5" fill="var(--accent)"/>
+          <rect x="275" y="268" width="10" height="56" rx="5" fill="var(--accent-light)" opacity="0.85"/>
+          <rect x="295" y="278" width="10" height="36" rx="5" fill="var(--accent-light)" opacity="0.7"/>
+        </svg>
+        <span className="install-banner-title">Install SoundAura</span>
       </div>
-      <div className="install-banner-actions">
-        {deferredPrompt && (
-          <button className="btn-install" onClick={handleInstall}>
-            Install Now
-          </button>
-        )}
-        <button className="btn-dismiss" onClick={handleDismiss}>✕</button>
-      </div>
+      <button className="btn-install" onClick={handleInstall}>Install Now</button>
     </div>
   );
 }

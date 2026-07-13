@@ -27,7 +27,6 @@ import SleepTimerModal from './components/SleepTimerModal';
 import LocalUpload from './components/LocalUpload';
 import MobileNav from './components/MobileNav';
 import ShareModal from './components/ShareModal';
-import AuthModal from './components/AuthModal';
 
 // Views
 import HomeView from './views/HomeView';
@@ -108,10 +107,7 @@ export default function App() {
   const [isSleepTimerOpen, setIsSleepTimerOpen] = useState(false);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [shareSong, setShareSong] = useState(null);
-  const [isAuthOpen, setIsAuthOpen] = useState(false);
-  const [user, setUser] = useState(() => {
-    try { return JSON.parse(localStorage.getItem('saaura_user')) || null; } catch { return null; }
-  });
+
 
   const currentSong = playlist[currentIndex] || null;
   const panelOpen   = !!detailSong;
@@ -444,9 +440,6 @@ export default function App() {
         onPlaylistSearch={handlePlaylistSearch}
         onOpenSleepTimer={() => setIsSleepTimerOpen(true)}
         onOpenUpload={() => setIsUploadOpen(true)}
-        user={user}
-        onOpenAuth={() => setIsAuthOpen(true)}
-        onLogout={() => { setUser(null); localStorage.removeItem('saaura_user'); showToast('👋 Logged out'); }}
       />
 
       <div className="body">
@@ -636,13 +629,6 @@ export default function App() {
       <ShareModal 
         song={shareSong}
         onClose={() => setShareSong(null)}
-        showToast={showToast}
-      />
-
-      <AuthModal 
-        isOpen={isAuthOpen}
-        onClose={() => setIsAuthOpen(false)}
-        onAuth={(u) => setUser(u)}
         showToast={showToast}
       />
 

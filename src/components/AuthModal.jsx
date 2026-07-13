@@ -35,8 +35,16 @@ export default function AuthModal({ isOpen, onClose, onAuth, showToast }) {
       <div className="modal auth-modal" onClick={e => e.stopPropagation()}>
         <div className="auth-header">
           <div className="auth-logo">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5">
-              <path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>
+            <svg width="32" height="32" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect width="512" height="512" rx="96" fill="#0a0e1a"/>
+              <path d="M140 290 C140 155, 372 155, 372 290" fill="none" stroke="var(--accent)" stroke-width="30" strokeLinecap="round"/>
+              <rect x="110" y="260" width="62" height="86" rx="18" fill="var(--accent)"/>
+              <rect x="340" y="260" width="62" height="86" rx="18" fill="var(--accent)"/>
+              <rect x="215" y="278" width="10" height="36" rx="5" fill="var(--accent-light)" opacity="0.7"/>
+              <rect x="235" y="268" width="10" height="56" rx="5" fill="var(--accent-light)" opacity="0.85"/>
+              <rect x="255" y="260" width="10" height="72" rx="5" fill="var(--accent)"/>
+              <rect x="275" y="268" width="10" height="56" rx="5" fill="var(--accent-light)" opacity="0.85"/>
+              <rect x="295" y="278" width="10" height="36" rx="5" fill="var(--accent-light)" opacity="0.7"/>
             </svg>
             <span>SoundAura</span>
           </div>

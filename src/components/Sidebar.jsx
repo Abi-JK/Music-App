@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function Sidebar({ activeTab, setActiveTab, likedCount, dlCount, onPlaylistSearch, onOpenSleepTimer, onOpenUpload, user, onOpenAuth, onLogout }) {
+export default function Sidebar({ activeTab, setActiveTab, likedCount, dlCount, onPlaylistSearch, onOpenSleepTimer, onOpenUpload }) {
   const playlists = [
     { label: '🎵 My Top Songs',         term: 'top hits 2025' },
     { label: '⭐ Tamil Kuthu Hits',     term: 'tamil kuthu hits' },
@@ -11,58 +11,43 @@ export default function Sidebar({ activeTab, setActiveTab, likedCount, dlCount, 
   return (
     <div className="sidebar">
       <div className="logo">
-        <svg width="28" height="28" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <linearGradient id="sb-hp" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#9b5de5"/>
-              <stop offset="100%" stopColor="#3a86ff"/>
-            </linearGradient>
-            <linearGradient id="sb-wave" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#ff6b9d"/>
-              <stop offset="50%" stopColor="#c77dff"/>
-              <stop offset="100%" stopColor="#00c9d4"/>
-            </linearGradient>
-          </defs>
-          <rect width="512" height="512" rx="80" fill="#0a0a1a"/>
-          <path d="M140 260 C140 150, 372 150, 372 260" fill="none" stroke="url(#sb-hp)" strokeWidth="22" strokeLinecap="round"/>
-          <rect x="112" y="238" width="56" height="80" rx="18" fill="url(#sb-hp)"/>
-          <rect x="344" y="238" width="56" height="80" rx="18" fill="url(#sb-hp)"/>
-          <g>
-            <rect x="210" y="258" width="7" height="48" rx="3.5" fill="url(#sb-wave)"/>
-            <rect x="225" y="250" width="7" height="64" rx="3.5" fill="url(#sb-wave)"/>
-            <rect x="240" y="244" width="7" height="76" rx="3.5" fill="url(#sb-wave)"/>
-            <rect x="255" y="238" width="7" height="88" rx="3.5" fill="url(#sb-wave)"/>
-            <rect x="270" y="244" width="7" height="76" rx="3.5" fill="url(#sb-wave)"/>
-            <rect x="285" y="250" width="7" height="64" rx="3.5" fill="url(#sb-wave)"/>
-            <rect x="300" y="258" width="7" height="48" rx="3.5" fill="url(#sb-wave)"/>
-          </g>
+        <svg width="48" height="48" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="512" height="512" rx="96" fill="#0a0e1a"/>
+          <path d="M140 290 C140 155, 372 155, 372 290" fill="none" stroke="var(--accent)" stroke-width="30" strokeLinecap="round"/>
+          <rect x="110" y="260" width="62" height="86" rx="18" fill="var(--accent)"/>
+          <rect x="340" y="260" width="62" height="86" rx="18" fill="var(--accent)"/>
+          <rect x="215" y="278" width="10" height="36" rx="5" fill="var(--accent-light)" opacity="0.7"/>
+          <rect x="235" y="268" width="10" height="56" rx="5" fill="var(--accent-light)" opacity="0.85"/>
+          <rect x="255" y="260" width="10" height="72" rx="5" fill="var(--accent)"/>
+          <rect x="275" y="268" width="10" height="56" rx="5" fill="var(--accent-light)" opacity="0.85"/>
+          <rect x="295" y="278" width="10" height="36" rx="5" fill="var(--accent-light)" opacity="0.7"/>
         </svg>
-        <span className="logo-text"><span style={{ color: '#00c9d4' }}>Sound</span><span style={{ color: '#9b5de5' }}>Aura</span></span>
+        <span className="logo-text">SoundAura</span>
       </div>
       <div className="sidebar-scroll">
         <div className="nav-label">Menu</div>
         <button className={`nav-item ${activeTab === 'home' ? 'active' : ''}`} onClick={() => setActiveTab('home')}>
-          <span style={{ fontSize: 16 }}>🏠</span>Home
+          <span className="nav-icon">🏠</span>Home
         </button>
         <button className={`nav-item ${activeTab === 'search' ? 'active' : ''}`} onClick={() => setActiveTab('search')}>
-          <span style={{ fontSize: 16 }}>🔍</span>Search
+          <span className="nav-icon">🔍</span>Search
         </button>
         <button className={`nav-item ${activeTab === 'albums' ? 'active' : ''}`} onClick={() => setActiveTab('albums')}>
-          <span style={{ fontSize: 16 }}>💿</span>My Albums
+          <span className="nav-icon">💿</span>My Albums
         </button>
         <button className={`nav-item ${activeTab === 'liked' ? 'active' : ''}`} onClick={() => setActiveTab('liked')}>
-          <span style={{ fontSize: 16 }}>❤️</span>Liked Songs {likedCount > 0 && <span className="sidebar-badge">{likedCount}</span>}
+          <span className="nav-icon">❤️</span>Liked Songs {likedCount > 0 && <span className="sidebar-badge">{likedCount}</span>}
         </button>
         <button className={`nav-item ${activeTab === 'downloads' ? 'active' : ''}`} onClick={() => setActiveTab('downloads')}>
-          <span style={{ fontSize: 16 }}>📴</span>Downloads {dlCount > 0 && <span className="sidebar-badge">{dlCount}</span>}
+          <span className="nav-icon">📴</span>Downloads {dlCount > 0 && <span className="sidebar-badge">{dlCount}</span>}
         </button>
 
         <div className="nav-label">Tools</div>
         <button className="nav-item" onClick={onOpenUpload}>
-          <span style={{ fontSize: 16 }}>📁</span>Local MP3 Upload
+          <span className="nav-icon">📁</span>Local MP3 Upload
         </button>
         <button className="nav-item" onClick={onOpenSleepTimer}>
-          <span style={{ fontSize: 16 }}>⏰</span>Sleep Timer
+          <span className="nav-icon">⏰</span>Sleep Timer
         </button>
 
         <div className="nav-label">Your Playlists</div>
@@ -71,20 +56,6 @@ export default function Sidebar({ activeTab, setActiveTab, likedCount, dlCount, 
             {pl.label}
           </button>
         ))}
-      </div>
-
-      {/* User Profile / Login */}
-      <div className="sidebar-user">
-        {user ? (
-          <button className="nav-item user-btn" onClick={onLogout}>
-            <span className="user-avatar">{user.name?.charAt(0)?.toUpperCase() || '?'}</span>
-            <span className="user-name">{user.name}</span>
-          </button>
-        ) : (
-          <button className="nav-item user-btn" onClick={onOpenAuth}>
-            <span style={{ fontSize: 16 }}>👤</span>Sign In
-          </button>
-        )}
       </div>
     </div>
   );
