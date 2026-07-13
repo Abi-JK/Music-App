@@ -45,7 +45,6 @@ export default function PlayerBar({
     // Online song → fetch fresh signed token URL
     setStreamUrl(null);
     setLoading(true);
-    showToast(`▶️ Loading: ${currentSong.title}...`);
 
     const doFetch = () => {
       getStreamUrl(currentSong.id, ac.signal)
@@ -58,8 +57,7 @@ export default function PlayerBar({
           console.error('getStreamUrl error:', err);
           if (retryCountRef.current < 2) {
             retryCountRef.current++;
-            showToast(`▶️ Retrying (${retryCountRef.current}/2)...`);
-            setTimeout(doFetch, 1000);
+            setTimeout(doFetch, 1500);
           } else {
             setLoading(false);
             setIsPlaying(false);

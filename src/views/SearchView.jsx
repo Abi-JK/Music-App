@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import SongRow from '../components/SongRow';
-import { searchSongs, searchSongsDeep, searchAlbumSongs } from '../utils/api';
+import { searchSongs, searchAlbumSongs } from '../utils/api';
 
 function deriveAlbums(songs, query) {
   if (!songs?.length) return [];
@@ -53,29 +53,21 @@ export default function SearchView({ searchLoading, searched, searchResults, cur
   const handleAlbumClick = async (album) => {
     if (viewAlbum?.id === album.id) { setViewAlbum(null); return; }
     setAlbumLoading(album.id);
-    showToast(`🔍 Loading all songs for ${album.name}...`);
     try {
-      // Deep search: multiple query variations, merges & dedupes
-      const [deep, albumFiltered] = await Promise.all([
-        searchSongsDeep(album.name, 50).catch(() => []),
-        searchAlbumSongs(album.name, 40).catch(() => []),
+      const [fresh, filtered] = await Promise.all([
+        searchSongs(album.name, 80).catch(() => []),
+        searchAlbumSongs(album.name, 80).catch(() => []),
       ]);
       const seen = new Set();
-      const merged = [...deep, ...albumFiltered, ...album.songs]
+      const merged = [...fresh, ...filtered, ...album.songs]
         .filter(s => { if (!s?.id || seen.has(s.id)) return false; seen.add(s.id); return true; })
         .slice(0, 100);
       const songs = merged.length > 0 ? merged : album.songs;
-      const albumData = { ...album, songs };
-      setViewAlbum(albumData);
+      setViewAlbum({ ...album, songs });
       if (songs.length) {
         playSong(songs[0], songs, 0);
-        showToast(`📂 ${album.name} — ${songs.length} songs`);
-      } else {
-        showToast('⚠️ No songs found.');
       }
-    } catch {
-      showToast('⚠️ Could not load songs.');
-    }
+    } catch {}
     setAlbumLoading(null);
   };
 
