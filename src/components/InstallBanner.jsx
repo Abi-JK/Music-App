@@ -1,52 +1,35 @@
 import React, { useState } from 'react';
-import { useInstallPrompt } from '../hooks/useInstallPrompt';
 
-export default function InstallBanner({ showToast }) {
-  const { canInstall, promptInstall, wasInstalled } = useInstallPrompt();
+export default function InstallBanner() {
   const [dismissed, setDismissed] = useState(false);
 
-  if (wasInstalled || dismissed) return null;
-
-  const handleInstallClick = async () => {
-    if (canInstall) {
-      showToast('📲 Please use the ⋮ menu → "Add to Home screen" method below — it works on all phones.');
-    }
-  };
+  if (dismissed) return null;
 
   return (
     <div className="install-banner">
       <div className="install-banner-content">
         <span className="install-logo-badge">⚡</span>
         <div>
-          <h4>Install SoundAura</h4>
+          <h4>Install SoundAura on Your Phone</h4>
         </div>
       </div>
-
       <div className="install-guide">
-        <p style={{ fontSize: 12, marginBottom: 2 }}><strong>Add to Home Screen (works on every phone):</strong></p>
-        <ol style={{ margin: '0 0 6px 16px', fontSize: 12, lineHeight: 1.7 }}>
-          <li>Open <strong>Chrome</strong> browser</li>
-          <li>Tap <strong>⋮</strong> (three dots, top-right)</li>
-          <li>Tap <strong>"Add to Home screen"</strong> → then tap <strong>"Add"</strong></li>
-          <li>The SoundAura icon will appear on your home screen ✅</li>
-        </ol>
-        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 2 }}>
-          ⚠️ If the <strong>"Install via Chrome"</strong> button above shows "Installed" but no icon appears,
-          it is a known Chrome bug on Xiaomi/Oppo/Vivo/Realme phones. Always use the
-          <strong> ⋮ → "Add to Home screen"</strong> method instead — it works every time.
+        <p style={{ fontSize: 12, marginBottom: 6, color: 'var(--text-secondary)' }}>
+          The app won't install from <code>localhost</code> or <code>192.168.x.x</code>.
+          You need to <strong>deploy it to Netlify first</strong> (free, 2 minutes):
         </p>
-        <p style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-          If you still cannot find the icon, try <strong>Chrome ⋮ → Share → "Add to Home screen"</strong>
+        <ol style={{ margin: '0 0 8px 16px', fontSize: 12, lineHeight: 1.7 }}>
+          <li>Run <code>npm run build</code> in your terminal</li>
+          <li>Go to <strong>netlify.com</strong> → drag & drop the <code>dist/</code> folder</li>
+          <li>Open the HTTPS URL on your phone</li>
+          <li>Tap <strong>⋮ → "Add to Home screen"</strong> → it will work ✅</li>
+        </ol>
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 0 }}>
+          PWA install requires HTTPS. The free Netlify plan gives you HTTPS automatically.
         </p>
       </div>
-
-      <div className="install-banner-actions">
-        {canInstall && (
-          <button className="btn-primary install-btn" onClick={handleInstallClick}>
-            Try Install via Chrome
-          </button>
-        )}
-        <button className="btn-outline dismiss-btn" onClick={() => setDismissed(true)}>✕</button>
+      <div className="install-banner-actions" style={{ marginTop: 8 }}>
+        <button className="btn-outline dismiss-btn" onClick={() => setDismissed(true)}>✕ Dismiss</button>
       </div>
     </div>
   );
