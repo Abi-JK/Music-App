@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { fmt } from '../utils/helpers';
 import { fetchLyrics, searchSongs } from '../utils/api';
 
-export default function DetailPanel({ song, onClose, liked, toggleLike, onPlay, isPlaying, showToast, onDownload, onRingtone, onAddToQueue, onSearchArtist, onPlaySong }) {
+export default function DetailPanel({ song, onClose, liked, toggleLike, onPlay, isPlaying, showToast, onDownload, onRingtone, onAddToQueue, onSearchArtist, onPlaySong, onShare }) {
   const [lyrics, setLyrics]     = useState(null);
   const [lyricsBusy, setLyBusy] = useState(false);
   const [lyricsNone, setLyNone] = useState(false);
@@ -86,6 +86,15 @@ export default function DetailPanel({ song, onClose, liked, toggleLike, onPlay, 
                   <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                 </svg>
                 Queue
+              </button>
+            )}
+            {onShare && (
+              <button className="btn-outline" onClick={() => onShare(song)} title="Share">
+                <svg width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                </svg>
+                Share
               </button>
             )}
           </div>

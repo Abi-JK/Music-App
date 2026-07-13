@@ -22,6 +22,12 @@ function groupByAlbum(songs) {
 export default function HomeView({ recentlyPlayed, currentSong, isPlaying, playSong, homeLoading, homeData, doSearch, setDetailSong }) {
   return (
     <>
+      {/* Hero Tagline */}
+      <div className="hero-tagline">
+        <h1>Your Music, Your Vibe</h1>
+        <p>Stream millions of songs for free. No ads. No limits. Just pure music.</p>
+      </div>
+
       {recentlyPlayed.length > 0 && (
         <div style={{ marginBottom: 28 }}>
           <div className="sec-title">Recently Played</div>

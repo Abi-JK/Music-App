@@ -1,4 +1,4 @@
-// Generate proper PNG icons for SoundAura PWA
+// Generate PNG icons for SoundAura PWA — matching new branding
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
@@ -8,25 +8,47 @@ const SIZES = [72, 96, 128, 144, 152, 192, 384, 512];
 function createPNG(size) {
   const w = size, h = size;
   const raw = Buffer.alloc((w * 4 + 1) * h);
-  const cx = w / 2, cy = h / 2, r = w * 0.38;
+  const cx = w / 2, cy = h / 2;
   const grad = Buffer.alloc(w * h * 4);
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
+      const idx = (y * w + x) * 4;
       const dx = x - cx, dy = y - cy;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      const idx = (y * w + x) * 4;
+      const normDist = dist / (w * 0.5);
 
-      if (dist <= r) {
-        const t = (dist / r);
-        const R = Math.round(0 + t * 0);
-        const G = Math.round(201 + t * 10);
-        const B = Math.round(212 + t * (-30));
-        const A = 255;
-        grad[idx] = R;
-        grad[idx + 1] = G;
-        grad[idx + 2] = B;
-        grad[idx + 3] = A;
+      if (normDist <= 1.0) {
+        // Dark background gradient: black → deep blue
+        const tBg = y / h;
+        const bgR = Math.round(10 * (1 - tBg) + 10 * tBg);
+        const bgG = Math.round(10 * (1 - tBg) + 22 * tBg);
+        const bgB = Math.round(26 * (1 - tBg) + 40 * tBg);
+
+        // Inner circle: purple → blue gradient
+        const innerR = w * 0.35;
+        if (dist <= innerR) {
+          // Purple (155,93,229) → Blue (58,134,255)
+          const tGrad = x / w;
+          const r = Math.round(155 + tGrad * (58 - 155));
+          const g = Math.round(93 + tGrad * (134 - 93));
+          const b = Math.round(229 + tGrad * (255 - 229));
+          grad[idx] = r;
+          grad[idx + 1] = g;
+          grad[idx + 2] = b;
+          grad[idx + 3] = 255;
+        } else {
+          // Fade to dark background
+          const fadeT = Math.min(1, (dist - innerR) / (w * 0.15));
+          const tGrad = x / w;
+          const innerR2 = Math.round(155 + tGrad * (58 - 155));
+          const innerG2 = Math.round(93 + tGrad * (134 - 93));
+          const innerB2 = Math.round(229 + tGrad * (255 - 229));
+          grad[idx] = Math.round(innerR2 * (1 - fadeT) + bgR * fadeT);
+          grad[idx + 1] = Math.round(innerG2 * (1 - fadeT) + bgG * fadeT);
+          grad[idx + 2] = Math.round(innerB2 * (1 - fadeT) + bgB * fadeT);
+          grad[idx + 3] = 255;
+        }
       } else {
         grad[idx] = 0;
         grad[idx + 1] = 0;
@@ -36,10 +58,9 @@ function createPNG(size) {
     }
   }
 
-  // Raw pixel rows with filter byte 0 (None)
   for (let y = 0; y < h; y++) {
     const rowOff = y * (w * 4 + 1);
-    raw[rowOff] = 0; // filter byte
+    raw[rowOff] = 0;
     for (let x = 0; x < w; x++) {
       const srcOff = (y * w + x) * 4;
       const dstOff = rowOff + 1 + x * 4;
@@ -81,7 +102,7 @@ function buildPNG(w, h, idatData) {
   const signature = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
   const ihdr = Buffer.concat([
     toBytes(w), toBytes(h),
-    Buffer.from([8, 6, 0, 0, 0]), // 8-bit RGBA
+    Buffer.from([8, 6, 0, 0, 0]),
   ]);
   const chunks = [
     mkChunk('IHDR', ihdr),
@@ -92,7 +113,6 @@ function buildPNG(w, h, idatData) {
   return Buffer.concat([signature, ...chunks]);
 }
 
-// Generate
 const outDir = path.join(__dirname, '..', 'public', 'icons');
 if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 
@@ -102,35 +122,57 @@ SIZES.forEach(s => {
   console.log(`Created icon-${s}.png (${(png.length / 1024).toFixed(1)} KB)`);
 });
 
-// Also create maskable versions (same icon with padding)
+// Maskable versions (slightly smaller icon for safe zone)
 [192, 512].forEach(s => {
-  // Create slightly smaller icon for maskable (with padding)
-  const raw = Buffer.alloc((s * 4 + 1) * s);
-  const cx = s / 2, cy = s / 2, r = s * 0.32;
-  const grad = Buffer.alloc(s * s * 4);
+  const w = s, h = s;
+  const raw = Buffer.alloc((w * 4 + 1) * h);
+  const cx = w / 2, cy = h / 2;
+  const grad = Buffer.alloc(w * h * 4);
 
-  for (let y = 0; y < s; y++) {
-    for (let x = 0; x < s; x++) {
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = (y * w + x) * 4;
       const dx = x - cx, dy = y - cy;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      const idx = (y * s + x) * 4;
-      if (dist <= r) {
-        const t = dist / r;
-        grad[idx] = Math.round(0 + t * 0);
-        grad[idx + 1] = Math.round(201 + t * 10);
-        grad[idx + 2] = Math.round(212 + t * (-30));
-        grad[idx + 3] = 255;
+
+      // Maskable: icon in center 80% safe zone
+      const innerR = w * 0.28;
+      const outerR = w * 0.45;
+
+      if (dist <= outerR) {
+        const tBg = y / h;
+        const bgR = Math.round(10 * (1 - tBg) + 10 * tBg);
+        const bgG = Math.round(10 * (1 - tBg) + 22 * tBg);
+        const bgB = Math.round(26 * (1 - tBg) + 40 * tBg);
+
+        if (dist <= innerR) {
+          const tGrad = x / w;
+          grad[idx] = Math.round(155 + tGrad * (58 - 155));
+          grad[idx + 1] = Math.round(93 + tGrad * (134 - 93));
+          grad[idx + 2] = Math.round(229 + tGrad * (255 - 229));
+          grad[idx + 3] = 255;
+        } else {
+          const fadeT = Math.min(1, (dist - innerR) / (w * 0.17));
+          const tGrad = x / w;
+          const iR = Math.round(155 + tGrad * (58 - 155));
+          const iG = Math.round(93 + tGrad * (134 - 93));
+          const iB = Math.round(229 + tGrad * (255 - 229));
+          grad[idx] = Math.round(iR * (1 - fadeT) + bgR * fadeT);
+          grad[idx + 1] = Math.round(iG * (1 - fadeT) + bgG * fadeT);
+          grad[idx + 2] = Math.round(iB * (1 - fadeT) + bgB * fadeT);
+          grad[idx + 3] = 255;
+        }
       } else {
         grad[idx] = 0; grad[idx + 1] = 0; grad[idx + 2] = 0; grad[idx + 3] = 0;
       }
     }
   }
 
-  for (let y = 0; y < s; y++) {
-    const rowOff = y * (s * 4 + 1);
+  for (let y = 0; y < h; y++) {
+    const rowOff = y * (w * 4 + 1);
     raw[rowOff] = 0;
-    for (let x = 0; x < s; x++) {
-      const srcOff = (y * s + x) * 4;
+    for (let x = 0; x < w; x++) {
+      const srcOff = (y * w + x) * 4;
       const dstOff = rowOff + 1 + x * 4;
       raw[dstOff] = grad[srcOff];
       raw[dstOff + 1] = grad[srcOff + 1];
@@ -140,7 +182,7 @@ SIZES.forEach(s => {
   }
 
   const compressed = zlib.deflateSync(raw);
-  const png = buildPNG(s, s, compressed);
+  const png = buildPNG(w, h, compressed);
   fs.writeFileSync(path.join(outDir, `icon-maskable-${s}.png`), png);
   console.log(`Created icon-maskable-${s}.png (${(png.length / 1024).toFixed(1)} KB)`);
 });

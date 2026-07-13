@@ -1,10 +1,72 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#00c9d4"/>
-      <stop offset="100%" stop-color="#00a0b0"/>
+    <!-- Background gradient: black → deep blue -->
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0a0a1a"/>
+      <stop offset="100%" stop-color="#0a1628"/>
     </linearGradient>
+    <!-- Headphone gradient: purple (left) → blue (right) -->
+    <linearGradient id="hp" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#9b5de5"/>
+      <stop offset="100%" stop-color="#3a86ff"/>
+    </linearGradient>
+    <!-- Soundwave gradient: pink → purple → cyan -->
+    <linearGradient id="wave" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ff6b9d"/>
+      <stop offset="50%" stop-color="#c77dff"/>
+      <stop offset="100%" stop-color="#00c9d4"/>
+    </linearGradient>
+    <!-- Glow filter for soundwave -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Subtle outer glow for headphones -->
+    <filter id="hpGlow" x="-10%" y="-10%" width="120%" height="120%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
   </defs>
-  <circle cx="256" cy="256" r="230" fill="url(#g)"/>
-  <path d="M200 160v192l140-96z" fill="#fff"/>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="80" fill="url(#bg)"/>
+
+  <!-- Headphone band (arc) -->
+  <path d="M140 260 C140 150, 372 150, 372 260"
+        fill="none" stroke="url(#hp)" stroke-width="22" stroke-linecap="round"
+        filter="url(#hpGlow)"/>
+
+  <!-- Left ear cup -->
+  <rect x="112" y="238" width="56" height="80" rx="18" fill="url(#hp)" filter="url(#hpGlow)"/>
+  <!-- Left ear cup inner -->
+  <rect x="122" y="252" width="36" height="52" rx="12" fill="#1a1040" opacity="0.6"/>
+
+  <!-- Right ear cup -->
+  <rect x="344" y="238" width="56" height="80" rx="18" fill="url(#hp)" filter="url(#hpGlow)"/>
+  <!-- Right ear cup inner -->
+  <rect x="354" y="252" width="36" height="52" rx="12" fill="#1a1040" opacity="0.6"/>
+
+  <!-- Soundwave bars (glowing, centered between ear cups) -->
+  <g filter="url(#glow)">
+    <rect x="195" y="268" width="7" height="28" rx="3.5" fill="url(#wave)" opacity="0.9"/>
+    <rect x="210" y="258" width="7" height="48" rx="3.5" fill="url(#wave)"/>
+    <rect x="225" y="250" width="7" height="64" rx="3.5" fill="url(#wave)"/>
+    <rect x="240" y="244" width="7" height="76" rx="3.5" fill="url(#wave)"/>
+    <rect x="255" y="238" width="7" height="88" rx="3.5" fill="url(#wave)"/>
+    <rect x="270" y="244" width="7" height="76" rx="3.5" fill="url(#wave)"/>
+    <rect x="285" y="250" width="7" height="64" rx="3.5" fill="url(#wave)"/>
+    <rect x="300" y="258" width="7" height="48" rx="3.5" fill="url(#wave)" opacity="0.9"/>
+    <rect x="315" y="268" width="7" height="28" rx="3.5" fill="url(#wave)" opacity="0.7"/>
+  </g>
+
+  <!-- Text: "Sound" in cyan, "Aura" in purple -->
+  <text x="256" y="410" text-anchor="middle" font-family="'Inter','Segoe UI','Helvetica Neue',Arial,sans-serif" font-weight="900" font-size="58">
+    <tspan fill="#00c9d4">Sound</tspan><tspan fill="#9b5de5">Aura</tspan>
+  </text>
 </svg>

@@ -26,6 +26,8 @@ import InstallBanner from './components/InstallBanner';
 import SleepTimerModal from './components/SleepTimerModal';
 import LocalUpload from './components/LocalUpload';
 import MobileNav from './components/MobileNav';
+import ShareModal from './components/ShareModal';
+import AuthModal from './components/AuthModal';
 
 // Views
 import HomeView from './views/HomeView';
@@ -105,6 +107,11 @@ export default function App() {
   const [isLight, setIsLight] = useState(() => LS.get('sw_theme', 'dark') === 'light');
   const [isSleepTimerOpen, setIsSleepTimerOpen] = useState(false);
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+  const [shareSong, setShareSong] = useState(null);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [user, setUser] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('saaura_user')) || null; } catch { return null; }
+  });
 
   const currentSong = playlist[currentIndex] || null;
   const panelOpen   = !!detailSong;
@@ -437,6 +444,9 @@ export default function App() {
         onPlaylistSearch={handlePlaylistSearch}
         onOpenSleepTimer={() => setIsSleepTimerOpen(true)}
         onOpenUpload={() => setIsUploadOpen(true)}
+        user={user}
+        onOpenAuth={() => setIsAuthOpen(true)}
+        onLogout={() => { setUser(null); localStorage.removeItem('saaura_user'); showToast('👋 Logged out'); }}
       />
 
       <div className="body">
@@ -487,6 +497,7 @@ export default function App() {
               userAlbums={userAlbums}
               onAddToAlbum={addToAlbum}
               onCreateAlbum={createAlbum}
+              onShare={setShareSong}
             />
           )}
           {activeTab === 'liked' && (
@@ -501,6 +512,7 @@ export default function App() {
               openRingtone={openRingtone}
               setDetailSong={setDetailSong}
               addToQueue={addToQueue}
+              onShare={setShareSong}
             />
           )}
           {activeTab === 'downloads' && (
@@ -517,6 +529,7 @@ export default function App() {
               setDetailSong={setDetailSong}
               handleDeleteOffline={handleDeleteOffline}
               addToQueue={addToQueue}
+              onShare={setShareSong}
             />
           )}
           {activeTab === 'albums' && (
@@ -535,6 +548,7 @@ export default function App() {
               setDetailSong={setDetailSong}
               addToQueue={addToQueue}
               showToast={showToast}
+              onShare={setShareSong}
             />
           )}
         </div>
@@ -557,6 +571,7 @@ export default function App() {
           onAddToQueue={addToQueue}
           onSearchArtist={searchArtist}
           onPlaySong={(s) => { playSong(s, [s], 0); setDetailSong(s); }}
+          onShare={setShareSong}
         />
       )}
 
@@ -616,6 +631,19 @@ export default function App() {
         onClose={() => setIsUploadOpen(false)}
         showToast={showToast}
         onAddLocalTrack={loadOfflineLibrary}
+      />
+
+      <ShareModal 
+        song={shareSong}
+        onClose={() => setShareSong(null)}
+        showToast={showToast}
+      />
+
+      <AuthModal 
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        onAuth={(u) => setUser(u)}
+        showToast={showToast}
       />
 
       {ringtoneTarget && (
