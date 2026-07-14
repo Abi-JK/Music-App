@@ -77,16 +77,42 @@ async function fetchSongsByPids(pids, signal) {
   return results.map(normSong);
 }
 
-// ─── SEARCH: autocomplete.get → extract song_pids → song.getDetails ──────────
+// ─── SEARCH: search.getResults (multi-page) + autocomplete fallback ──────────
 export async function searchSongs(query, limit = 80) {
   try {
-    // Step 1: autocomplete to find albums with song_pids
+    // Step 1: search.getResults — fetch 2 pages for more coverage
+    const pageSize = Math.min(limit, 40);
+    const pages = limit > 40 ? 2 : 1;
+    const pageFetches = [];
+    for (let p = 1; p <= pages; p++) {
+      pageFetches.push(
+        safeJsonFetch(
+          `${API}?__call=search.getResults&q=${encodeURIComponent(query)}&_format=json&_marker=0&cc=in&p=${p}&n=${pageSize}`,
+          CORS_PROXIES
+        ).catch(() => ({ results: [] }))
+      );
+    }
+    const pageResults = await Promise.all(pageFetches);
+    const seen = new Set();
+    const directSongs = [];
+    for (const pageRes of pageResults) {
+      for (const s of (pageRes.results || [])) {
+        if (s?.id && s?.song && !seen.has(s.id)) {
+          seen.add(s.id);
+          directSongs.push(s);
+        }
+      }
+    }
+    if (directSongs.length > 0) {
+      return directSongs.map(normSong).slice(0, limit);
+    }
+
+    // Step 2: Fallback — autocomplete.get → extract song_pids → song.getDetails
     const auto = await safeJsonFetch(
       `${API}?__call=autocomplete.get&query=${encodeURIComponent(query)}&_format=json&_marker=0&cc=in&includeMetaTags=1`,
       CORS_PROXIES
     );
 
-    // Collect song_pids from albums
     const allPids = [];
     const albums = auto.albums?.data || [];
     for (const album of albums) {
@@ -103,25 +129,7 @@ export async function searchSongs(query, limit = 80) {
       if (songs.length > 0) return songs;
     }
 
-    // Step 2: Fallback — search.getAlbumResults gives album metadata (no songs directly)
-    const albumRes = await safeJsonFetch(
-      `${API}?__call=search.getAlbumResults&q=${encodeURIComponent(query)}&_format=json&_marker=0&ctx=web6dot0&p=1&n=${Math.min(limit, 20)}`,
-      CORS_PROXIES
-    );
-
-    const albumResults = albumRes.results || [];
-    const fallbackPids = [];
-    for (const album of albumResults) {
-      const pids = album.artist?.singers?.flat()?.map(a => a[1]).filter(Boolean) || [];
-      // We don't have song PIDs from album search, so use autocomplete PIDs
-    }
-
-    // If still no songs, try playlist approach
-    if (allPids.length === 0 && fallbackPids.length === 0) {
-      return [];
-    }
-
-    return await fetchSongsByPids(fallbackPids.slice(0, limit));
+    return [];
   } catch {
     return [];
   }

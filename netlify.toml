@@ -37,28 +37,12 @@
 
 # Manifest must not be cached
 [[headers]]
-  for = "/manifest.json"
+  for = "/manifest.webmanifest"
   [headers.values]
     Cache-Control = "no-cache, must-revalidate"
 
 # ── API Proxy Redirects ──────────────────────────────────
-# These replicate the Vite dev proxies for production
-
-# Vercel JioSaavn API wrapper (search + lyrics)
-[[redirects]]
-  from = "/saavn-search/*"
-  to = "https://jiosaavn-api-beta.vercel.app/:splat"
-  status = 200
-  force = true
-
-# Edge Functions: proxy API + stream requests with proper JioSaavn headers
-[[edge_functions]]
-  function = "saavn-api"
-  path = "/saavn-api"
-
-[[edge_functions]]
-  function = "saavn-stream"
-  path = "/saavn-stream/*"
+# Edge functions removed — using _redirects for production proxy
 
 # SPA fallback — must be LAST
 [[redirects]]

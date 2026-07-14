@@ -12,15 +12,14 @@ export default function Sidebar({ activeTab, setActiveTab, likedCount, dlCount, 
     <div className="sidebar">
       <div className="logo">
         <svg width="48" height="48" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect width="512" height="512" rx="96" fill="#0a0e1a"/>
-          <path d="M140 290 C140 155, 372 155, 372 290" fill="none" stroke="var(--accent)" stroke-width="30" strokeLinecap="round"/>
-          <rect x="110" y="260" width="62" height="86" rx="18" fill="var(--accent)"/>
-          <rect x="340" y="260" width="62" height="86" rx="18" fill="var(--accent)"/>
-          <rect x="215" y="278" width="10" height="36" rx="5" fill="var(--accent-light)" opacity="0.7"/>
-          <rect x="235" y="268" width="10" height="56" rx="5" fill="var(--accent-light)" opacity="0.85"/>
-          <rect x="255" y="260" width="10" height="72" rx="5" fill="var(--accent)"/>
-          <rect x="275" y="268" width="10" height="56" rx="5" fill="var(--accent-light)" opacity="0.85"/>
-          <rect x="295" y="278" width="10" height="36" rx="5" fill="var(--accent-light)" opacity="0.7"/>
+          <rect width="512" height="512" rx="108" fill="#080c18"/>
+          <rect x="100" y="280" width="32" height="110" rx="16" fill="#006878"/>
+          <rect x="148" y="220" width="32" height="170" rx="16" fill="var(--accent)"/>
+          <rect x="196" y="160" width="32" height="230" rx="16" fill="var(--accent)"/>
+          <rect x="244" y="120" width="32" height="270" rx="16" fill="var(--accent)"/>
+          <rect x="292" y="170" width="32" height="220" rx="16" fill="var(--accent)"/>
+          <rect x="340" y="230" width="32" height="160" rx="16" fill="var(--accent)"/>
+          <rect x="388" y="290" width="32" height="100" rx="16" fill="#006878"/>
         </svg>
         <span className="logo-text">SoundAura</span>
       </div>

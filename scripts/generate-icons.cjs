@@ -1,4 +1,4 @@
-// Generate PNG icons for SoundAura — Cyan theme
+// Generate PNG icons for SoundAura — Dark rounded-square with cyan accent
 const fs = require('fs');
 const path = require('path');
 const zlib = require('zlib');
@@ -10,24 +10,53 @@ function createPNG(size) {
   const raw = Buffer.alloc((w * 4 + 1) * h);
   const cx = w / 2, cy = h / 2;
   const grad = Buffer.alloc(w * h * 4);
+  const cornerR = w * 0.22; // rounded corner radius
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const idx = (y * w + x) * 4;
-      const dx = x - cx, dy = y - cy;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const innerR = w * 0.38;
+      // Rounded rectangle check
+      const inRoundedRect = (() => {
+        if (x < cornerR && y < cornerR) {
+          const dx = x - cornerR, dy = y - cornerR;
+          return Math.sqrt(dx*dx + dy*dy) <= cornerR;
+        }
+        if (x >= w - cornerR && y < cornerR) {
+          const dx = x - (w - cornerR), dy = y - cornerR;
+          return Math.sqrt(dx*dx + dy*dy) <= cornerR;
+        }
+        if (x < cornerR && y >= h - cornerR) {
+          const dx = x - cornerR, dy = y - (h - cornerR);
+          return Math.sqrt(dx*dx + dy*dy) <= cornerR;
+        }
+        if (x >= w - cornerR && y >= h - cornerR) {
+          const dx = x - (w - cornerR), dy = y - (h - cornerR);
+          return Math.sqrt(dx*dx + dy*dy) <= cornerR;
+        }
+        return x >= 0 && x < w && y >= 0 && y < h;
+      })();
 
-      if (dist <= innerR) {
-        // Cyan: 0, 212, 232
-        grad[idx] = 0; grad[idx + 1] = 212; grad[idx + 2] = 232; grad[idx + 3] = 255;
-      } else if (dist <= w * 0.5) {
-        const fadeT = Math.min(1, (dist - innerR) / (w * 0.12));
-        grad[idx] = Math.round(0 * (1 - fadeT));
-        grad[idx + 1] = Math.round(212 * (1 - fadeT) + 7 * fadeT);
-        grad[idx + 2] = Math.round(232 * (1 - fadeT) + 20 * fadeT);
-        grad[idx + 3] = 255;
+      if (inRoundedRect) {
+        const dx = x - cx, dy = y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const innerR = w * 0.30;
+
+        if (dist <= innerR) {
+          // Solid cyan center
+          grad[idx] = 0; grad[idx + 1] = 212; grad[idx + 2] = 232; grad[idx + 3] = 255;
+        } else if (dist <= w * 0.42) {
+          // Fade to dark
+          const fadeT = Math.min(1, (dist - innerR) / (w * 0.12));
+          grad[idx] = Math.round(0 * (1 - fadeT) + 10 * fadeT);
+          grad[idx + 1] = Math.round(212 * (1 - fadeT) + 14 * fadeT);
+          grad[idx + 2] = Math.round(232 * (1 - fadeT) + 26 * fadeT);
+          grad[idx + 3] = 255;
+        } else {
+          // Dark background #0a0e1a
+          grad[idx] = 10; grad[idx + 1] = 14; grad[idx + 2] = 26; grad[idx + 3] = 255;
+        }
       } else {
+        // Transparent outside rounded rect
         grad[idx] = 0; grad[idx + 1] = 0; grad[idx + 2] = 0; grad[idx + 3] = 0;
       }
     }
@@ -84,26 +113,51 @@ SIZES.forEach(s => {
   console.log(`icon-${s}.png (${(png.length / 1024).toFixed(1)} KB)`);
 });
 
+// Maskable icons — same but slightly larger safe zone
 [192, 512].forEach(s => {
   const w = s, h = s;
   const raw = Buffer.alloc((w * 4 + 1) * h);
   const cx = w / 2, cy = h / 2;
   const grad = Buffer.alloc(w * h * 4);
+  const cornerR = w * 0.22;
+
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const idx = (y * w + x) * 4;
-      const dx = x - cx, dy = y - cy;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      const innerR = w * 0.30, outerR = w * 0.45;
-      if (dist <= outerR) {
+      const inRoundedRect = (() => {
+        if (x < cornerR && y < cornerR) {
+          const dx = x - cornerR, dy = y - cornerR;
+          return Math.sqrt(dx*dx + dy*dy) <= cornerR;
+        }
+        if (x >= w - cornerR && y < cornerR) {
+          const dx = x - (w - cornerR), dy = y - cornerR;
+          return Math.sqrt(dx*dx + dy*dy) <= cornerR;
+        }
+        if (x < cornerR && y >= h - cornerR) {
+          const dx = x - cornerR, dy = y - (h - cornerR);
+          return Math.sqrt(dx*dx + dy*dy) <= cornerR;
+        }
+        if (x >= w - cornerR && y >= h - cornerR) {
+          const dx = x - (w - cornerR), dy = y - (h - cornerR);
+          return Math.sqrt(dx*dx + dy*dy) <= cornerR;
+        }
+        return x >= 0 && x < w && y >= 0 && y < h;
+      })();
+
+      if (inRoundedRect) {
+        const dx = x - cx, dy = y - cy;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const innerR = w * 0.24;
         if (dist <= innerR) {
           grad[idx] = 0; grad[idx + 1] = 212; grad[idx + 2] = 232; grad[idx + 3] = 255;
-        } else {
-          const fadeT = Math.min(1, (dist - innerR) / (w * 0.15));
-          grad[idx] = 0;
-          grad[idx + 1] = Math.round(212 * (1 - fadeT));
-          grad[idx + 2] = Math.round(232 * (1 - fadeT));
+        } else if (dist <= w * 0.36) {
+          const fadeT = Math.min(1, (dist - innerR) / (w * 0.12));
+          grad[idx] = Math.round(10 * fadeT);
+          grad[idx + 1] = Math.round(212 * (1 - fadeT) + 14 * fadeT);
+          grad[idx + 2] = Math.round(232 * (1 - fadeT) + 26 * fadeT);
           grad[idx + 3] = 255;
+        } else {
+          grad[idx] = 10; grad[idx + 1] = 14; grad[idx + 2] = 26; grad[idx + 3] = 255;
         }
       } else {
         grad[idx] = 0; grad[idx + 1] = 0; grad[idx + 2] = 0; grad[idx + 3] = 0;

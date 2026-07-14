@@ -281,16 +281,16 @@ body {
 /* ── Song Table (rows) ─────────────────── */
 .song-table { display: flex; flex-direction: column; gap: 1px; }
 .table-head {
-  display: grid; grid-template-columns: 36px 1fr 1fr 70px 100px;
-  align-items: center; padding: 5px 12px; gap: 10px;
+  display: grid; grid-template-columns: 40px 2fr 1fr 70px 80px;
+  align-items: center; padding: 5px 14px; gap: 12px;
   color: var(--text-muted); font-size: 10.5px; font-weight: 700;
   letter-spacing: 0.5px; text-transform: uppercase;
   border-bottom: 1px solid var(--border-subtle); margin-bottom: 3px;
 }
 .song-row {
-  display: grid; grid-template-columns: 36px 1fr 1fr 70px 100px;
-  align-items: center; padding: 7px 12px; border-radius: var(--r-sm);
-  gap: 10px; transition: background var(--t) var(--ease); cursor: pointer;
+  display: grid; grid-template-columns: 40px 2fr 1fr 70px 80px;
+  align-items: center; padding: 8px 14px; border-radius: var(--r-sm);
+  gap: 12px; transition: background var(--t) var(--ease); cursor: pointer;
 }
 .song-row:hover { background: rgba(255,255,255,0.04); }
 .light-theme .song-row:hover { background: rgba(0,0,0,0.04); }
@@ -333,8 +333,8 @@ body {
 
 /* ── Album Search Cards ───────────────── */
 .album-search-results { margin-bottom: 24px; }
-.search-songs-wrap .song-table { overflow-y: auto; flex: 1; min-height: 0; }
-.search-songs-wrap { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.search-songs-wrap { display: flex; flex-direction: column; width: 100%; }
+.search-songs-wrap .song-table { display: flex; flex-direction: column; gap: 1px; }
 .album-card-grid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 12px; margin-top: 10px;

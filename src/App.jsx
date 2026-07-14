@@ -242,22 +242,47 @@ export default function App() {
     setDetailSong(song);
   }, [addRecent, isOnline, showToast]);
 
+  const savedPlaylistRef = useRef([]);
+
   const playNext = useCallback(() => {
-    // If queue has items, play from queue first
+    // If queue has items, play from queue first (save current playlist)
     if (queue.length > 0) {
+      if (playlist.length > 1 && currentIndex >= 0) {
+        savedPlaylistRef.current = playlist;
+      }
       const nextSong = queue[0];
       setQueue(prev => prev.slice(1));
-      setPlaylist(prev => {
-        const idx = prev.length; // append to end conceptually, then switch
-        return prev;
-      });
       setPlaylist([nextSong]);
       setCurrentIndex(0);
       setIsPlaying(true);
       addRecent(nextSong);
       return;
     }
+    // If we just finished a queue song, restore original playlist
+    if (playlist.length <= 1 && savedPlaylistRef.current.length > 0) {
+      const restored = savedPlaylistRef.current;
+      savedPlaylistRef.current = [];
+      setPlaylist(restored);
+      setCurrentIndex(0);
+      setIsPlaying(true);
+      return;
+    }
     if (!playlist.length) return;
+    const atEnd = currentIndex >= playlist.length - 1;
+    // If at end of a single-song or finished playlist, fetch similar songs
+    if (atEnd && playlist.length <= 1 && playlist[0]) {
+      const song = playlist[0];
+      const q = `${song.artist} ${song.album || ''}`.trim() || song.title;
+      searchSongs(q, 30).then(songs => {
+        const filtered = songs.filter(s => s.id !== song.id);
+        if (filtered.length) {
+          setPlaylist(filtered);
+          setCurrentIndex(0);
+          setIsPlaying(true);
+        }
+      }).catch(() => {});
+      return;
+    }
     let next = shuffle && playlist.length > 1
       ? (() => { let i; do { i = Math.floor(Math.random() * playlist.length); } while (i === currentIndex); return i; })()
       : (currentIndex + 1) % playlist.length;
@@ -383,18 +408,9 @@ export default function App() {
     setSearched(true); 
     setSearchLoading(true);
     try {
-      let songs;
       const langObj = LANG_QUERIES.find(l => l.label === activeLang);
-      if (langObj?.label === 'All') {
-        const queries = [q, ...BROAD_TERMS.map(t => `${q} ${t}`)];
-        const results = await Promise.all(queries.map(query => searchSongs(query, 80).catch(() => [])));
-        const seen = new Set();
-        songs = results.flat().filter(s => { if (seen.has(s.id)) return false; seen.add(s.id); return true; });
-        songs = songs.slice(0, 200);
-      } else {
-        const term = langObj?.term ? `${q} ${langObj.term}` : q;
-        songs = await searchSongs(term, 80);
-      }
+      const term = langObj?.term && langObj.label !== 'All' ? `${q} ${langObj.term}` : q;
+      const songs = await searchSongs(term, 80);
       setSearchResults(songs);
       if (songs.length) { setPlaylist(songs); setCurrentIndex(0); }
       else showToast('No results found.');
