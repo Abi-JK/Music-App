@@ -2,7 +2,7 @@ const fs = require('fs');
 const sharp = require('sharp');
 const path = require('path');
 
-const sourceImage = "C:\\Users\\ADMIN\\.gemini\\antigravity-ide\\brain\\2ba7b1d6-ba42-4eb0-b4b6-2938c415517c\\sleek_music_logo_1784011376515.png";
+const sourceImage = "C:\\Users\\ADMIN\\.gemini\\antigravity-ide\\brain\\2ba7b1d6-ba42-4eb0-b4b6-2938c415517c\\pure_music_logo_1784012576848.png";
 const iconsPath = path.join(__dirname, 'public', 'icons');
 
 if (!fs.existsSync(iconsPath)) {
