@@ -45,7 +45,7 @@ export default function InstallBanner() {
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') setDeferredPrompt(null);
     } else {
-      alert("App can't be installed automatically right now. Try using 'Add to Home Screen' from your browser menu!");
+      alert("App can't be installed automatically right now.\\n\\nIf you are on an iPhone/iPad: Tap the Share icon (square with an arrow) and select 'Add to Home Screen'.\\n\\nIf you are on Android/PC: Look for the install icon in the URL bar or browser menu.");
     }
   }, [deferredPrompt]);
 
@@ -54,7 +54,7 @@ export default function InstallBanner() {
   return (
     <div className="install-banner">
       <div className="install-banner-content">
-        <img src="/icons/icon-96.png" alt="SoundAura Logo" style={{ width: 44, height: 44, borderRadius: 12 }} />
+        <img src="/icons/icon-96.png?v=3" alt="SoundAura Logo" style={{ width: 44, height: 44, borderRadius: 12 }} />
         <span className="install-banner-title">Install SoundAura</span>
       </div>
       <div style={{ display: 'flex', gap: 8 }}>

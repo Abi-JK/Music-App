@@ -224,9 +224,16 @@ export async function fetchLyrics(songId) {
     if (f) return f;
   } catch { /* lyrics are optional */ }
   
-  // Fallback to saavn.me unofficial API
+  // Fallback 1: to saavn.me unofficial API
   try {
     const res = await fetch(`https://saavn.me/lyrics?id=${songId}`);
+    const j = await res.json();
+    if (j?.data?.lyrics) return formatLyrics(j.data.lyrics);
+  } catch {}
+
+  // Fallback 2: jiosaavn-api-beta
+  try {
+    const res = await fetch(`https://jiosaavn-api-beta.vercel.app/songs/${songId}/lyrics`);
     const j = await res.json();
     if (j?.data?.lyrics) return formatLyrics(j.data.lyrics);
   } catch {}
