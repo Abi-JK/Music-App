@@ -81,13 +81,12 @@ async function fetchSongsByPids(pids, signal) {
 export async function searchSongs(query, limit = 80) {
   try {
     // Step 1: search.getResults — fetch 2 pages for more coverage
-    const pageSize = Math.min(limit, 40);
-    const pages = limit > 40 ? 2 : 1;
+    const pages = limit > 40 ? 3 : 1;
     const pageFetches = [];
     for (let p = 1; p <= pages; p++) {
       pageFetches.push(
         safeJsonFetch(
-          `${API}?__call=search.getResults&q=${encodeURIComponent(query)}&_format=json&_marker=0&cc=in&p=${p}&n=${pageSize}`,
+          `${API}?__call=search.getResults&q=${encodeURIComponent(query)}&_format=json&_marker=0&cc=in&p=${p}&n=40`,
           CORS_PROXIES
         ).catch(() => ({ results: [] }))
       );

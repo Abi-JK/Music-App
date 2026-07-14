@@ -10,21 +10,31 @@ export default function InstallBanner() {
   const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
-    const onBeforeInstall = (e) => {
+    const handlePrompt = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
     };
+
+    if (window.__installPrompt) {
+      setDeferredPrompt(window.__installPrompt);
+    }
+
+    window.addEventListener('beforeinstallprompt', handlePrompt);
+    const onReady = () => setDeferredPrompt(window.__installPrompt);
+    window.addEventListener('installpromptready', onReady);
+
     const onAppInstalled = () => {
       setDeferredPrompt(null);
+      window.__installPrompt = null;
       setIsInstalled(true);
     };
-
-    window.addEventListener('beforeinstallprompt', onBeforeInstall);
     window.addEventListener('appinstalled', onAppInstalled);
+
     if (isStandalone()) setIsInstalled(true);
 
     return () => {
-      window.removeEventListener('beforeinstallprompt', onBeforeInstall);
+      window.removeEventListener('beforeinstallprompt', handlePrompt);
+      window.removeEventListener('installpromptready', onReady);
       window.removeEventListener('appinstalled', onAppInstalled);
     };
   }, []);
@@ -35,7 +45,7 @@ export default function InstallBanner() {
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') setDeferredPrompt(null);
     } else {
-      window.open('https://soundaura.netlify.app', '_blank');
+      alert("App can't be installed automatically right now. Try using 'Add to Home Screen' from your browser menu!");
     }
   }, [deferredPrompt]);
 
@@ -44,16 +54,7 @@ export default function InstallBanner() {
   return (
     <div className="install-banner">
       <div className="install-banner-content">
-        <svg width="48" height="48" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect width="512" height="512" rx="108" fill="#080c18"/>
-          <rect x="100" y="280" width="32" height="110" rx="16" fill="#006878"/>
-          <rect x="148" y="220" width="32" height="170" rx="16" fill="var(--accent)"/>
-          <rect x="196" y="160" width="32" height="230" rx="16" fill="var(--accent)"/>
-          <rect x="244" y="120" width="32" height="270" rx="16" fill="var(--accent)"/>
-          <rect x="292" y="170" width="32" height="220" rx="16" fill="var(--accent)"/>
-          <rect x="340" y="230" width="32" height="160" rx="16" fill="var(--accent)"/>
-          <rect x="388" y="290" width="32" height="100" rx="16" fill="#006878"/>
-        </svg>
+        <img src="/logo.svg" alt="SoundAura Logo" style={{ width: 44, height: 44, borderRadius: 12 }} />
         <span className="install-banner-title">Install SoundAura</span>
       </div>
       <div style={{ display: 'flex', gap: 8 }}>

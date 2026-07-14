@@ -269,20 +269,31 @@ export default function App() {
     }
     if (!playlist.length) return;
     const atEnd = currentIndex >= playlist.length - 1;
-    // If at end of a single-song or finished playlist, fetch similar songs
-    if (atEnd && playlist.length <= 1 && playlist[0]) {
-      const song = playlist[0];
+    
+    // Autoplay: If at end of playlist, fetch similar matching songs and append
+    if (atEnd && playlist[currentIndex]) {
+      const song = playlist[currentIndex];
       const q = `${song.artist} ${song.album || ''}`.trim() || song.title;
-      searchSongs(q, 30).then(songs => {
-        const filtered = songs.filter(s => s.id !== song.id);
+      const langObj = LANG_QUERIES.find(l => l.label === activeLang);
+      const term = langObj?.term && langObj.label !== 'All' ? `${q} ${langObj.term}` : q;
+      
+      searchSongs(term, 30).then(songs => {
+        const filtered = songs.filter(s => s.id !== song.id && !playlist.some(ps => ps.id === s.id));
         if (filtered.length) {
-          setPlaylist(filtered);
-          setCurrentIndex(0);
+          setPlaylist(prev => [...prev, ...filtered]);
+          setCurrentIndex(currentIndex + 1);
           setIsPlaying(true);
+        } else {
+          setCurrentIndex(0);
+          setIsPlaying(false);
         }
-      }).catch(() => {});
+      }).catch(() => {
+        setCurrentIndex(0);
+        setIsPlaying(false);
+      });
       return;
     }
+    
     let next = shuffle && playlist.length > 1
       ? (() => { let i; do { i = Math.floor(Math.random() * playlist.length); } while (i === currentIndex); return i; })()
       : (currentIndex + 1) % playlist.length;

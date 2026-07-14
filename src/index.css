@@ -155,7 +155,7 @@ body {
 .light-theme .topbar {
   background: rgba(255,255,255,0.85);
 }
-.search-wrap { position: relative; flex: 1; max-width: 560px; min-width: 260px; }
+.search-wrap { position: relative; flex: 1; max-width: 800px; min-width: 260px; }
 .search-box {
   display: flex; align-items: center; gap: 9px;
   background: var(--bg-elevated); border: 2px solid var(--border-card);
@@ -176,7 +176,8 @@ body {
 .suggestions {
   position: absolute; top: calc(100% + 8px); left: 0; right: 0;
   background: var(--bg-elevated); border: 1px solid var(--border);
-  border-radius: var(--r-lg); z-index: 999; overflow: hidden;
+  border-radius: var(--r-lg); z-index: 999;
+  max-height: 65vh; overflow-y: auto; overflow-x: hidden;
   box-shadow: 0 16px 50px rgba(0,0,0,0.4);
 }
 .sugg-header {
@@ -1004,6 +1005,34 @@ body {
   }
   .app.panel-open {
     grid-template-columns: var(--sidebar-w) 1fr 300px;
+  }
+}
+
+/* Responsive Table for Panel Open */
+@media (max-width: 1280px) {
+  .app.panel-open .table-head {
+    grid-template-columns: 30px 2fr 70px 80px;
+  }
+  .app.panel-open .song-row {
+    grid-template-columns: 30px 2fr 70px 80px;
+  }
+  .app.panel-open .table-head span:nth-child(3),
+  .app.panel-open .row-album {
+    display: none;
+  }
+}
+@media (max-width: 1100px) {
+  .app.panel-open .table-head {
+    grid-template-columns: 24px 1fr 50px;
+  }
+  .app.panel-open .song-row {
+    grid-template-columns: 24px 1fr 50px;
+  }
+  .app.panel-open .table-head span:nth-child(3),
+  .app.panel-open .table-head span:nth-child(4),
+  .app.panel-open .row-album,
+  .app.panel-open .row-dur {
+    display: none;
   }
 }
 

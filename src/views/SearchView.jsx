@@ -229,7 +229,7 @@ export default function SearchView({ searchLoading, searched, searchResults, cur
             {searchResults.map((song, i) => (
               <SongRow key={song.id} song={song} idx={i}
                 isActive={currentSong?.id === song.id} isPlaying={isPlaying}
-                onPlay={() => playSong(song, searchResults, i)}
+                onPlay={() => playSong(song)}
                 onDownload={handleDownload} onLike={toggleLike}
                 liked={isLiked(song.id)} onRingtone={openRingtone}
                 onDetails={setDetailSong} onAddToQueue={addToQueue}
@@ -268,7 +268,7 @@ export default function SearchView({ searchLoading, searched, searchResults, cur
               {songs.map((song, i) => (
                 <SongRow key={song.id} song={song} idx={i}
                   isActive={currentSong?.id === song.id} isPlaying={isPlaying}
-                  onPlay={() => playSong(song, searchResults, searchResults.indexOf(song))}
+                  onPlay={() => playSong(song, songs, i)}
                   onDownload={handleDownload} onLike={toggleLike}
                   liked={isLiked(song.id)} onRingtone={openRingtone}
                   onDetails={setDetailSong} onAddToQueue={addToQueue}

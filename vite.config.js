@@ -91,7 +91,7 @@ export default defineConfig({
       },
       devOptions: {
         // Enable SW in dev mode so you can test the install banner locally
-        enabled: false,
+        enabled: true,
       },
     }),
   ],

@@ -1,0 +1,20 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Thick Rounded Triangle Outline -->
+  <path d="M120 110 L410 256 L120 402 Z" stroke="#00d4e8" stroke-width="60" stroke-linejoin="round" stroke-linecap="round" fill="none"/>
+  
+  <!-- Music Note -->
+  <circle cx="180" cy="300" r="30" fill="#00d4e8"/>
+  <path d="M206 300 L206 180" stroke="#00d4e8" stroke-width="20" stroke-linecap="round"/>
+  
+  <!-- Soundwaves -->
+  <line x1="246" y1="230" x2="246" y2="282" stroke="#00d4e8" stroke-width="16" stroke-linecap="round"/>
+  <line x1="276" y1="210" x2="276" y2="302" stroke="#00d4e8" stroke-width="16" stroke-linecap="round"/>
+  <line x1="306" y1="230" x2="306" y2="282" stroke="#00d4e8" stroke-width="16" stroke-linecap="round"/>
+  
+  <!-- Tech Dots / Lines -->
+  <line x1="336" y1="240" x2="356" y2="240" stroke="#00d4e8" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="366" cy="240" r="8" fill="#00d4e8"/>
+  
+  <line x1="336" y1="272" x2="356" y2="272" stroke="#00d4e8" stroke-width="12" stroke-linecap="round"/>
+  <circle cx="366" cy="272" r="8" fill="#00d4e8"/>
+</svg>
