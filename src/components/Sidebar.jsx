@@ -11,7 +11,7 @@ export default function Sidebar({ activeTab, setActiveTab, likedCount, dlCount, 
   return (
     <div className="sidebar">
       <div className="logo">
-        <img src="/logo.svg" alt="SoundAura Logo" style={{ width: 44, height: 44 }} />
+        <img src="/icons/icon-96.png" alt="SoundAura Logo" style={{ width: 44, height: 44 }} />
         <span className="logo-text">SoundAura</span>
       </div>
       <div className="sidebar-scroll">

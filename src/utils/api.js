@@ -21,7 +21,12 @@ async function safeJsonFetch(primaryUrl, fallbackUrls, signal) {
   if (signal?.aborted) throw new Error('Aborted');
   for (const makeUrl of fallbackUrls) {
     try {
-      const proxyUrl = makeUrl(primaryUrl);
+      const actualTarget = primaryUrl.startsWith('/saavn-api') 
+        ? primaryUrl.replace('/saavn-api', 'https://www.jiosaavn.com/api.php')
+        : primaryUrl.startsWith('/saavn-search')
+          ? primaryUrl.replace('/saavn-search', 'https://jiosaavn-api-beta.vercel.app')
+          : primaryUrl;
+      const proxyUrl = makeUrl(actualTarget);
       const res = await fetch(proxyUrl, { signal });
       if (!res.ok) continue;
       const text = await res.text();
@@ -134,6 +139,29 @@ export async function searchSongs(query, limit = 80) {
   }
 }
 
+// ─── AUTOCOMPLETE FOR TOPBAR SEARCH AS YOU TYPE ──────────────────────────────
+export async function autocompleteSongs(query) {
+  try {
+    const auto = await safeJsonFetch(
+      `${API}?__call=autocomplete.get&query=${encodeURIComponent(query)}&_format=json&_marker=0&cc=in&includeMetaTags=1`,
+      CORS_PROXIES
+    );
+    const results = [];
+    const songs = auto.songs?.data || [];
+    for (const s of songs) {
+      results.push({
+        id: s.id,
+        title: decodeHtml(s.title || s.song || 'Unknown'),
+        artist: decodeHtml(s.more_info?.primary_artists || s.description || 'Unknown'),
+        coverUrl: (s.image || '').replace('50x50', '150x150').replace('150x150', '500x500')
+      });
+    }
+    return results;
+  } catch {
+    return [];
+  }
+}
+
 // ─── PLAYBACK: Get fresh signed stream URL ───────────────────────────────────
 export async function getStreamUrl(songId, signal) {
   const detailsUrl = `${API}?__call=song.getDetails&pids=${songId}&_format=json&_marker=0&ctx=web6dot0`;
@@ -188,11 +216,6 @@ export async function searchAlbumSongs(albumName, limit = 80) {
 // ─── LYRICS ──────────────────────────────────────────────────────────────────
 export async function fetchLyrics(songId) {
   try {
-    const j = await safeJsonFetch(`${SEARCH}/lyrics?id=${songId}`, CORS_PROXIES);
-    const f = formatLyrics(j.data?.lyrics || j.lyrics);
-    if (f) return f;
-  } catch { /* fall through */ }
-  try {
     const j = await safeJsonFetch(
       `${API}?__call=lyrics.getLyrics&lyrics_id=${songId}&_format=json&_marker=0&ctx=web6dot0`,
       CORS_PROXIES
@@ -200,6 +223,14 @@ export async function fetchLyrics(songId) {
     const f = formatLyrics(j.lyrics);
     if (f) return f;
   } catch { /* lyrics are optional */ }
+  
+  // Fallback to saavn.me unofficial API
+  try {
+    const res = await fetch(`https://saavn.me/lyrics?id=${songId}`);
+    const j = await res.json();
+    if (j?.data?.lyrics) return formatLyrics(j.data.lyrics);
+  } catch {}
+  
   return null;
 }
 

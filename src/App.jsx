@@ -284,11 +284,9 @@ export default function App() {
           setCurrentIndex(currentIndex + 1);
           setIsPlaying(true);
         } else {
-          setCurrentIndex(0);
           setIsPlaying(false);
         }
       }).catch(() => {
-        setCurrentIndex(0);
         setIsPlaying(false);
       });
       return;

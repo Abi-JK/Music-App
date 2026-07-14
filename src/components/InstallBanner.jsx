@@ -54,7 +54,7 @@ export default function InstallBanner() {
   return (
     <div className="install-banner">
       <div className="install-banner-content">
-        <img src="/logo.svg" alt="SoundAura Logo" style={{ width: 44, height: 44, borderRadius: 12 }} />
+        <img src="/icons/icon-96.png" alt="SoundAura Logo" style={{ width: 44, height: 44, borderRadius: 12 }} />
         <span className="install-banner-title">Install SoundAura</span>
       </div>
       <div style={{ display: 'flex', gap: 8 }}>

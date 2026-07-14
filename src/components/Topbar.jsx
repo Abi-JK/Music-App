@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useDebounce } from '../hooks/useDebounce';
-import { searchSongs } from '../utils/api';
+import { autocompleteSongs } from '../utils/api';
 import { LANG_QUERIES } from '../utils/constants';
 
 export default function Topbar({ q, setQ, activeLang, setLang, onSearch, onSuggestionClick, isLight, onToggleTheme, isSongLiked, onToggleLike }) {
@@ -15,7 +15,7 @@ export default function Topbar({ q, setQ, activeLang, setLang, onSearch, onSugge
     setSuggBusy(true);
     const langTerm = LANG_QUERIES.find(l => l.label === activeLang)?.term;
     const searchTerm = langTerm ? `${debouncedQ} ${langTerm}` : debouncedQ;
-    searchSongs(searchTerm, 12)
+    autocompleteSongs(searchTerm)
       .then(res => { setSuggestions(res); setShowSugg(res.length > 0); })
       .catch(() => setSuggestions([]))
       .finally(() => setSuggBusy(false));
