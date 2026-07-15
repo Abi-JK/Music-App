@@ -1,25 +1,33 @@
 // src/App.jsx
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
 
 export default function App() {
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>SoundAura PWA</Text>
-    </View>
+    <div style={styles.container}>
+      <h1 style={styles.title}>SoundAura PWA</h1>
+      <p style={styles.description}>Free ad‑free music streaming.</p>
+    </div>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = {
   container: {
-    flex: 1,
+    minHeight: '100vh',
     backgroundColor: '#121212',
+    display: 'flex',
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
+    color: '#ffffff',
+    fontFamily: 'Inter, sans-serif',
   },
   title: {
-    fontSize: 28,
-    color: '#1DB954',
-    fontFamily: 'Inter',
+    fontSize: '2rem',
+    marginBottom: '0.5rem',
+    color: '#00d4e8',
   },
-});
+  description: {
+    fontSize: '1rem',
+    color: '#cccccc',
+  },
+};
