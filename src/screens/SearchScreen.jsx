@@ -1,19 +1,7 @@
 import React from 'react';
 import { formatTime } from '../utils/helpers';
 
-export default function SearchScreen({ 
-  searchResults, 
-  searchLoading, 
-  searched, 
-  currentSong, 
-  isPlaying, 
-  playSong, 
-  toggleLike, 
-  liked,
-  downloadSong,
-  downloadedIds = [],
-  downloadingIds = []
-}) {
+export default function SearchScreen({ searchResults, searchLoading, searched, currentSong, isPlaying, playSong, toggleLike, liked }) {
   if (searchLoading) return (
     <div className="spinner-wrap"><div className="spinner" /><p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Searching...</p></div>
   );
@@ -43,8 +31,6 @@ export default function SearchScreen({
         {searchResults.map((song, i) => {
           const isActive = currentSong?.id === song.id;
           const isLiked = liked ? liked(song.id) : false;
-          const isDownloaded = downloadedIds.includes(song.id);
-          const isDownloading = downloadingIds.includes(song.id);
           return (
             <div key={song.id} className={`song-row ${isActive ? 'now-playing' : ''}`}
               onClick={() => playSong(song, searchResults, i)}>
@@ -61,16 +47,6 @@ export default function SearchScreen({
               <span className="row-album">{song.album || '—'}</span>
               <span className="row-dur">{formatTime(song.duration)}</span>
               <div className="row-acts">
-                {downloadSong && (
-                  <button 
-                    className="icon-btn" 
-                    onClick={(e) => { e.stopPropagation(); downloadSong(song); }}
-                    disabled={isDownloading || isDownloaded}
-                    title={isDownloaded ? "Downloaded" : isDownloading ? "Downloading..." : "Download"}
-                  >
-                    {isDownloaded ? '✅' : isDownloading ? '⏳' : '⬇️'}
-                  </button>
-                )}
                 {toggleLike && (
                   <button className="icon-btn" onClick={(e) => { e.stopPropagation(); toggleLike(song); }}>
                     {isLiked ? '❤️' : '🤍'}

@@ -173,8 +173,11 @@ img { display: block; max-width: 100%; }
 /* ── Main Scroll ─────────────────────────── */
 .main-scroll {
   flex: 1; overflow-y: auto; overflow-x: hidden;
-  padding: 24px 26px 16px; min-height: 0;
+  padding: 24px 26px 16px; min-height: 0; min-width: 0;
 }
+
+/* ── Search Screen ──────────────────────── */
+.search-screen { width: 100%; min-width: 0; }
 
 /* ── Install Banner ──────────────────────── */
 .install-banner {
@@ -236,16 +239,16 @@ img { display: block; max-width: 100%; }
 }
 
 /* ── Song Table ─────────────────────────── */
-.song-table { display: flex; flex-direction: column; gap: 1px; }
+.song-table { display: flex; flex-direction: column; gap: 1px; width: 100%; min-width: 0; }
 .table-head {
-  display: grid; grid-template-columns: 40px 2fr 1fr 70px 50px;
+  display: grid; grid-template-columns: 40px minmax(0, 2fr) minmax(0, 1fr) 70px 50px;
   align-items: center; padding: 5px 14px; gap: 12px;
   color: var(--text-muted); font-size: 10.5px; font-weight: 700;
   letter-spacing: 0.5px; text-transform: uppercase;
   border-bottom: 1px solid var(--border-subtle); margin-bottom: 3px;
 }
 .song-row {
-  display: grid; grid-template-columns: 40px 2fr 1fr 70px 50px;
+  display: grid; grid-template-columns: 40px minmax(0, 2fr) minmax(0, 1fr) 70px 50px;
   align-items: center; padding: 8px 14px; border-radius: var(--r-sm);
   gap: 12px; transition: background var(--t) var(--ease); cursor: pointer;
 }
@@ -438,14 +441,14 @@ img { display: block; max-width: 100%; }
   .search-wrap { min-width: 100%; order: 1; }
   .lang-chips { width: 100%; order: 2; padding-bottom: 2px; }
 
-  .main-scroll { padding: 14px 14px 16px; }
+  .main-scroll { padding: 14px 14px 130px; }
 
   .install-banner { padding: 10px 14px; }
   .install-banner-title { font-size: 13px; }
 
-  .table-head { grid-template-columns: 28px 1fr 50px 40px; padding: 5px 8px; gap: 8px; }
+  .table-head { grid-template-columns: 28px minmax(0, 1fr) 50px 40px; padding: 5px 8px; gap: 8px; }
   .table-head span:nth-child(3) { display: none; }
-  .song-row { grid-template-columns: 28px 1fr 50px 40px; padding: 8px; gap: 8px; }
+  .song-row { grid-template-columns: 28px minmax(0, 1fr) 50px 40px; padding: 8px; gap: 8px; }
   .row-album { display: none; }
   .row-info img, .row-info .r-ph { width: 36px; height: 36px; }
 
