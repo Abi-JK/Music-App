@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { LANG_QUERIES } from '../utils/constants';
 import { searchSongs } from '../utils/api';
 
-export default function Topbar({ q, setQ, activeLang, setLang, onSearch, onResults }) {
+export default function Topbar({ q, setQ, activeLang, setLang, onSearch }) {
   const [sugs, setSugs] = useState([]);
   const [showSugs, setShowSugs] = useState(false);
   const timerRef = useRef(null);
@@ -26,7 +26,7 @@ export default function Topbar({ q, setQ, activeLang, setLang, onSearch, onResul
   const pickSugg = (s) => {
     setShowSugs(false);
     setQ(s.title);
-    if (onResults) onResults([s]);
+    onSearch();
   };
 
   return (

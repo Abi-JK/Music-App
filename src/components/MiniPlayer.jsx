@@ -1,11 +1,13 @@
 import React from 'react';
 
-export default function MiniPlayer({ currentSong, isPlaying, setIsPlaying, onPlayNext }) {
+export default function MiniPlayer({ currentSong, isPlaying, setIsPlaying, onPlayNext, curTime, dur }) {
   if (!currentSong) return null;
+
+  const prog = dur ? (curTime / dur) * 100 : 0;
 
   return (
     <div className="mini-player">
-      <div className="mini-progress"><div className="mini-progress-bar" style={{ width: isPlaying ? '100%' : '0%' }} /></div>
+      <div className="mini-progress"><div className="mini-progress-bar" style={{ width: `${isPlaying ? prog : 0}%` }} /></div>
       <div className="mini-inner">
         {currentSong.coverUrl ? <img src={currentSong.coverUrl} alt="" className="mini-cover" /> : <div className="mini-cover mini-ph">🎵</div>}
         <div className="mini-info">

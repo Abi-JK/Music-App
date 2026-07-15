@@ -29,7 +29,7 @@ export default function InstallBanner() {
     }
   };
 
-  if (isInstalled || dismissed) return null;
+  if (isInstalled || dismissed || !deferredPrompt) return null;
 
   return (
     <div className="install-banner">
@@ -47,7 +47,7 @@ export default function InstallBanner() {
         <span className="install-banner-title">Install SoundAura</span>
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
-        {deferredPrompt && <button className="btn-install" onClick={handleInstall}>Install Now</button>}
+        <button className="btn-install" onClick={handleInstall}>Install Now</button>
         <button className="btn-dismiss" onClick={() => setDismissed(true)} title="Dismiss">✕</button>
       </div>
     </div>

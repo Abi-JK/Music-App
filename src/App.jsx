@@ -34,6 +34,8 @@ export default function App() {
   const [likedSongs, setLikedSongs] = useState(() => LS.get('sw_liked', []));
   const [recentlyPlayed, setRecentlyPlayed] = useState(() => LS.get('sw_recent', []));
 
+  const [audioState, setAudioState] = useState({ curTime: 0, dur: 0 });
+
   const currentSong = playlist[currentIndex] || null;
 
   const showToast = useCallback((msg) => {
@@ -120,9 +122,26 @@ export default function App() {
       .finally(() => setSearchLoading(false));
   }, [showToast]);
 
+  const searchByQuery = useCallback(async (term) => {
+    setSearchQ(term);
+    setActiveTab('search');
+    setSearched(true);
+    setSearchLoading(true);
+    setActiveLang('All');
+    try {
+      const songs = await searchSongs(term, 80);
+      setSearchResults(songs);
+      if (songs.length) { setPlaylist(songs); setCurrentIndex(0); }
+      else showToast('No results found.');
+    } catch {
+      showToast('Search failed. Check your connection.');
+    }
+    setSearchLoading(false);
+  }, [showToast]);
+
   return (
     <div className="app">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} onSearch={searchByQuery} />
       <div className="body">
         <Topbar
           q={searchQ} setQ={setSearchQ}
@@ -170,12 +189,15 @@ export default function App() {
         playPrev={playPrev}
         liked={isLiked}
         toggleLike={toggleLike}
+        onProgressUpdate={(curTime, dur) => setAudioState({ curTime, dur })}
       />
       <MiniPlayer
         currentSong={currentSong}
         isPlaying={isPlaying}
         setIsPlaying={setIsPlaying}
         onPlayNext={playNext}
+        curTime={audioState.curTime}
+        dur={audioState.dur}
       />
       <MobileNav activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} />
       <Toast msg={toastMsg} />

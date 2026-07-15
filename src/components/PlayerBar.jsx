@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { formatTime } from '../utils/helpers';
 import { getStreamUrl } from '../utils/api';
 
-export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNext, playPrev, liked, toggleLike }) {
+export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNext, playPrev, liked, toggleLike, onProgressUpdate }) {
   const audioRef = useRef(null);
   const [streamUrl, setStreamUrl] = useState(null);
   const [dur, setDur] = useState(0);
@@ -11,6 +11,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
   const [muted, setMuted] = useState(false);
   const [loading, setLoading] = useState(false);
   const prevSongId = useRef(null);
+  const lastProgressTick = useRef(0);
 
   useEffect(() => {
     if (!currentSong) return;
@@ -40,24 +41,32 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     if (!a || !streamUrl) return;
     a.src = streamUrl;
     a.load();
-    if (isPlaying) {
-      a.play().catch(() => setIsPlaying(false));
-    }
+    a.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
   }, [streamUrl]);
 
   useEffect(() => {
     const a = audioRef.current;
-    if (!a) return;
+    if (!a || !streamUrl) return;
     if (isPlaying) {
       a.play().catch(() => setIsPlaying(false));
     } else {
       a.pause();
     }
-  }, [isPlaying]);
+  }, [isPlaying, streamUrl]);
 
   const onTimeUpdate = () => {
     const a = audioRef.current;
-    if (a) { setCurTime(a.currentTime); setDur(a.duration || 0); }
+    if (a) {
+      const ct = a.currentTime;
+      const d = a.duration || 0;
+      setCurTime(ct);
+      setDur(d);
+      const now = performance.now();
+      if (onProgressUpdate && now - lastProgressTick.current > 300) {
+        lastProgressTick.current = now;
+        onProgressUpdate(ct, d);
+      }
+    }
   };
   const onEnded = () => { if (playNext) playNext(); };
   const onError = (e) => { console.error('Audio error:', e); setLoading(false); setIsPlaying(false); };

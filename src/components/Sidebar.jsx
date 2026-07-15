@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function Sidebar({ activeTab, setActiveTab, likedCount }) {
+export default function Sidebar({ activeTab, setActiveTab, likedCount, onSearch }) {
   const playlists = [
     { label: '🎵 Tamil Kuthu Hits',   term: 'tamil kuthu hits' },
     { label: '⭐ Evergreen Retro',     term: 'evergreen retro hits' },
@@ -37,7 +37,7 @@ export default function Sidebar({ activeTab, setActiveTab, likedCount }) {
 
         <div className="nav-label">Quick Playlists</div>
         {playlists.map(pl => (
-          <button key={pl.term} className="pl-item" onClick={() => { setActiveTab('search'); }}>
+          <button key={pl.term} className="pl-item" onClick={() => onSearch && onSearch(pl.term)}>
             {pl.label}
           </button>
         ))}
