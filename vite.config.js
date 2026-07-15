@@ -7,6 +7,7 @@ import dns from 'dns'
 dns.setDefaultResultOrder('ipv4first')
 
 export default defineConfig({
+  root: './',
   plugins: [
     react(),
     VitePWA({
