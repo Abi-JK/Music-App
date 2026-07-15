@@ -49,6 +49,9 @@ app.get('/api/lyrics/:id', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`Backend listening on http://localhost:${port}`);
-});
+if (require.main === module) {
+  app.listen(port, () => {
+    console.log(`Backend listening on http://localhost:${port}`);
+  });
+}
+module.exports = app;
