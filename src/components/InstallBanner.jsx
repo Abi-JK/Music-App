@@ -34,16 +34,7 @@ export default function InstallBanner() {
   return (
     <div className="install-banner">
       <div className="install-banner-content">
-        <svg width="48" height="48" viewBox="0 0 512 512" fill="none">
-          <rect width="512" height="512" rx="108" fill="#080c18"/>
-          <rect x="100" y="280" width="32" height="110" rx="16" fill="#006878"/>
-          <rect x="148" y="220" width="32" height="170" rx="16" fill="#00d4e8"/>
-          <rect x="196" y="160" width="32" height="230" rx="16" fill="#00d4e8"/>
-          <rect x="244" y="120" width="32" height="270" rx="16" fill="#00d4e8"/>
-          <rect x="292" y="170" width="32" height="220" rx="16" fill="#00d4e8"/>
-          <rect x="340" y="230" width="32" height="160" rx="16" fill="#00d4e8"/>
-          <rect x="388" y="290" width="32" height="100" rx="16" fill="#006878"/>
-        </svg>
+        <img src="/favicon.svg" alt="SoundAura" width="48" height="48" style={{ borderRadius: 10 }} />
         <span className="install-banner-title">Install SoundAura</span>
       </div>
       <div style={{ display: 'flex', gap: 8 }}>
