@@ -42,24 +42,14 @@
   [headers.values]
     Cache-Control = "no-cache, must-revalidate"
 
-# ── API Proxy Redirects ──────────────────────────────────
-# Edge functions removed — using _redirects for production proxy
+# CORS for search proxy
+[[headers]]
+  for = "/saavn-search/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Cache-Control = "public, max-age=300"
 
-# SPA fallback — must be LAST
-[[redirects]]
-  from = "/api/tracks"
-  to = ".netlify/functions/tracks"
-  status = 200
-[[redirects]]
-  from = "/api/search"
-  to = ".netlify/functions/search"
-  status = 200
-[[redirects]]
-  from = "/api/download"
-  to = ".netlify/functions/download"
-  status = 200
-
-# SPA fallback — must be LAST
+# SPA fallback — must be LAST (netlify.toml fallback)
 [[redirects]]
   from = "/*"
   to = "/index.html"

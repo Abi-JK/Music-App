@@ -1,104 +1,59 @@
-import { API } from './constants';
-import { decodeHtml, parseDuration } from './helpers';
-
-const CORS_PROXIES = [
-  (url) => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-  (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-];
+const SAavnAPI = '/saavn-search';
 
 async function safeFetch(url, signal) {
-  try {
-    const res = await fetch(url, { signal });
-    if (!res.ok) throw new Error(res.status);
-    const text = await res.text();
-    if (text.trimStart().startsWith('<!') || text.trimStart().startsWith('<html')) throw new Error('HTML');
-    return JSON.parse(text);
-  } catch {
-    if (signal?.aborted) throw new Error('Aborted');
-  }
-  for (const makeProxy of CORS_PROXIES) {
-    try {
-      const res = await fetch(makeProxy(url), { signal });
-      if (!res.ok) continue;
-      const text = await res.text();
-      if (text.trimStart().startsWith('<!') || text.trimStart().startsWith('<html')) continue;
-      return JSON.parse(text);
-    } catch { /* next */ }
-  }
-  throw new Error('All endpoints failed');
+  const res = await fetch(url, { signal });
+  if (!res.ok) throw new Error(res.status);
+  const json = await res.json();
+  if (json.status === 'SUCCESS') return json.data;
+  throw new Error(json.message || 'API error');
 }
 
 function normSong(s) {
-  const artist = decodeHtml(s.primary_artists || s.singers || '');
-  const image = (s.image || '').replace('150x150', '500x500');
+  const imageArr = s.image || [];
+  const cover = imageArr.find(i => i.quality === '500x500') || imageArr.find(i => i.quality === '150x150') || imageArr[0];
+  const dlArr = s.downloadUrl || [];
+  const best = dlArr.find(d => d.quality === '320kbps') || dlArr.find(d => d.quality === '160kbps') || dlArr.find(d => d.quality === '96kbps') || dlArr[dlArr.length - 1];
   return {
     id: s.id,
-    title: decodeHtml(s.song || s.title || 'Unknown'),
-    artist: artist || 'Unknown Artist',
-    album: decodeHtml(s.album || ''),
+    title: s.name || 'Unknown',
+    artist: s.primaryArtists || 'Unknown Artist',
+    album: s.album?.name || '',
     year: s.year || '',
-    duration: parseDuration(s.duration),
-    coverUrl: image || null,
-    audioUrl: null,
-    quality: '320kbps',
+    duration: parseInt(s.duration, 10) || 0,
+    coverUrl: cover?.link || null,
+    audioUrl: best?.link || null,
     language: s.language || '',
-    label: decodeHtml(s.label || ''),
-    hasLyrics: s.has_lyrics === 'true' || s.has_lyrics === true,
-    mediaPreview: s.media_preview_url || null,
-    albumUrl: s.album_url || null,
+    label: s.label || '',
+    copyright: s.copyright || '',
+    hasLyrics: s.hasLyrics === 'true',
+    albumUrl: s.album?.url || null,
+    albumId: s.album?.id || null,
   };
 }
 
 export async function searchSongs(query, limit = 40) {
-  const pageSize = Math.min(limit, 40);
-  const pages = limit > 40 ? 2 : 1;
-  const fetches = [];
-  for (let p = 1; p <= pages; p++) {
-    fetches.push(
-      safeFetch(`${API}?__call=search.getResults&q=${encodeURIComponent(query)}&_format=json&_marker=0&cc=in&p=${p}&n=${pageSize}`).catch(() => ({ results: [] }))
-    );
-  }
-  const results = await Promise.all(fetches);
-  const seen = new Set();
-  const songs = [];
-  for (const page of results) {
-    for (const s of (page.results || [])) {
-      if (s?.id && s?.song && !seen.has(s.id)) {
-        seen.add(s.id);
-        songs.push(normSong(s));
-      }
-    }
-  }
-  if (songs.length > 0) return songs.slice(0, limit);
-
-  // Fallback: autocomplete -> getDetails
-  try {
-    const auto = await safeFetch(`${API}?__call=autocomplete.get&cc=in&includeMetaTags=1&_format=json&_marker=0&q=${encodeURIComponent(query)}`);
-    const pids = (auto?.songs?.data || []).map(s => s.id).filter(Boolean).slice(0, limit);
-    if (!pids.length) return [];
-    const detail = await safeFetch(`${API}?__call=song.getDetails&pids=${pids.join(',')}&_format=json&_marker=0&ctx=web6dot0`);
-    return (detail?.songs || []).map(normSong).filter(s => s.id).slice(0, limit);
-  } catch {
-    return [];
-  }
+  const url = `${SAavnAPI}/search/songs?query=${encodeURIComponent(query)}&limit=${limit}`;
+  const data = await safeFetch(url);
+  const results = data?.results || [];
+  return results.map(normSong).filter(s => s.id && s.audioUrl);
 }
 
 export async function getStreamUrl(songId) {
   try {
-    const j = await safeFetch(`${API}?__call=song.getDetails&pids=${songId}&_format=json&_marker=0&ctx=web6dot0`);
-    const song = j?.songs?.[0];
-    if (song?.media_url) {
-      const streamUrl = `/saavn-stream${new URL(song.media_url).pathname}`;
-      return { audioUrl: song.media_url, streamUrl };
+    const data = await safeFetch(`${SAavnAPI}/songs?id=${songId}`);
+    const song = Array.isArray(data) ? data[0] : data;
+    if (song) {
+      const normed = normSong(song);
+      return { audioUrl: normed.audioUrl, streamUrl: normed.audioUrl };
     }
   } catch { /* fallback */ }
   return { audioUrl: null, streamUrl: null };
 }
 
-export async function fetchPlaylistSongs(listId, limit = 20) {
+export async function fetchAlbumSongs(albumId, limit = 30) {
   try {
-    const j = await safeFetch(`${API}?__call=playlist.getDetails&id=${listId}&_format=json&_marker=0&cc=in&includeMetaTags=1`);
-    const songs = (j?.songs || []).map(normSong).filter(s => s.id);
+    const data = await safeFetch(`${SAavnAPI}/albums?id=${albumId}`);
+    const songs = (data?.songs || []).map(normSong).filter(s => s.id && s.audioUrl);
     return songs.slice(0, limit);
   } catch {
     return [];

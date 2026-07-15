@@ -10,13 +10,22 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
   const [vol, setVol] = useState(0.8);
   const [muted, setMuted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const prevSongId = useRef(null);
 
   useEffect(() => {
     if (!currentSong) return;
-    setStreamUrl(null);
-    setDur(0);
+    if (prevSongId.current === currentSong.id) return;
+    prevSongId.current = currentSong.id;
+
     setCurTime(0);
+    setDur(0);
     setLoading(true);
+
+    if (currentSong.audioUrl) {
+      setStreamUrl(currentSong.audioUrl);
+      return;
+    }
+
     const ctrl = new AbortController();
     getStreamUrl(currentSong.id).then(u => {
       if (!ctrl.aborted) setStreamUrl(u.streamUrl || u.audioUrl);
@@ -51,7 +60,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     if (a) { setCurTime(a.currentTime); setDur(a.duration || 0); }
   };
   const onEnded = () => { if (playNext) playNext(); };
-  const onError = () => { setLoading(false); setIsPlaying(false); };
+  const onError = (e) => { console.error('Audio error:', e); setLoading(false); setIsPlaying(false); };
   const onCanPlay = () => { setLoading(false); };
 
   const toggleMute = () => {

@@ -50,6 +50,8 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Purge old cached versions so users get the latest code
+        cleanupOutdatedCaches: true,
         // Suppress missing glob files warning in dev
         globPatterns: process.env.NODE_ENV === 'development' ? [] : ['**/*.{js,css,html,svg,png,woff2,woff}'],
         // Navigation fallback to index.html for SPA routing

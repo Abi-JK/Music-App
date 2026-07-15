@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { fetchPlaylistSongs } from '../utils/api';
-import { HOME_PLAYLISTS } from '../utils/constants';
+import { searchSongs } from '../utils/api';
+import { HOME_SECTIONS } from '../utils/constants';
 
 export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyPlayed }) {
   const [sections, setSections] = useState({});
@@ -10,10 +10,10 @@ export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyP
     let cancelled = false;
     setLoading(true);
     Promise.all(
-      HOME_PLAYLISTS.map(pl =>
-        fetchPlaylistSongs(pl.listid, 12)
-          .then(songs => ({ key: pl.key, label: pl.label, songs }))
-          .catch(() => ({ key: pl.key, label: pl.label, songs: [] }))
+      HOME_SECTIONS.map(sec =>
+        searchSongs(sec.query, 12)
+          .then(songs => ({ key: sec.key, label: sec.label, songs }))
+          .catch(() => ({ key: sec.key, label: sec.label, songs: [] }))
       )
     ).then(results => {
       if (cancelled) return;
