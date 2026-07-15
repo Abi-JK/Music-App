@@ -1,33 +1,13 @@
 import React, { useState, useEffect } from 'react';
 
-const LogoSVG = ({ size = 48 }) => (
-  <svg width={size} height={size} viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" style={{ borderRadius: 10, flexShrink: 0 }}>
-    <defs>
-      <linearGradient id="ib-g1" x1="0" y1="1" x2="0" y2="0">
-        <stop offset="0%" stopColor="#006878"/>
-        <stop offset="50%" stopColor="#00b0cc"/>
-        <stop offset="100%" stopColor="#00eaff"/>
-      </linearGradient>
-      <linearGradient id="ib-g2" x1="0" y1="1" x2="0" y2="0">
-        <stop offset="0%" stopColor="#004d5a"/>
-        <stop offset="100%" stopColor="#0090aa"/>
-      </linearGradient>
-      <linearGradient id="ib-bg" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stopColor="#080c18"/>
-        <stop offset="100%" stopColor="#0a1020"/>
-      </linearGradient>
-    </defs>
-    <rect width="512" height="512" rx="108" fill="url(#ib-bg)"/>
-    <circle cx="256" cy="268" r="195" fill="none" stroke="#00d4e8" strokeWidth="2" opacity="0.08"/>
-    <rect x="100" y="280" width="32" height="110" rx="16" fill="url(#ib-g2)"/>
-    <rect x="148" y="220" width="32" height="170" rx="16" fill="url(#ib-g1)"/>
-    <rect x="196" y="160" width="32" height="230" rx="16" fill="url(#ib-g1)"/>
-    <rect x="244" y="120" width="32" height="270" rx="16" fill="url(#ib-g1)"/>
-    <rect x="292" y="170" width="32" height="220" rx="16" fill="url(#ib-g1)"/>
-    <rect x="340" y="230" width="32" height="160" rx="16" fill="url(#ib-g1)"/>
-    <rect x="388" y="290" width="32" height="100" rx="16" fill="url(#ib-g2)"/>
-    <circle cx="260" cy="300" r="60" fill="#00d4e8" opacity="0.04"/>
-  </svg>
+const LogoImage = ({ size = 48 }) => (
+  <img 
+    src="/favicon.png" 
+    alt="SoundAura Logo" 
+    width={size} 
+    height={size} 
+    style={{ borderRadius: 10, flexShrink: 0 }}
+  />
 );
 
 function isStandalone() {
@@ -38,6 +18,9 @@ export default function InstallBanner() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [showNativeOptions, setShowNativeOptions] = useState(false);
+  const [apkUrl, setApkUrl] = useState('');
+  const [ipaUrl, setIpaUrl] = useState('');
 
   useEffect(() => {
     const handler = (e) => { e.preventDefault(); setDeferredPrompt(e); };
@@ -51,26 +34,88 @@ export default function InstallBanner() {
     };
   }, []);
 
+  useEffect(() => {
+    fetch('/api/install')
+      .then(r => r.json())
+      .then(({ apkUrl, ipaUrl }) => {
+        setApkUrl(apkUrl || '');
+        setIpaUrl(ipaUrl || '');
+      })
+      .catch(console.error);
+  }, []);
+
   const handleInstall = async () => {
+    // First try PWA install
     if (deferredPrompt) {
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') setDeferredPrompt(null);
     }
+    
+    // Also show React Native download options
+    setShowNativeOptions(true);
   };
 
-  if (isInstalled || dismissed || !deferredPrompt) return null;
+  // Always show the banner (not dependent on deferredPrompt)
+  if (dismissed) return null;
 
   return (
     <div className="install-banner">
       <div className="install-banner-content">
-        <LogoSVG size={48} />
-        <span className="install-banner-title">Install SoundAura as App</span>
+        <LogoImage size={48} />
+        <span className="install-banner-title">Download SoundAura Mobile App</span>
+        <span className="install-banner-subtitle" style={{ fontSize: '0.8rem', color: '#888', marginTop: 4 }}>
+          All languages • Offline downloads • Persistent liked songs
+        </span>
       </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button className="btn-install" onClick={handleInstall}>Install Now</button>
-        <button className="btn-dismiss" onClick={() => setDismissed(true)} title="Dismiss">✕</button>
+      <div style={{ display: 'flex', gap: 8, flexDirection: 'column', alignItems: 'flex-end' }}>
+        <button className="btn-install" onClick={handleInstall}>Download App</button>
+        <button className="btn-dismiss" onClick={() => setDismissed(true)} title="Dismiss" style={{ fontSize: '0.8rem', padding: '4px 8px' }}>✕</button>
       </div>
+      {showNativeOptions && (apkUrl || ipaUrl) && (
+        <div className="native-download-options" style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {apkUrl && (
+            <a href={apkUrl} className="native-download-btn" style={{
+              padding: '0.5rem 1rem',
+              background: 'linear-gradient(45deg, #00d4e8, #0077b6)',
+              color: '#fff',
+              borderRadius: '6px',
+              textDecoration: 'none',
+              fontSize: '0.85rem',
+              fontWeight: 500
+            }}>
+              📱 Download Android APK
+            </a>
+          )}
+          {ipaUrl && (
+            <a href={ipaUrl} className="native-download-btn" style={{
+              padding: '0.5rem 1rem',
+              background: 'linear-gradient(45deg, #00d4e8, #0077b6)',
+              color: '#fff',
+              borderRadius: '6px',
+              textDecoration: 'none',
+              fontSize: '0.85rem',
+              fontWeight: 500
+            }}>
+              🍎 Download iOS IPA
+            </a>
+          )}
+        </div>
+      )}
+      {!showNativeOptions && (
+        <div className="native-download-options" style={{ marginTop: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ 
+            padding: '0.5rem 1rem',
+            background: '#1e1e1e',
+            color: '#888',
+            borderRadius: '6px',
+            fontSize: '0.85rem',
+            textAlign: 'center'
+          }}>
+            📱 App coming soon - Click to be notified
+          </div>
+        </div>
+      )}
     </div>
   );
 }

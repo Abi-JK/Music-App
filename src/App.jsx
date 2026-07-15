@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import './index.css';
 
 import Sidebar from './components/Sidebar';
@@ -15,7 +15,7 @@ import SearchScreen from './screens/SearchScreen';
 import LikedScreen from './screens/LikedScreen';
 
 import { searchSongs } from './utils/api';
-import { LS } from './utils/helpers';
+import { Storage } from './utils/storage';
 import { LANG_QUERIES } from './utils/constants';
 
 export default function App() {
@@ -32,13 +32,30 @@ export default function App() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searched, setSearched] = useState(false);
 
-  const [likedSongs, setLikedSongs] = useState(() => LS.get('sw_liked', []));
-  const [recentlyPlayed, setRecentlyPlayed] = useState(() => LS.get('sw_recent', []));
+  const [likedSongs, setLikedSongs] = useState([]);
+  const [recentlyPlayed, setRecentlyPlayed] = useState([]);
 
   const [audioState, setAudioState] = useState({ curTime: 0, dur: 0 });
   const [showLyrics, setShowLyrics] = useState(false);
 
   const currentSong = playlist[currentIndex] || null;
+
+  // Load data from IndexedDB on mount
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [liked, recent] = await Promise.all([
+          Storage.getLikedSongs(),
+          Storage.getRecentlyPlayed()
+        ]);
+        setLikedSongs(liked);
+        setRecentlyPlayed(recent);
+      } catch (error) {
+        console.error('Failed to load data from IndexedDB:', error);
+      }
+    };
+    loadData();
+  }, []);
 
   const showToast = useCallback((msg) => {
     setToastMsg(msg);
@@ -46,10 +63,10 @@ export default function App() {
     toastTimer.current = setTimeout(() => setToastMsg(''), 3500);
   }, []);
 
-  const addRecent = useCallback((song) => {
+  const addRecent = useCallback(async (song) => {
     setRecentlyPlayed(prev => {
       const next = [song, ...prev.filter(s => s.id !== song.id)].slice(0, 12);
-      LS.set('sw_recent', next);
+      Storage.addRecentlyPlayed(song).catch(console.error);
       return next;
     });
   }, []);
@@ -80,11 +97,17 @@ export default function App() {
   }, [playlist, currentIndex, addRecent]);
 
   const isLiked = useCallback((id) => likedSongs.some(s => s.id === id), [likedSongs]);
-  const toggleLike = useCallback((song) => {
+  const toggleLike = useCallback(async (song) => {
     setLikedSongs(prev => {
       const already = prev.some(s => s.id === song.id);
       const next = already ? prev.filter(s => s.id !== song.id) : [...prev, song];
-      LS.set('sw_liked', next);
+      
+      if (already) {
+        Storage.removeLikedSong(song.id).catch(console.error);
+      } else {
+        Storage.addLikedSong(song).catch(console.error);
+      }
+      
       showToast(already ? '💔 Removed from Liked Songs' : '❤️ Added to Liked Songs');
       return next;
     });

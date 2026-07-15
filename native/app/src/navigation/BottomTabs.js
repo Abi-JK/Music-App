@@ -1,9 +1,9 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
 import HomeScreen from '../screens/HomeScreen';
 import LibraryScreen from '../screens/LibraryScreen';
 import SettingsScreen from '../screens/SettingsScreen';
-import { FontAwesome5 } from '@expo/vector-icons';
 
 const Tab = createBottomTabNavigator();
 
@@ -12,23 +12,32 @@ export default function BottomTabs() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarIcon: ({ color, size }) => {
+        tabBarIcon: ({ focused, color, size }) => {
           let iconName;
+
           if (route.name === 'Home') {
-            iconName = 'music';
+            iconName = focused ? 'home' : 'home-outline';
           } else if (route.name === 'Library') {
-            iconName = 'list';
+            iconName = focused ? 'library' : 'library-outline';
           } else if (route.name === 'Settings') {
-            iconName = 'cog';
+            iconName = focused ? 'settings' : 'settings-outline';
           }
-          return <FontAwesome5 name={iconName} size={size} color={color} />;
+
+          return <Ionicons name={iconName} size={size} color={color} />;
         },
         tabBarStyle: {
           backgroundColor: '#121212',
           borderTopWidth: 0,
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 8,
         },
         tabBarActiveTintColor: '#1DB954',
         tabBarInactiveTintColor: '#888',
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontWeight: '500',
+        },
       })}
     >
       <Tab.Screen name="Home" component={HomeScreen} />
