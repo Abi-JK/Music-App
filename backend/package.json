@@ -1,0 +1,13 @@
+{
+  "name": "music-app-backend",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "adm-zip": "^0.5.10",
+    "serverless-http": "^3.0.0"
+  }
+}

@@ -46,6 +46,20 @@
 
 # SPA fallback — must be LAST
 [[redirects]]
+  from = "/api/tracks"
+  to = ".netlify/functions/tracks"
+  status = 200
+[[redirects]]
+  from = "/api/search"
+  to = ".netlify/functions/search"
+  status = 200
+[[redirects]]
+  from = "/api/download"
+  to = ".netlify/functions/download"
+  status = 200
+
+# SPA fallback — must be LAST
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
