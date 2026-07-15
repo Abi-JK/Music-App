@@ -10,7 +10,7 @@ const LogoImage = ({ size = 48 }) => (
   />
 );
 
-export default function Sidebar({ activeTab, setActiveTab, likedCount, onSearch }) {
+export default function Sidebar({ activeTab, setActiveTab, likedCount, onSearch, onInstall }) {
   const playlists = [
     { label: '🎵 Tamil Kuthu Hits',   term: 'tamil kuthu hits' },
     { label: '⭐ Evergreen Retro',     term: 'evergreen retro hits' },
@@ -35,6 +35,14 @@ export default function Sidebar({ activeTab, setActiveTab, likedCount, onSearch 
         <button className={`nav-item ${activeTab === 'liked' ? 'active' : ''}`} onClick={() => setActiveTab('liked')}>
           <span className="nav-icon">❤️</span>Liked Songs {likedCount > 0 && <span className="sidebar-badge">{likedCount}</span>}
         </button>
+        <button className={`nav-item ${activeTab === 'downloads' ? 'active' : ''}`} onClick={() => setActiveTab('downloads')}>
+          <span className="nav-icon">📥</span>Downloads
+        </button>
+        {onInstall && (
+          <button className="nav-item" onClick={onInstall} style={{ color: 'var(--accent)' }}>
+            <span className="nav-icon">📱</span>Install App
+          </button>
+        )}
 
         <div className="nav-label">Quick Playlists</div>
         {playlists.map(pl => (

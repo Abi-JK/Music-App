@@ -8,13 +8,14 @@ import MiniPlayer from './components/MiniPlayer';
 import MobileNav from './components/MobileNav';
 import Toast from './components/Toast';
 import InstallBanner from './components/InstallBanner';
-import LyricsPanel from './components/LyricsPanel';
+import FullScreenPlayer from './components/FullScreenPlayer';
 
 import HomeScreen from './screens/HomeScreen';
 import SearchScreen from './screens/SearchScreen';
 import LikedScreen from './screens/LikedScreen';
+import DownloadsScreen from './screens/DownloadsScreen';
 
-import { searchSongs } from './utils/api';
+import { searchSongs, downloadAudioBlob, getStreamUrl } from './utils/api';
 import { Storage } from './utils/storage';
 import { LANG_QUERIES } from './utils/constants';
 
@@ -34,28 +35,53 @@ export default function App() {
 
   const [likedSongs, setLikedSongs] = useState([]);
   const [recentlyPlayed, setRecentlyPlayed] = useState([]);
+  const [downloadedSongs, setDownloadedSongs] = useState([]);
+  const [downloadingIds, setDownloadingIds] = useState([]);
 
   const [audioState, setAudioState] = useState({ curTime: 0, dur: 0 });
-  const [showLyrics, setShowLyrics] = useState(false);
+  const [showFullScreen, setShowFullScreen] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
 
   const currentSong = playlist[currentIndex] || null;
 
   // Load data from IndexedDB on mount
   useEffect(() => {
+    Storage.requestPersistence().catch(console.error);
+
     const loadData = async () => {
       try {
-        const [liked, recent] = await Promise.all([
+        const [liked, recent, downloaded] = await Promise.all([
           Storage.getLikedSongs(),
-          Storage.getRecentlyPlayed()
+          Storage.getRecentlyPlayed(),
+          Storage.getDownloadedSongs()
         ]);
         setLikedSongs(liked);
         setRecentlyPlayed(recent);
+        setDownloadedSongs(downloaded);
       } catch (error) {
         console.error('Failed to load data from IndexedDB:', error);
       }
     };
     loadData();
+
+    // PWA Install Prompt Logic
+    if (window.__installPrompt) setDeferredPrompt(window.__installPrompt);
+    const handler = (e) => { e.preventDefault(); setDeferredPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
   }, []);
+
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+      }
+    } else {
+      showToast('App is already installed or install is not supported on this browser. On iOS, tap Share > Add to Home Screen.');
+    }
+  };
 
   const showToast = useCallback((msg) => {
     setToastMsg(msg);
@@ -123,7 +149,7 @@ export default function App() {
     try {
       const langObj = LANG_QUERIES.find(l => l.label === activeLang);
       const term = langObj?.term && langObj.label !== 'All' ? `${q} ${langObj.term}` : q;
-      const songs = await searchSongs(term, 80);
+      const songs = await searchSongs(term, 200);
       setSearchResults(songs);
       if (songs.length) { setPlaylist(songs); setCurrentIndex(0); }
       else showToast('No results found.');
@@ -164,12 +190,58 @@ export default function App() {
     setSearchLoading(false);
   }, [showToast]);
 
-  const openLyrics = useCallback(() => { if (currentSong) setShowLyrics(true); }, [currentSong]);
-  const closeLyrics = useCallback(() => setShowLyrics(false), []);
+  const downloadSong = useCallback(async (song) => {
+    if (downloadedSongs.some(s => s.id === song.id)) {
+      showToast('Song already downloaded.');
+      return;
+    }
+    setDownloadingIds(prev => [...prev, song.id]);
+    showToast(`Downloading "${song.title}"...`);
+    try {
+      let audioUrl = song.audioUrl;
+      if (!audioUrl) {
+        const res = await getStreamUrl(song.id);
+        audioUrl = res.streamUrl || res.audioUrl;
+      }
+      if (!audioUrl) throw new Error('No audio URL found');
+
+      const blob = await downloadAudioBlob(audioUrl);
+      if (!blob) throw new Error('Failed to download audio blob');
+
+      const songWithBlob = {
+        ...song,
+        audioBlob: blob,
+        downloadedAt: new Date().toISOString()
+      };
+
+      await Storage.addDownloadedSong(songWithBlob);
+      setDownloadedSongs(prev => [...prev, songWithBlob]);
+      showToast(`📥 "${song.title}" downloaded offline!`);
+    } catch (err) {
+      console.error(err);
+      showToast(`Failed to download "${song.title}".`);
+    } finally {
+      setDownloadingIds(prev => prev.filter(id => id !== song.id));
+    }
+  }, [downloadedSongs, showToast]);
+
+  const removeDownload = useCallback(async (songId) => {
+    try {
+      await Storage.removeDownloadedSong(songId);
+      setDownloadedSongs(prev => prev.filter(s => s.id !== songId));
+      showToast('🗑️ Song removed from offline downloads.');
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to remove download.');
+    }
+  }, [showToast]);
+
+  const openFullScreen = useCallback(() => { if (currentSong) setShowFullScreen(true); }, [currentSong]);
+  const closeFullScreen = useCallback(() => setShowFullScreen(false), []);
 
   return (
     <div className="app">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} onSearch={searchByQuery} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} onSearch={searchByQuery} onInstall={handleInstallApp} />
       <div className="body">
         <Topbar
           q={searchQ} setQ={setSearchQ}
@@ -196,6 +268,9 @@ export default function App() {
               playSong={playSong}
               toggleLike={toggleLike}
               liked={isLiked}
+              downloadSong={downloadSong}
+              downloadedIds={downloadedSongs.map(s => s.id)}
+              downloadingIds={downloadingIds}
             />
           )}
           {activeTab === 'liked' && (
@@ -205,6 +280,15 @@ export default function App() {
               isPlaying={isPlaying}
               playSong={playSong}
               toggleLike={toggleLike}
+            />
+          )}
+          {activeTab === 'downloads' && (
+            <DownloadsScreen
+              downloadedSongs={downloadedSongs}
+              currentSong={currentSong}
+              isPlaying={isPlaying}
+              playSong={playSong}
+              removeDownload={removeDownload}
             />
           )}
         </div>
@@ -218,7 +302,7 @@ export default function App() {
         liked={isLiked}
         toggleLike={toggleLike}
         onProgressUpdate={(curTime, dur) => setAudioState({ curTime, dur })}
-        onShowLyrics={openLyrics}
+        onExpand={openFullScreen}
       />
       <MiniPlayer
         currentSong={currentSong}
@@ -227,12 +311,24 @@ export default function App() {
         onPlayNext={playNext}
         curTime={audioState.curTime}
         dur={audioState.dur}
-        onShowLyrics={openLyrics}
+        onExpand={openFullScreen}
       />
-      <MobileNav activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} />
+      <MobileNav activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} onInstall={handleInstallApp} />
       <Toast msg={toastMsg} />
-      {showLyrics && currentSong && (
-        <LyricsPanel songId={currentSong.id} songTitle={currentSong.title} onClose={closeLyrics} />
+      {showFullScreen && currentSong && (
+        <FullScreenPlayer 
+          currentSong={currentSong} 
+          isPlaying={isPlaying}
+          setIsPlaying={setIsPlaying}
+          playNext={playNext}
+          playPrev={playPrev}
+          liked={isLiked}
+          toggleLike={toggleLike}
+          curTime={audioState.curTime}
+          dur={audioState.dur}
+          onClose={closeFullScreen} 
+          showToast={showToast}
+        />
       )}
     </div>
   );

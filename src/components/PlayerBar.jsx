@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { formatTime } from '../utils/helpers';
 import { getStreamUrl } from '../utils/api';
 
-export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNext, playPrev, liked, toggleLike, onProgressUpdate, onShowLyrics }) {
+export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNext, playPrev, liked, toggleLike, onProgressUpdate, onExpand }) {
   const audioRef = useRef(null);
   const [streamUrl, setStreamUrl] = useState(null);
   const [dur, setDur] = useState(0);
@@ -10,8 +10,11 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
   const [vol, setVol] = useState(0.8);
   const [muted, setMuted] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
   const prevSongId = useRef(null);
   const lastProgressTick = useRef(0);
+  const retryCount = useRef(0);
+  const maxRetries = 3;
 
   useEffect(() => {
     if (!currentSong) return;
@@ -21,19 +24,36 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     setCurTime(0);
     setDur(0);
     setLoading(true);
+    setErrorMsg('');
+    retryCount.current = 0;
 
+    let localBlobUrl = null;
+
+    // Support offline songs with stored blobs
+    if (currentSong.audioBlob) {
+      localBlobUrl = URL.createObjectURL(currentSong.audioBlob);
+      setStreamUrl(localBlobUrl);
+      return () => {
+        if (localBlobUrl) URL.revokeObjectURL(localBlobUrl);
+      };
+    }
+
+    // Use the audio URL directly from search results
     if (currentSong.audioUrl) {
       setStreamUrl(currentSong.audioUrl);
       return;
     }
 
+    // If no audioUrl, fetch it from the API
     const ctrl = new AbortController();
     getStreamUrl(currentSong.id).then(u => {
       if (!ctrl.aborted) setStreamUrl(u.streamUrl || u.audioUrl);
     }).catch(() => {
-      if (!ctrl.aborted) setLoading(false);
+      if (!ctrl.aborted) { setLoading(false); setErrorMsg('Could not load song'); }
     });
-    return () => ctrl.abort();
+    return () => {
+      ctrl.abort();
+    };
   }, [currentSong?.id]);
 
   useEffect(() => {
@@ -41,7 +61,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     if (!a || !streamUrl) return;
     a.src = streamUrl;
     a.load();
-    a.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+    a.play().then(() => { setIsPlaying(true); setErrorMsg(''); }).catch(() => setIsPlaying(false));
   }, [streamUrl]);
 
   useEffect(() => {
@@ -69,8 +89,47 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     }
   };
   const onEnded = () => { if (playNext) playNext(); };
-  const onError = (e) => { console.error('Audio error:', e); setLoading(false); setIsPlaying(false); };
-  const onCanPlay = () => { setLoading(false); };
+  
+  const onError = () => {
+    // Try alternate quality URLs if available
+    if (currentSong?.allAudioUrls && retryCount.current < maxRetries) {
+      const urls = currentSong.allAudioUrls;
+      const currentUrl = streamUrl;
+      const nextUrl = urls.find(u => u.url !== currentUrl);
+      if (nextUrl) {
+        retryCount.current++;
+        console.log(`[SoundAura] Retrying with ${nextUrl.quality}...`);
+        setStreamUrl(nextUrl.url);
+        return;
+      }
+    }
+
+    // Try fetching fresh URLs from API
+    if (currentSong && retryCount.current < maxRetries) {
+      retryCount.current++;
+      console.log('[SoundAura] Fetching fresh stream URL...');
+      getStreamUrl(currentSong.id).then(u => {
+        if (u.streamUrl || u.audioUrl) {
+          setStreamUrl(u.streamUrl || u.audioUrl);
+        } else {
+          setLoading(false);
+          setIsPlaying(false);
+          setErrorMsg('Playback failed — try another song');
+        }
+      }).catch(() => {
+        setLoading(false);
+        setIsPlaying(false);
+        setErrorMsg('Playback failed — try another song');
+      });
+      return;
+    }
+
+    setLoading(false);
+    setIsPlaying(false);
+    setErrorMsg('Playback failed — try another song');
+  };
+
+  const onCanPlay = () => { setLoading(false); setErrorMsg(''); };
 
   const toggleMute = () => {
     const a = audioRef.current;
@@ -103,22 +162,22 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
 
   return (
     <div className="player">
-      <audio ref={audioRef} onTimeUpdate={onTimeUpdate} onEnded={onEnded} onError={onError} onCanPlay={onCanPlay} preload="auto" />
+      <audio id="main-audio" ref={audioRef} onTimeUpdate={onTimeUpdate} onEnded={onEnded} onError={onError} onCanPlay={onCanPlay} preload="auto" />
       <div className="player-inner">
         <div className="player-song">
-          {currentSong.coverUrl ? <img src={currentSong.coverUrl} alt="" className="player-cover" /> : <div className="player-cover player-ph">🎵</div>}
-          <div className="player-song-info">
+          {currentSong.coverUrl ? <img src={currentSong.coverUrl} alt="" className="player-cover" onClick={onExpand} style={{ cursor: 'pointer' }} /> : <div className="player-cover player-ph" onClick={onExpand} style={{ cursor: 'pointer' }}>🎵</div>}
+          <div className="player-song-info" onClick={onExpand} style={{ cursor: 'pointer' }}>
             <div className="player-title">{currentSong.title}</div>
-            <div className="player-artist">{currentSong.artist}</div>
+            <div className="player-artist">{errorMsg || currentSong.artist}</div>
           </div>
           {toggleLike && (
             <button className="icon-btn" onClick={() => toggleLike(currentSong)} title="Like">
               {isLiked ? '❤️' : '🤍'}
             </button>
           )}
-          {onShowLyrics && (
-            <button className="icon-btn" onClick={() => onShowLyrics()} title="Lyrics" style={{ fontSize: 14 }}>
-              📝
+          {onExpand && (
+            <button className="icon-btn" onClick={onExpand} title="Expand Player">
+              ⛶
             </button>
           )}
         </div>

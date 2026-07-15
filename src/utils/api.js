@@ -8,24 +8,46 @@ async function safeFetch(url, signal) {
   throw new Error(json.message || 'API error');
 }
 
+function decodeHtml(str) {
+  if (!str) return '';
+  return str.replace(/&quot;/g, '"')
+            .replace(/&amp;/g, '&')
+            .replace(/&#039;/g, "'")
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>');
+}
+
+function getProxyUrl(url) {
+  if (!url) return null;
+  if (url.includes('saavncdn.com')) {
+    return url.replace(/^https:\/\/[^\/]+\.saavncdn\.com/, '/saavn-stream');
+  }
+  return url;
+}
+
 function normSong(s) {
   const imageArr = s.image || [];
   const cover = imageArr.find(i => i.quality === '500x500') || imageArr.find(i => i.quality === '150x150') || imageArr[0];
   const dlArr = s.downloadUrl || [];
   const best = dlArr.find(d => d.quality === '320kbps') || dlArr.find(d => d.quality === '160kbps') || dlArr.find(d => d.quality === '96kbps') || dlArr[dlArr.length - 1];
+  
+  // Store all available quality URLs for fallback
+  const allUrls = dlArr.map(d => ({ quality: d.quality, url: getProxyUrl(d.link) })).filter(d => d.url);
+  
   return {
     id: s.id,
-    title: s.name || 'Unknown',
-    artist: s.primaryArtists || 'Unknown Artist',
-    album: s.album?.name || '',
+    title: decodeHtml(s.name || 'Unknown'),
+    artist: decodeHtml(s.primaryArtists || s.artists?.primary?.map(a => a.name).join(', ') || 'Unknown Artist'),
+    album: decodeHtml(s.album?.name || ''),
     year: s.year || '',
     duration: parseInt(s.duration, 10) || 0,
     coverUrl: cover?.link || null,
-    audioUrl: best?.link || null,
+    audioUrl: getProxyUrl(best?.link) || null,
+    allAudioUrls: allUrls,
     language: s.language || '',
     label: s.label || '',
     copyright: s.copyright || '',
-    hasLyrics: s.hasLyrics === 'true',
+    hasLyrics: s.hasLyrics === 'true' || s.hasLyrics === true,
     albumUrl: s.album?.url || null,
     albumId: s.album?.id || null,
   };
@@ -41,13 +63,18 @@ export async function searchSongs(query, limit = 40) {
 export async function getStreamUrl(songId) {
   try {
     const data = await safeFetch(`${SAavnAPI}/songs?id=${songId}`);
-    const song = Array.isArray(data) ? data[0] : data;
+    const songs = Array.isArray(data) ? data : [data];
+    const song = songs[0];
     if (song) {
       const normed = normSong(song);
-      return { audioUrl: normed.audioUrl, streamUrl: normed.audioUrl };
+      return { 
+        audioUrl: normed.audioUrl, 
+        streamUrl: normed.audioUrl,
+        allUrls: normed.allAudioUrls 
+      };
     }
   } catch { /* fallback */ }
-  return { audioUrl: null, streamUrl: null };
+  return { audioUrl: null, streamUrl: null, allUrls: [] };
 }
 
 export async function fetchAlbumSongs(albumId, limit = 30) {
@@ -60,11 +87,70 @@ export async function fetchAlbumSongs(albumId, limit = 30) {
   }
 }
 
-export async function fetchLyrics(songId) {
+// Multi-source lyrics fetcher
+export async function fetchLyrics(songId, songTitle, artistName) {
+  // Source 1: JioSaavn API lyrics
   try {
     const data = await safeFetch(`${SAavnAPI}/lyrics?id=${songId}`);
-    return data?.lyrics || null;
-  } catch {
+    if (data?.lyrics && data.lyrics.trim().length > 10) {
+      return data.lyrics;
+    }
+  } catch { /* try next source */ }
+
+  // Source 2: lyrics.ovh free API (uses song title + artist)
+  if (songTitle && artistName) {
+    try {
+      // Clean up artist name — take first artist only
+      const cleanArtist = artistName.split(',')[0].trim();
+      const cleanTitle = songTitle.replace(/\(.*?\)/g, '').trim();
+      const lyricsRes = await fetch(
+        `https://api.lyrics.ovh/v1/${encodeURIComponent(cleanArtist)}/${encodeURIComponent(cleanTitle)}`
+      );
+      if (lyricsRes.ok) {
+        const lyricsData = await lyricsRes.json();
+        if (lyricsData?.lyrics && lyricsData.lyrics.trim().length > 10) {
+          return lyricsData.lyrics;
+        }
+      }
+    } catch { /* try next source */ }
+  }
+
+  // Source 3: Try with simplified title (remove featuring, remix etc.)
+  if (songTitle && artistName) {
+    try {
+      const cleanArtist = artistName.split(',')[0].split('&')[0].trim();
+      const cleanTitle = songTitle
+        .replace(/\(.*?\)/g, '')
+        .replace(/\[.*?\]/g, '')
+        .replace(/feat\.?.*/i, '')
+        .replace(/ft\.?.*/i, '')
+        .trim();
+      if (cleanTitle !== songTitle.trim()) {
+        const lyricsRes = await fetch(
+          `https://api.lyrics.ovh/v1/${encodeURIComponent(cleanArtist)}/${encodeURIComponent(cleanTitle)}`
+        );
+        if (lyricsRes.ok) {
+          const lyricsData = await lyricsRes.json();
+          if (lyricsData?.lyrics && lyricsData.lyrics.trim().length > 10) {
+            return lyricsData.lyrics;
+          }
+        }
+      }
+    } catch { /* no more sources */ }
+  }
+
+  return null;
+}
+
+// Download audio as blob for offline storage
+export async function downloadAudioBlob(audioUrl) {
+  try {
+    const response = await fetch(audioUrl);
+    if (!response.ok) throw new Error('Download failed');
+    const blob = await response.blob();
+    return blob;
+  } catch (err) {
+    console.error('Download error:', err);
     return null;
   }
 }

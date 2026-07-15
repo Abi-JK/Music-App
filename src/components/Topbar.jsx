@@ -25,7 +25,14 @@ export default function Topbar({ q, setQ, activeLang, setLang, onSearch }) {
 
   const pickSugg = (s) => {
     setShowSugs(false);
+    setSugs([]);
     setQ(s.title);
+    // Pass the title directly to onSearch to avoid stale state race condition
+    onSearch(s.title);
+  };
+
+  const handleSearch = () => {
+    setShowSugs(false);
     onSearch();
   };
 
@@ -39,7 +46,7 @@ export default function Topbar({ q, setQ, activeLang, setLang, onSearch }) {
           <input
             value={q}
             onChange={e => onInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { setShowSugs(false); onSearch(); } }}
+            onKeyDown={e => { if (e.key === 'Enter') { handleSearch(); } }}
             placeholder="Search songs, artists, movies..."
             onFocus={() => sugs.length && setShowSugs(true)}
           />
