@@ -1,0 +1,22 @@
+import React from 'react';
+
+export default function MiniPlayer({ currentSong, isPlaying, setIsPlaying, onPlayNext }) {
+  if (!currentSong) return null;
+
+  return (
+    <div className="mini-player">
+      <div className="mini-progress"><div className="mini-progress-bar" style={{ width: isPlaying ? '100%' : '0%' }} /></div>
+      <div className="mini-inner">
+        {currentSong.coverUrl ? <img src={currentSong.coverUrl} alt="" className="mini-cover" /> : <div className="mini-cover mini-ph">🎵</div>}
+        <div className="mini-info">
+          <div className="mini-title">{currentSong.title}</div>
+          <div className="mini-artist">{currentSong.artist}</div>
+        </div>
+        <button className="mini-play-btn" onClick={() => setIsPlaying(!isPlaying)}>
+          {isPlaying ? '⏸' : '▶'}
+        </button>
+        <button className="mini-next-btn" onClick={onPlayNext}>⏭</button>
+      </div>
+    </div>
+  );
+}

@@ -11,6 +11,7 @@
     "generate-icons": "node generate_icons.cjs"
   },
   "dependencies": {
+    "lucide-react": "^1.24.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "sharp": "^0.35.3"

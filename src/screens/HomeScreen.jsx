@@ -1,0 +1,78 @@
+import React, { useEffect, useState } from 'react';
+import { fetchPlaylistSongs } from '../utils/api';
+import { HOME_PLAYLISTS } from '../utils/constants';
+
+export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyPlayed }) {
+  const [sections, setSections] = useState({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    Promise.all(
+      HOME_PLAYLISTS.map(pl =>
+        fetchPlaylistSongs(pl.listid, 12)
+          .then(songs => ({ key: pl.key, label: pl.label, songs }))
+          .catch(() => ({ key: pl.key, label: pl.label, songs: [] }))
+      )
+    ).then(results => {
+      if (cancelled) return;
+      const data = {};
+      results.forEach(r => { data[r.key] = r; });
+      setSections(data);
+      setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  return (
+    <div className="home-screen">
+      <div className="home-hero">
+        <h1 className="home-title">SoundAura</h1>
+        <p className="home-subtitle">100% free music streaming · No login · All languages</p>
+      </div>
+
+      {recentlyPlayed && recentlyPlayed.length > 0 && (
+        <div className="home-section">
+          <h3 className="sec-title">Recently Played</h3>
+          <div className="song-scroll">
+            {recentlyPlayed.map(s => (
+              <div key={s.id} className={`song-card ${currentSong?.id === s.id ? 'active' : ''}`}
+                onClick={() => playSong(s, recentlyPlayed, recentlyPlayed.indexOf(s))}>
+                {s.coverUrl ? <img src={s.coverUrl} alt="" /> : <div className="qph">🎵</div>}
+                <h4>{s.title}</h4>
+                <p>{s.artist}</p>
+                {currentSong?.id === s.id && isPlaying && (
+                  <div className="eq"><span /><span /><span /></div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="spinner-wrap"><div className="spinner" /><p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading playlists...</p></div>
+      ) : (
+        Object.values(sections).map(sec => sec.songs.length > 0 && (
+          <div key={sec.key} className="home-section">
+            <h3 className="sec-title">{sec.label}</h3>
+            <div className="song-scroll">
+              {sec.songs.map(s => (
+                <div key={s.id} className={`song-card ${currentSong?.id === s.id ? 'active' : ''}`}
+                  onClick={() => playSong(s, sec.songs, sec.songs.indexOf(s))}>
+                  {s.coverUrl ? <img src={s.coverUrl} alt="" /> : <div className="qph">🎵</div>}
+                  <h4>{s.title}</h4>
+                  <p>{s.artist}</p>
+                  {currentSong?.id === s.id && isPlaying && (
+                    <div className="eq"><span /><span /><span /></div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
