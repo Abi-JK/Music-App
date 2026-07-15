@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { formatTime } from '../utils/helpers';
 import { getStreamUrl } from '../utils/api';
 
-export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNext, playPrev, liked, toggleLike, onProgressUpdate }) {
+export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNext, playPrev, liked, toggleLike, onProgressUpdate, onShowLyrics }) {
   const audioRef = useRef(null);
   const [streamUrl, setStreamUrl] = useState(null);
   const [dur, setDur] = useState(0);
@@ -114,6 +114,11 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
           {toggleLike && (
             <button className="icon-btn" onClick={() => toggleLike(currentSong)} title="Like">
               {isLiked ? '❤️' : '🤍'}
+            </button>
+          )}
+          {onShowLyrics && (
+            <button className="icon-btn" onClick={() => onShowLyrics()} title="Lyrics" style={{ fontSize: 14 }}>
+              📝
             </button>
           )}
         </div>

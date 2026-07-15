@@ -8,6 +8,7 @@ import MiniPlayer from './components/MiniPlayer';
 import MobileNav from './components/MobileNav';
 import Toast from './components/Toast';
 import InstallBanner from './components/InstallBanner';
+import LyricsPanel from './components/LyricsPanel';
 
 import HomeScreen from './screens/HomeScreen';
 import SearchScreen from './screens/SearchScreen';
@@ -35,6 +36,7 @@ export default function App() {
   const [recentlyPlayed, setRecentlyPlayed] = useState(() => LS.get('sw_recent', []));
 
   const [audioState, setAudioState] = useState({ curTime: 0, dur: 0 });
+  const [showLyrics, setShowLyrics] = useState(false);
 
   const currentSong = playlist[currentIndex] || null;
 
@@ -139,6 +141,9 @@ export default function App() {
     setSearchLoading(false);
   }, [showToast]);
 
+  const openLyrics = useCallback(() => { if (currentSong) setShowLyrics(true); }, [currentSong]);
+  const closeLyrics = useCallback(() => setShowLyrics(false), []);
+
   return (
     <div className="app">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} onSearch={searchByQuery} />
@@ -190,6 +195,7 @@ export default function App() {
         liked={isLiked}
         toggleLike={toggleLike}
         onProgressUpdate={(curTime, dur) => setAudioState({ curTime, dur })}
+        onShowLyrics={openLyrics}
       />
       <MiniPlayer
         currentSong={currentSong}
@@ -198,9 +204,13 @@ export default function App() {
         onPlayNext={playNext}
         curTime={audioState.curTime}
         dur={audioState.dur}
+        onShowLyrics={openLyrics}
       />
       <MobileNav activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} />
       <Toast msg={toastMsg} />
+      {showLyrics && currentSong && (
+        <LyricsPanel songId={currentSong.id} songTitle={currentSong.title} onClose={closeLyrics} />
+      )}
     </div>
   );
 }

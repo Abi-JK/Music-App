@@ -59,3 +59,12 @@ export async function fetchAlbumSongs(albumId, limit = 30) {
     return [];
   }
 }
+
+export async function fetchLyrics(songId) {
+  try {
+    const data = await safeFetch(`${SAavnAPI}/lyrics?id=${songId}`);
+    return data?.lyrics || null;
+  } catch {
+    return null;
+  }
+}
