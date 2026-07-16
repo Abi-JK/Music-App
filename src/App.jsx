@@ -9,6 +9,7 @@ import MobileNav from './components/MobileNav';
 import Toast from './components/Toast';
 import InstallBanner from './components/InstallBanner';
 import FullScreenPlayer from './components/FullScreenPlayer';
+import LyricsPanel from './components/LyricsPanel';
 
 import HomeScreen from './screens/HomeScreen';
 import SearchScreen from './screens/SearchScreen';
@@ -40,6 +41,7 @@ export default function App() {
 
   const [audioState, setAudioState] = useState({ curTime: 0, dur: 0 });
   const [showFullScreen, setShowFullScreen] = useState(false);
+  const [showLyrics, setShowLyrics] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
 
   const currentSong = playlist[currentIndex] || null;
@@ -303,6 +305,7 @@ export default function App() {
         toggleLike={toggleLike}
         onProgressUpdate={(curTime, dur) => setAudioState({ curTime, dur })}
         onExpand={openFullScreen}
+        onShowLyrics={() => currentSong && setShowLyrics(true)}
       />
       <MiniPlayer
         currentSong={currentSong}
@@ -312,6 +315,7 @@ export default function App() {
         curTime={audioState.curTime}
         dur={audioState.dur}
         onExpand={openFullScreen}
+        onShowLyrics={() => currentSong && setShowLyrics(true)}
       />
       <MobileNav activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} onInstall={handleInstallApp} />
       <Toast msg={toastMsg} />
@@ -328,6 +332,14 @@ export default function App() {
           dur={audioState.dur}
           onClose={closeFullScreen} 
           showToast={showToast}
+        />
+      )}
+      {showLyrics && currentSong && (
+        <LyricsPanel
+          songId={currentSong.id}
+          songTitle={currentSong.title}
+          songArtist={currentSong.artist}
+          onClose={() => setShowLyrics(false)}
         />
       )}
     </div>

@@ -19,11 +19,6 @@
     Access-Control-Allow-Origin = "*"
     Cache-Control = "public, max-age=300"
 
-[[headers]]
-  for = "/saavn-stream/*"
-  [headers.values]
-    Access-Control-Allow-Origin = "*"
-
 # Cache static assets aggressively
 [[headers]]
   for = "/assets/*"

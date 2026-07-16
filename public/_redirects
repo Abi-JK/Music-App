@@ -1,7 +1,6 @@
 # API Proxies
 /saavn-api  https://www.jiosaavn.com/api.php  200
 /saavn-search/*  https://jiosaavn-api-beta.vercel.app/:splat  200
-/saavn-stream/*  https://web.saavncdn.com/:splat  200
 
 # SPA fallback
 /*  /index.html  200

@@ -17,23 +17,14 @@ function decodeHtml(str) {
             .replace(/&gt;/g, '>');
 }
 
-function getProxyUrl(url) {
-  if (!url) return null;
-  if (url.includes('saavncdn.com')) {
-    return url.replace(/^https:\/\/[^\/]+\.saavncdn\.com/, '/saavn-stream');
-  }
-  return url;
-}
-
 function normSong(s) {
   const imageArr = s.image || [];
   const cover = imageArr.find(i => i.quality === '500x500') || imageArr.find(i => i.quality === '150x150') || imageArr[0];
   const dlArr = s.downloadUrl || [];
   const best = dlArr.find(d => d.quality === '320kbps') || dlArr.find(d => d.quality === '160kbps') || dlArr.find(d => d.quality === '96kbps') || dlArr[dlArr.length - 1];
-  
-  // Store all available quality URLs for fallback
-  const allUrls = dlArr.map(d => ({ quality: d.quality, url: getProxyUrl(d.link) })).filter(d => d.url);
-  
+
+  const allUrls = dlArr.map(d => ({ quality: d.quality, url: d.link })).filter(d => d.url);
+
   return {
     id: s.id,
     title: decodeHtml(s.name || 'Unknown'),
@@ -42,7 +33,7 @@ function normSong(s) {
     year: s.year || '',
     duration: parseInt(s.duration, 10) || 0,
     coverUrl: cover?.link || null,
-    audioUrl: getProxyUrl(best?.link) || null,
+    audioUrl: best?.link || null,
     allAudioUrls: allUrls,
     language: s.language || '',
     label: s.label || '',

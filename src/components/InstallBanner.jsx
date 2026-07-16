@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 const LogoImage = ({ size = 48 }) => (
   <img 
-    src="/favicon.png" 
+    src="/favicon.svg" 
     alt="SoundAura Logo" 
     width={size} 
     height={size} 

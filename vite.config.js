@@ -61,12 +61,23 @@ export default defineConfig({
         runtimeCaching: [
           // JioSaavn API — network-first, cache fallback
           {
-            urlPattern: /\/(saavn-api|saavn-search|saavn-stream)/,
+            urlPattern: /\/(saavn-api|saavn-search)/,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'saavn-api-cache',
               networkTimeoutSeconds: 10,
               expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          // CDN audio — network-first (streaming URLs)
+          {
+            urlPattern: /^https:\/\/aac\.saavncdn\.com/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'audio-cache',
+              networkTimeoutSeconds: 10,
+              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 },
               cacheableResponse: { statuses: [0, 200] },
             },
           },

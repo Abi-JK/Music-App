@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { formatTime } from '../utils/helpers';
 import { getStreamUrl } from '../utils/api';
 
-export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNext, playPrev, liked, toggleLike, onProgressUpdate, onExpand }) {
+export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNext, playPrev, liked, toggleLike, onProgressUpdate, onExpand, onShowLyrics }) {
   const audioRef = useRef(null);
   const [streamUrl, setStreamUrl] = useState(null);
   const [dur, setDur] = useState(0);
@@ -178,6 +178,11 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
           {onExpand && (
             <button className="icon-btn" onClick={onExpand} title="Expand Player">
               ⛶
+            </button>
+          )}
+          {onShowLyrics && (
+            <button className="icon-btn" onClick={onShowLyrics} title="Lyrics">
+              📝
             </button>
           )}
         </div>
