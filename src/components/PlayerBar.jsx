@@ -1,10 +1,10 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { formatTime } from '../utils/helpers';
-import { getStreamUrl } from '../utils/api';
+
+const MAX_RETRIES = 5;
 
 export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNext, playPrev, liked, toggleLike, onProgressUpdate, onExpand, onShowLyrics, repeatMode, toggleRepeat, shuffleOn, toggleShuffle, onShowQueue }) {
   const audioRef = useRef(null);
-  const [streamUrl, setStreamUrl] = useState(null);
   const [dur, setDur] = useState(0);
   const [curTime, setCurTime] = useState(0);
   const [vol, setVol] = useState(0.8);
@@ -14,12 +14,18 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
   const prevSongId = useRef(null);
   const lastProgressTick = useRef(0);
   const retryCount = useRef(0);
-  const maxRetries = 3;
+  const urlAttempts = useRef([]);
+  const abortRef = useRef(null);
 
   useEffect(() => {
     if (!currentSong) {
       prevSongId.current = null;
-      setStreamUrl(null);
+      const a = audioRef.current;
+      if (a) { a.pause(); a.removeAttribute('src'); a.load(); }
+      setDur(0);
+      setCurTime(0);
+      setLoading(false);
+      setErrorMsg('');
       return;
     }
     if (prevSongId.current === currentSong.id) return;
@@ -31,56 +37,94 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     setErrorMsg('');
     retryCount.current = 0;
 
+    if (abortRef.current) abortRef.current.abort();
+    abortRef.current = new AbortController();
+
+    const candidates = [];
+
     if (currentSong.audioBlob) {
-      const localBlobUrl = URL.createObjectURL(currentSong.audioBlob);
-      setStreamUrl(localBlobUrl);
-      return;
+      candidates.push({ type: 'blob', url: URL.createObjectURL(currentSong.audioBlob) });
     }
 
     if (currentSong.audioUrl) {
-      setStreamUrl(currentSong.audioUrl);
+      candidates.push({ type: 'primary', url: currentSong.audioUrl });
+    }
+
+    if (currentSong.allAudioUrls) {
+      for (const entry of currentSong.allAudioUrls) {
+        if (entry.url && !candidates.some(c => c.url === entry.url)) {
+          candidates.push({ type: 'fallback', url: entry.url });
+        }
+      }
+    }
+
+    if (currentSong.id) {
+      const host = 'https://discoveryprovider.audius.co';
+      candidates.push({ type: 'constructed', url: `${host}/v1/tracks/${currentSong.id}/stream?app_name=SoundAura` });
+    }
+
+    urlAttempts.current = candidates;
+    tryNextUrl();
+  }, [currentSong?.id]);
+
+  const tryNextUrl = useCallback(() => {
+    const a = audioRef.current;
+    if (!a) return;
+
+    if (urlAttempts.current.length === 0) {
+      setLoading(false);
+      setIsPlaying(false);
+      setErrorMsg('Playback failed — try another song');
       return;
     }
 
-    const ctrl = new AbortController();
-    getStreamUrl(currentSong.id).then(u => {
-      if (!ctrl.aborted) setStreamUrl(u.streamUrl || u.audioUrl);
-    }).catch(() => {
-      if (!ctrl.aborted) { setLoading(false); setErrorMsg('Could not load song'); }
-    });
-    return () => { ctrl.abort(); };
-  }, [currentSong?.id, currentSong?.audioUrl, currentSong?.audioBlob]);
-
-  useEffect(() => {
-    const a = audioRef.current;
-    if (!a || !streamUrl) return;
-    a.src = streamUrl;
+    const candidate = urlAttempts.current.shift();
+    a.src = candidate.url;
     a.load();
-    const playPromise = a.play();
-    if (playPromise) {
-      playPromise.then(() => {
-        setIsPlaying(true);
-        setErrorMsg('');
-      }).catch((err) => {
-        console.warn('[SoundAura] Autoplay blocked:', err.message);
-        setIsPlaying(false);
-        setErrorMsg('Tap play to start');
-      });
-    }
-  }, [streamUrl]);
+  }, [setIsPlaying]);
 
   useEffect(() => {
     const a = audioRef.current;
-    if (!a || !streamUrl) return;
-    if (isPlaying) {
-      a.play().catch((err) => {
-        console.warn('[SoundAura] Play failed:', err.message);
+    if (!a || urlAttempts.current.length === 0) return;
+
+    const onError = () => {
+      if (retryCount.current < MAX_RETRIES) {
+        retryCount.current++;
+        console.log(`[SoundAura] Audio error, trying next URL (${retryCount.current}/${MAX_RETRIES})...`);
+        tryNextUrl();
+      } else {
+        setLoading(false);
         setIsPlaying(false);
-      });
+        setErrorMsg('Playback failed — try another song');
+      }
+    };
+
+    const onCanPlay = () => {
+      setLoading(false);
+      setErrorMsg('');
+      const playPromise = a.play();
+      if (playPromise) {
+        playPromise.then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+      }
+    };
+
+    a.addEventListener('error', onError);
+    a.addEventListener('canplay', onCanPlay);
+    return () => {
+      a.removeEventListener('error', onError);
+      a.removeEventListener('canplay', onCanPlay);
+    };
+  }, [currentSong?.id, tryNextUrl, setIsPlaying]);
+
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+    if (isPlaying) {
+      a.play().catch(() => setIsPlaying(false));
     } else {
       a.pause();
     }
-  }, [isPlaying, streamUrl]);
+  }, [isPlaying]);
 
   const onTimeUpdate = useCallback(() => {
     const a = audioRef.current;
@@ -98,29 +142,6 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
   }, [onProgressUpdate]);
 
   const onEnded = useCallback(() => { if (playNext) playNext(); }, [playNext]);
-
-  const onError = useCallback(() => {
-    const a = audioRef.current;
-    if (!a) return;
-    if (retryCount.current < maxRetries) {
-      retryCount.current++;
-      console.log(`[SoundAura] Audio error, retry ${retryCount.current}/${maxRetries}...`);
-      if (currentSong?.audioUrl) {
-        const sep = currentSong.audioUrl.includes('?') ? '&' : '?';
-        setStreamUrl(`${currentSong.audioUrl}${sep}_retry=${retryCount.current}`);
-      } else if (currentSong?.id) {
-        getStreamUrl(currentSong.id).then(u => {
-          setStreamUrl(u.streamUrl || u.audioUrl);
-        }).catch(() => {});
-      }
-      return;
-    }
-    setLoading(false);
-    setIsPlaying(false);
-    setErrorMsg('Playback failed — try another song');
-  }, [currentSong?.id, currentSong?.audioUrl, setIsPlaying]);
-
-  const onCanPlay = useCallback(() => { setLoading(false); setErrorMsg(''); }, []);
 
   const toggleMute = useCallback(() => {
     const a = audioRef.current;
@@ -153,7 +174,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
 
   return (
     <div className="player">
-      <audio id="main-audio" ref={audioRef} onTimeUpdate={onTimeUpdate} onEnded={onEnded} onError={onError} onCanPlay={onCanPlay} preload="auto" />
+      <audio id="main-audio" ref={audioRef} onTimeUpdate={onTimeUpdate} onEnded={onEnded} preload="auto" />
       <div className="player-inner">
         <div className="player-song">
           {currentSong.coverUrl ? <img src={currentSong.coverUrl} alt="" className="player-cover" onClick={onExpand} style={{ cursor: 'pointer' }} /> : <div className="player-cover player-ph" onClick={onExpand} style={{ cursor: 'pointer' }}>🎵</div>}

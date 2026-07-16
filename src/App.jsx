@@ -18,7 +18,7 @@ import SearchScreen from './screens/SearchScreen';
 import LikedScreen from './screens/LikedScreen';
 import DownloadsScreen from './screens/DownloadsScreen';
 
-import { searchSongs, downloadAudioBlob, getStreamUrl } from './utils/api';
+import { searchSongs, downloadAudioBlob } from './utils/api';
 import { Storage } from './utils/storage';
 import { LANG_QUERIES } from './utils/constants';
 
@@ -292,13 +292,14 @@ function AppContent() {
     setDownloadingIds(prev => [...prev, song.id]);
     showToast(`Downloading "${song.title}"...`);
     try {
-      let audioUrl = song.audioUrl;
-      if (!audioUrl) {
-        const res = await getStreamUrl(song.id);
-        audioUrl = res.streamUrl || res.audioUrl;
+      const urlsToTry = [song.audioUrl, ...(song.allAudioUrls || []).map(u => u.url)].filter(Boolean);
+      let blob = null;
+      for (const url of urlsToTry) {
+        try {
+          blob = await downloadAudioBlob(url);
+          if (blob && blob.size > 0) break;
+        } catch { /* try next */ }
       }
-      if (!audioUrl) throw new Error('No audio URL found');
-      const blob = await downloadAudioBlob(audioUrl);
       if (!blob) throw new Error('Failed to download audio blob');
       const songWithBlob = { ...song, audioBlob: blob, downloadedAt: new Date().toISOString() };
       await Storage.addDownloadedSong(songWithBlob);
@@ -426,6 +427,9 @@ function AppContent() {
           toggleRepeat={toggleRepeat}
           shuffleOn={shuffleOn}
           toggleShuffle={toggleShuffle}
+          playlist={playlist}
+          currentIndex={currentIndex}
+          playSong={playSong}
           onShowQueue={() => { setShowFullScreen(false); setShowQueue(true); }}
         />
       )}
