@@ -5,9 +5,28 @@ const KEYS = {
   LIKED_SONGS: '@soundaura_liked_songs',
   RECENTLY_PLAYED: '@soundaura_recently_played',
   DOWNLOADED_SONGS: '@soundaura_downloaded_songs',
+  BACKEND_VERSION: '@soundaura_backend_version',
 };
 
+// Bump when the audio backend changes in a way that makes previously
+// cached song objects (old audioUrl/id format) unplayable.
+const BACKEND_VERSION = 'audius-v1';
+
 export const Storage = {
+  // Wipes cached songs if they came from a previous, incompatible backend.
+  async migrateIfNeeded() {
+    try {
+      const stored = await AsyncStorage.getItem(KEYS.BACKEND_VERSION);
+      if (stored === BACKEND_VERSION) return false;
+      await AsyncStorage.multiRemove([KEYS.LIKED_SONGS, KEYS.RECENTLY_PLAYED, KEYS.DOWNLOADED_SONGS]);
+      await AsyncStorage.setItem(KEYS.BACKEND_VERSION, BACKEND_VERSION);
+      return true;
+    } catch (error) {
+      console.error('Error migrating storage:', error);
+      return false;
+    }
+  },
+
   async getLikedSongs() {
     try {
       const data = await AsyncStorage.getItem(KEYS.LIKED_SONGS);

@@ -25,28 +25,28 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Features</Text>
           <View style={styles.featureItem}>
-            <Ionicons name="musical-notes" size={24} color="#1DB954" />
+            <Ionicons name="musical-notes" size={24} color="#00d4e8" />
             <View style={styles.featureText}>
               <Text style={styles.featureTitle}>All Languages</Text>
               <Text style={styles.featureDescription}>Tamil, Hindi, English, Telugu & more</Text>
             </View>
           </View>
           <View style={styles.featureItem}>
-            <Ionicons name="heart" size={24} color="#1DB954" />
+            <Ionicons name="heart" size={24} color="#00d4e8" />
             <View style={styles.featureText}>
               <Text style={styles.featureTitle}>Liked Songs</Text>
               <Text style={styles.featureDescription}>Save your favorites permanently</Text>
             </View>
           </View>
           <View style={styles.featureItem}>
-            <Ionicons name="download" size={24} color="#1DB954" />
+            <Ionicons name="download" size={24} color="#00d4e8" />
             <View style={styles.featureText}>
               <Text style={styles.featureTitle}>Offline Downloads</Text>
               <Text style={styles.featureDescription}>Listen without internet</Text>
             </View>
           </View>
           <View style={styles.featureItem}>
-            <Ionicons name="document-text" size={24} color="#1DB954" />
+            <Ionicons name="document-text" size={24} color="#00d4e8" />
             <View style={styles.featureText}>
               <Text style={styles.featureTitle}>Lyrics</Text>
               <Text style={styles.featureDescription}>View song lyrics</Text>
@@ -57,7 +57,7 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Privacy</Text>
           <View style={styles.privacyItem}>
-            <Ionicons name="shield-checkmark" size={24} color="#1DB954" />
+            <Ionicons name="shield-checkmark" size={24} color="#00d4e8" />
             <View style={styles.privacyText}>
               <Text style={styles.privacyTitle}>No Login Required</Text>
               <Text style={styles.privacyDescription}>Your data stays on your device</Text>
@@ -81,7 +81,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#1DB954',
+    color: '#00d4e8',
   },
   content: {
     flex: 1,

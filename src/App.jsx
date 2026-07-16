@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import './index.css';
 
+import ErrorBoundary from './components/ErrorBoundary';
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
 import PlayerBar from './components/PlayerBar';
@@ -10,6 +11,7 @@ import Toast from './components/Toast';
 import InstallBanner from './components/InstallBanner';
 import FullScreenPlayer from './components/FullScreenPlayer';
 import LyricsPanel from './components/LyricsPanel';
+import QueuePanel from './components/QueuePanel';
 
 import HomeScreen from './screens/HomeScreen';
 import SearchScreen from './screens/SearchScreen';
@@ -20,7 +22,16 @@ import { searchSongs, downloadAudioBlob, getStreamUrl } from './utils/api';
 import { Storage } from './utils/storage';
 import { LANG_QUERIES } from './utils/constants';
 
-export default function App() {
+function shuffleArray(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function AppContent() {
   const [activeTab, setActiveTab] = useState('home');
   const [searchQ, setSearchQ] = useState('');
   const [activeLang, setActiveLang] = useState('All');
@@ -42,7 +53,13 @@ export default function App() {
   const [audioState, setAudioState] = useState({ curTime: 0, dur: 0 });
   const [showFullScreen, setShowFullScreen] = useState(false);
   const [showLyrics, setShowLyrics] = useState(false);
+  const [showQueue, setShowQueue] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
+
+  // Repeat: 'off' | 'all' | 'one'
+  const [repeatMode, setRepeatMode] = useState('off');
+  const [shuffleOn, setShuffleOn] = useState(false);
+  const originalPlaylistRef = useRef([]);
 
   const currentSong = playlist[currentIndex] || null;
 
@@ -52,6 +69,7 @@ export default function App() {
 
     const loadData = async () => {
       try {
+        await Storage.migrateIfNeeded();
         const [liked, recent, downloaded] = await Promise.all([
           Storage.getLikedSongs(),
           Storage.getRecentlyPlayed(),
@@ -102,40 +120,90 @@ export default function App() {
   const playSong = useCallback((song, context, contextIdx) => {
     if (!song) return;
     const ctx = context || [song];
-    setPlaylist(ctx);
-    setCurrentIndex(contextIdx != null ? contextIdx : 0);
+    originalPlaylistRef.current = ctx;
+    if (shuffleOn) {
+      const shuffled = shuffleArray(ctx);
+      const idx = shuffled.findIndex(s => s.id === song.id);
+      setPlaylist(shuffled);
+      setCurrentIndex(idx >= 0 ? idx : 0);
+    } else {
+      setPlaylist(ctx);
+      setCurrentIndex(contextIdx != null ? contextIdx : 0);
+    }
     setIsPlaying(true);
     addRecent(song);
-  }, [addRecent]);
+  }, [addRecent, shuffleOn]);
 
   const playNext = useCallback(() => {
     if (!playlist.length) return;
+    if (repeatMode === 'one') {
+      setIsPlaying(true);
+      const audioEl = document.getElementById('main-audio');
+      if (audioEl) { audioEl.currentTime = 0; audioEl.play().catch(() => {}); }
+      return;
+    }
     let next = (currentIndex + 1) % playlist.length;
+    if (next === 0 && repeatMode === 'off') {
+      setIsPlaying(false);
+      return;
+    }
     setCurrentIndex(next);
     setIsPlaying(true);
     if (playlist[next]) addRecent(playlist[next]);
-  }, [playlist, currentIndex, addRecent]);
+  }, [playlist, currentIndex, addRecent, repeatMode]);
 
   const playPrev = useCallback(() => {
     if (!playlist.length) return;
+    const audioEl = document.getElementById('main-audio');
+    if (audioEl && audioEl.currentTime > 3) {
+      audioEl.currentTime = 0;
+      return;
+    }
     let prev = (currentIndex - 1 + playlist.length) % playlist.length;
     setCurrentIndex(prev);
     setIsPlaying(true);
     if (playlist[prev]) addRecent(playlist[prev]);
   }, [playlist, currentIndex, addRecent]);
 
+  const toggleShuffle = useCallback(() => {
+    setShuffleOn(prev => {
+      const next = !prev;
+      if (next && playlist.length > 0) {
+        const current = playlist[currentIndex];
+        const shuffled = shuffleArray(playlist);
+        const idx = shuffled.findIndex(s => s.id === current.id);
+        setPlaylist(shuffled);
+        setCurrentIndex(idx >= 0 ? idx : 0);
+      } else if (!next && originalPlaylistRef.current.length > 0) {
+        const current = playlist[currentIndex];
+        const idx = originalPlaylistRef.current.findIndex(s => s.id === current.id);
+        setPlaylist(originalPlaylistRef.current);
+        setCurrentIndex(idx >= 0 ? idx : 0);
+      }
+      return next;
+    });
+  }, [playlist, currentIndex]);
+
+  const toggleRepeat = useCallback(() => {
+    setRepeatMode(prev => {
+      if (prev === 'off') return 'all';
+      if (prev === 'all') return 'one';
+      return 'off';
+    });
+  }, []);
+
   const isLiked = useCallback((id) => likedSongs.some(s => s.id === id), [likedSongs]);
   const toggleLike = useCallback(async (song) => {
     setLikedSongs(prev => {
       const already = prev.some(s => s.id === song.id);
       const next = already ? prev.filter(s => s.id !== song.id) : [...prev, song];
-      
+
       if (already) {
         Storage.removeLikedSong(song.id).catch(console.error);
       } else {
         Storage.addLikedSong(song).catch(console.error);
       }
-      
+
       showToast(already ? '💔 Removed from Liked Songs' : '❤️ Added to Liked Songs');
       return next;
     });
@@ -153,13 +221,23 @@ export default function App() {
       const term = langObj?.term && langObj.label !== 'All' ? `${q} ${langObj.term}` : q;
       const songs = await searchSongs(term, 200);
       setSearchResults(songs);
-      if (songs.length) { setPlaylist(songs); setCurrentIndex(0); }
+      if (songs.length) {
+        originalPlaylistRef.current = songs;
+        if (shuffleOn) {
+          const shuffled = shuffleArray(songs);
+          setPlaylist(shuffled);
+          setCurrentIndex(0);
+        } else {
+          setPlaylist(songs);
+          setCurrentIndex(0);
+        }
+      }
       else showToast('No results found.');
     } catch {
       showToast('Search failed. Check your connection.');
     }
     setSearchLoading(false);
-  }, [searchQ, activeLang, showToast]);
+  }, [searchQ, activeLang, showToast, shuffleOn]);
 
   const handleLangChip = useCallback((lang) => {
     setActiveLang(lang);
@@ -170,10 +248,23 @@ export default function App() {
     const langObj = LANG_QUERIES.find(l => l.label === lang);
     if (!langObj?.term) return;
     searchSongs(langObj.term, 80)
-      .then(songs => { setSearchResults(songs); if (songs.length) { setPlaylist(songs); setCurrentIndex(0); } })
+      .then(songs => {
+        setSearchResults(songs);
+        if (songs.length) {
+          originalPlaylistRef.current = songs;
+          if (shuffleOn) {
+            const shuffled = shuffleArray(songs);
+            setPlaylist(shuffled);
+            setCurrentIndex(0);
+          } else {
+            setPlaylist(songs);
+            setCurrentIndex(0);
+          }
+        }
+      })
       .catch(() => showToast('Could not load.'))
       .finally(() => setSearchLoading(false));
-  }, [showToast]);
+  }, [showToast, shuffleOn]);
 
   const searchByQuery = useCallback(async (term) => {
     setSearchQ(term);
@@ -184,13 +275,23 @@ export default function App() {
     try {
       const songs = await searchSongs(term, 80);
       setSearchResults(songs);
-      if (songs.length) { setPlaylist(songs); setCurrentIndex(0); }
+      if (songs.length) {
+        originalPlaylistRef.current = songs;
+        if (shuffleOn) {
+          const shuffled = shuffleArray(songs);
+          setPlaylist(shuffled);
+          setCurrentIndex(0);
+        } else {
+          setPlaylist(songs);
+          setCurrentIndex(0);
+        }
+      }
       else showToast('No results found.');
     } catch {
       showToast('Search failed. Check your connection.');
     }
     setSearchLoading(false);
-  }, [showToast]);
+  }, [showToast, shuffleOn]);
 
   const downloadSong = useCallback(async (song) => {
     if (downloadedSongs.some(s => s.id === song.id)) {
@@ -306,6 +407,11 @@ export default function App() {
         onProgressUpdate={(curTime, dur) => setAudioState({ curTime, dur })}
         onExpand={openFullScreen}
         onShowLyrics={() => currentSong && setShowLyrics(true)}
+        repeatMode={repeatMode}
+        toggleRepeat={toggleRepeat}
+        shuffleOn={shuffleOn}
+        toggleShuffle={toggleShuffle}
+        onShowQueue={() => setShowQueue(true)}
       />
       <MiniPlayer
         currentSong={currentSong}
@@ -332,6 +438,11 @@ export default function App() {
           dur={audioState.dur}
           onClose={closeFullScreen} 
           showToast={showToast}
+          repeatMode={repeatMode}
+          toggleRepeat={toggleRepeat}
+          shuffleOn={shuffleOn}
+          toggleShuffle={toggleShuffle}
+          onShowQueue={() => { setShowFullScreen(false); setShowQueue(true); }}
         />
       )}
       {showLyrics && currentSong && (
@@ -342,6 +453,24 @@ export default function App() {
           onClose={() => setShowLyrics(false)}
         />
       )}
+      {showQueue && (
+        <QueuePanel
+          playlist={playlist}
+          currentIndex={currentIndex}
+          currentSong={currentSong}
+          isPlaying={isPlaying}
+          playSong={playSong}
+          onClose={() => setShowQueue(false)}
+        />
+      )}
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ErrorBoundary>
+      <AppContent />
+    </ErrorBoundary>
   );
 }

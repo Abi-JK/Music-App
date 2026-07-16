@@ -20,6 +20,7 @@ export default function HomeScreen({ navigation }) {
 
   const loadUserData = async () => {
     try {
+      await Storage.migrateIfNeeded();
       const [liked, recent] = await Promise.all([
         Storage.getLikedSongs(),
         Storage.getRecentlyPlayed()
@@ -84,7 +85,7 @@ export default function HomeScreen({ navigation }) {
         <Ionicons 
           name={isLiked(item.id) ? 'heart' : 'heart-outline'} 
           size={24} 
-          color={isLiked(item.id) ? '#1DB954' : '#888'} 
+          color={isLiked(item.id) ? '#00d4e8' : '#888'} 
         />
       </TouchableOpacity>
     </TouchableOpacity>
@@ -141,7 +142,7 @@ export default function HomeScreen({ navigation }) {
 
       {loading ? (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#1DB954" />
+          <ActivityIndicator size="large" color="#00d4e8" />
           <Text style={styles.loadingText}>Searching...</Text>
         </View>
       ) : songs.length > 0 ? (
@@ -186,7 +187,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#1DB954',
+    color: '#00d4e8',
     marginBottom: 4,
   },
   subtitle: {
@@ -209,7 +210,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   searchButton: {
-    backgroundColor: '#1DB954',
+    backgroundColor: '#00d4e8',
     borderRadius: 25,
     width: 50,
     height: 50,
@@ -230,7 +231,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   languageChipActive: {
-    backgroundColor: '#1DB954',
+    backgroundColor: '#00d4e8',
   },
   languageText: {
     color: '#888',

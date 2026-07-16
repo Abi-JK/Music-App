@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { formatTime } from '../utils/helpers';
 import { getStreamUrl, getProxiedUrl } from '../utils/api';
 
-export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNext, playPrev, liked, toggleLike, onProgressUpdate, onExpand, onShowLyrics }) {
+export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNext, playPrev, liked, toggleLike, onProgressUpdate, onExpand, onShowLyrics, repeatMode, toggleRepeat, shuffleOn, toggleShuffle, onShowQueue }) {
   const audioRef = useRef(null);
   const [streamUrl, setStreamUrl] = useState(null);
   const [dur, setDur] = useState(0);
@@ -29,7 +29,6 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
 
     let localBlobUrl = null;
 
-    // Support offline songs with stored blobs
     if (currentSong.audioBlob) {
       localBlobUrl = URL.createObjectURL(currentSong.audioBlob);
       setStreamUrl(localBlobUrl);
@@ -38,13 +37,11 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
       };
     }
 
-    // Use the audio URL directly from search results
     if (currentSong.audioUrl) {
       setStreamUrl(currentSong.audioUrl);
       return;
     }
 
-    // If no audioUrl, fetch it from the API
     const ctrl = new AbortController();
     getStreamUrl(currentSong.id).then(u => {
       if (!ctrl.aborted) setStreamUrl(u.streamUrl || u.audioUrl);
@@ -89,9 +86,8 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     }
   };
   const onEnded = () => { if (playNext) playNext(); };
-  
+
   const onError = () => {
-    // Try alternate quality URLs if available
     if (currentSong?.allAudioUrls && retryCount.current < maxRetries) {
       const urls = currentSong.allAudioUrls;
       const currentUrl = streamUrl;
@@ -104,7 +100,6 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
       }
     }
 
-    // Try proxied URL if direct CDN URL failed
     const proxied = getProxiedUrl(currentSong?.audioUrl);
     if (proxied && proxied !== streamUrl && retryCount.current < maxRetries) {
       retryCount.current++;
@@ -113,7 +108,6 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
       return;
     }
 
-    // Try fetching fresh URLs from API
     if (currentSong && retryCount.current < maxRetries) {
       retryCount.current++;
       console.log('[SoundAura] Fetching fresh stream URL...');
@@ -198,11 +192,17 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
 
         <div className="player-center">
           <div className="player-controls">
+            <button className={`icon-btn ${shuffleOn ? 'ctrl-active' : ''}`} onClick={toggleShuffle} title={shuffleOn ? 'Shuffle On' : 'Shuffle Off'}>
+              🔀
+            </button>
             <button className="icon-btn" onClick={playPrev} title="Previous">⏮</button>
             <button className="player-play-btn" onClick={() => setIsPlaying(!isPlaying)} disabled={loading}>
               {loading ? '⏳' : isPlaying ? '⏸' : '▶'}
             </button>
             <button className="icon-btn" onClick={playNext} title="Next">⏭</button>
+            <button className={`icon-btn ${repeatMode !== 'off' ? 'ctrl-active' : ''}`} onClick={toggleRepeat} title={`Repeat: ${repeatMode}`}>
+              {repeatMode === 'one' ? '🔂' : '🔁'}
+            </button>
           </div>
           <div className="player-progress-wrap">
             <span className="player-time">{formatTime(curTime)}</span>
@@ -214,6 +214,9 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
         </div>
 
         <div className="player-right">
+          {onShowQueue && (
+            <button className="icon-btn" onClick={onShowQueue} title="Play Queue">📋</button>
+          )}
           <button className="icon-btn" onClick={toggleMute}>{muted ? '🔇' : '🔊'}</button>
           <div className="player-vol-wrap" onClick={onVol}>
             <div className="player-vol-bar" style={{ width: `${muted ? 0 : vol * 100}%` }} />

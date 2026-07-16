@@ -6,7 +6,7 @@ export default function DownloadsScreen({ downloadedSongs, currentSong, isPlayin
     <div className="empty">
       <div style={{ fontSize: 48 }}>📥</div>
       <h3>No downloaded songs</h3>
-      <p>Download songs to play them offline. Tap the download icon (⬇) on any song in search results.</p>
+      <p>Download songs to play them offline. Tap the download icon (📥) on any song in search results.</p>
     </div>
   );
 
@@ -24,18 +24,19 @@ export default function DownloadsScreen({ downloadedSongs, currentSong, isPlayin
           const isActive = currentSong?.id === song.id;
           return (
             <div key={song.id} className={`song-row ${isActive ? 'now-playing' : ''}`}
-              onClick={() => playSong(song, downloadedSongs, i)}>
+              onClick={() => playSong(song, downloadedSongs, i)}
+              title={`${song.title} — ${song.artist}`}>
               <span className="row-num">
                 {isActive && isPlaying ? <div className="eq"><span /><span /><span /></div> : i + 1}
               </span>
               <div className="row-info">
                 {song.coverUrl ? <img src={song.coverUrl} alt="" /> : <div className="r-ph">🎵</div>}
                 <div className="row-text">
-                  <h4>{song.title}</h4>
-                  <p>{song.artist}</p>
+                  <h4 title={song.title}>{song.title}</h4>
+                  <p title={song.artist}>{song.artist}</p>
                 </div>
               </div>
-              <span className="row-album">{song.album || '—'}</span>
+              <span className="row-album" title={song.album || ''}>{song.album || '—'}</span>
               <span className="row-dur">{formatTime(song.duration)}</span>
               <div className="row-acts">
                 {removeDownload && (

@@ -9,6 +9,14 @@ const STORE_DOWNLOADS = 'downloadedSongs';
 const LS_LIKED_KEY = 'soundaura_liked_backup';
 const LS_RECENT_KEY = 'soundaura_recent_backup';
 
+// Bump this whenever the audio backend changes in a way that makes
+// previously cached song objects (old audioUrl/id format) unplayable.
+// Older cached data (liked/recent/downloads) from a prior backend is
+// wiped automatically on first load after an update, instead of sitting
+// around as silently-broken entries that fail to play.
+const BACKEND_VERSION = 'audius-v1';
+const BACKEND_VERSION_KEY = 'soundaura_backend_version';
+
 let db = null;
 
 function openDB() {
@@ -68,6 +76,36 @@ function lsGet(key) {
 }
 
 export const Storage = {
+  // Wipes cached liked/recent/downloaded songs if they came from a previous,
+  // incompatible audio backend (e.g. dead JioSaavn URLs after switching to
+  // Audius). Safe to call every app load — it's a no-op once versions match.
+  async migrateIfNeeded() {
+    try {
+      const stored = localStorage.getItem(BACKEND_VERSION_KEY);
+      if (stored === BACKEND_VERSION) return false; // already migrated
+
+      console.log('[SoundAura] Audio backend changed — clearing incompatible cached songs...');
+      const database = await getDB();
+      await Promise.all([STORE_LIKED, STORE_RECENT, STORE_DOWNLOADS].map(storeName =>
+        new Promise((resolve) => {
+          try {
+            const tx = database.transaction([storeName], 'readwrite');
+            const req = tx.objectStore(storeName).clear();
+            req.onsuccess = () => resolve();
+            req.onerror = () => resolve();
+          } catch { resolve(); }
+        })
+      ));
+      try { localStorage.removeItem(LS_LIKED_KEY); } catch {}
+      try { localStorage.removeItem(LS_RECENT_KEY); } catch {}
+      localStorage.setItem(BACKEND_VERSION_KEY, BACKEND_VERSION);
+      return true; // migration happened
+    } catch (e) {
+      console.warn('[SoundAura] Migration check failed:', e);
+      return false;
+    }
+  },
+
   // Request persistent storage so the browser won't auto-evict our data
   async requestPersistence() {
     if (navigator.storage && navigator.storage.persist) {

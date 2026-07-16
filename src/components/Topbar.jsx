@@ -47,7 +47,7 @@ export default function Topbar({ q, setQ, activeLang, setLang, onSearch }) {
             value={q}
             onChange={e => onInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { handleSearch(); } }}
-            placeholder="Search songs, artists, movies..."
+            placeholder="Search songs, artists, genres..."
             onFocus={() => sugs.length && setShowSugs(true)}
           />
           {q && <button className="clear-btn" onClick={() => { setQ(''); setSugs([]); }}>✕</button>}

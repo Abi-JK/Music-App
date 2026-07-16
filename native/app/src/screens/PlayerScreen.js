@@ -192,9 +192,9 @@ export default function PlayerScreen({ route, navigation }) {
             maximumValue={duration}
             value={position}
             onSlidingComplete={seekAudio}
-            minimumTrackTintColor="#1DB954"
+            minimumTrackTintColor="#00d4e8"
             maximumTrackTintColor="#333"
-            thumbTintColor="#1DB954"
+            thumbTintColor="#00d4e8"
           />
           <View style={styles.timeContainer}>
             <Text style={styles.timeText}>{formatTime(position)}</Text>
@@ -233,7 +233,7 @@ export default function PlayerScreen({ route, navigation }) {
             <Ionicons 
               name={isLiked ? 'heart' : 'heart-outline'} 
               size={28} 
-              color={isLiked ? '#1DB954' : '#fff'} 
+              color={isLiked ? '#00d4e8' : '#fff'} 
             />
           </TouchableOpacity>
 
@@ -243,12 +243,12 @@ export default function PlayerScreen({ route, navigation }) {
             disabled={isDownloading || isDownloaded}
           >
             {isDownloading ? (
-              <ActivityIndicator size="small" color="#1DB954" />
+              <ActivityIndicator size="small" color="#00d4e8" />
             ) : (
               <Ionicons 
                 name={isDownloaded ? 'download-done' : 'download-outline'} 
                 size={28} 
-                color={isDownloaded ? '#1DB954' : '#fff'} 
+                color={isDownloaded ? '#00d4e8' : '#fff'} 
               />
             )}
           </TouchableOpacity>
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: '#1DB954',
+    backgroundColor: '#00d4e8',
     justifyContent: 'center',
     alignItems: 'center',
   },

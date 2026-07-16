@@ -3,18 +3,23 @@ import { formatTime } from '../utils/helpers';
 import { fetchLyrics, downloadAudioBlob } from '../utils/api';
 import { cutAudio } from '../utils/audio';
 
-export default function FullScreenPlayer({ 
-  currentSong, 
-  isPlaying, 
-  setIsPlaying, 
-  playNext, 
-  playPrev, 
-  liked, 
-  toggleLike, 
-  curTime, 
-  dur, 
+export default function FullScreenPlayer({
+  currentSong,
+  isPlaying,
+  setIsPlaying,
+  playNext,
+  playPrev,
+  liked,
+  toggleLike,
+  curTime,
+  dur,
   onClose,
-  showToast
+  showToast,
+  repeatMode,
+  toggleRepeat,
+  shuffleOn,
+  toggleShuffle,
+  onShowQueue
 }) {
   const [lyrics, setLyrics] = useState('');
   const [loadingLyrics, setLoadingLyrics] = useState(true);
@@ -26,7 +31,7 @@ export default function FullScreenPlayer({
     if (!currentSong) return;
     setLoadingLyrics(true);
     setLyrics('');
-    
+
     fetchLyrics(currentSong.id, currentSong.title, currentSong.artist)
       .then(text => {
         setLyrics(text || '');
@@ -48,15 +53,15 @@ export default function FullScreenPlayer({
     if (!currentSong) return;
     setDownloadingRingtone(true);
     showToast('Cutting and preparing ringtone...');
-    
+
     try {
       let urlToDownload = currentSong.audioUrl;
       const blob = await downloadAudioBlob(urlToDownload);
       if (!blob) throw new Error('Download failed');
-      
+
       const ringtoneEnd = Math.min(dur, ringtoneStart + 30);
       const cutBlob = await cutAudio(blob, ringtoneStart, ringtoneEnd);
-      
+
       const blobUrl = URL.createObjectURL(cutBlob);
       const a = document.createElement('a');
       a.href = blobUrl;
@@ -65,7 +70,7 @@ export default function FullScreenPlayer({
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(blobUrl);
-      
+
       showToast('✅ Ringtone downloaded! Set it in your phone Settings > Sounds.');
       setShowRingtoneEditor(false);
     } catch (err) {
@@ -86,7 +91,9 @@ export default function FullScreenPlayer({
       <div className="fs-header">
         <button className="icon-btn" onClick={onClose} style={{ fontSize: 24 }}>🔽</button>
         <span className="fs-header-title">Now Playing</span>
-        <button className="icon-btn" style={{ visibility: 'hidden', fontSize: 24 }}>🔽</button>
+        {onShowQueue && (
+          <button className="icon-btn" onClick={onShowQueue} style={{ fontSize: 20 }} title="Play Queue">📋</button>
+        )}
       </div>
 
       <div className="fs-scroll-content">
@@ -122,11 +129,17 @@ export default function FullScreenPlayer({
           </div>
 
           <div className="fs-controls">
+            <button className={`icon-btn ${shuffleOn ? 'ctrl-active' : ''}`} onClick={toggleShuffle} title={shuffleOn ? 'Shuffle On' : 'Shuffle Off'} style={{ fontSize: 24 }}>
+              🔀
+            </button>
             <button className="icon-btn" onClick={playPrev} title="Previous" style={{ fontSize: 32 }}>⏮</button>
             <button className="player-play-btn fs-play-btn" onClick={() => setIsPlaying(!isPlaying)}>
               {isPlaying ? '⏸' : '▶'}
             </button>
             <button className="icon-btn" onClick={playNext} title="Next" style={{ fontSize: 32 }}>⏭</button>
+            <button className={`icon-btn ${repeatMode !== 'off' ? 'ctrl-active' : ''}`} onClick={toggleRepeat} title={`Repeat: ${repeatMode}`} style={{ fontSize: 24 }}>
+              {repeatMode === 'one' ? '🔂' : '🔁'}
+            </button>
           </div>
 
           <div className="fs-actions">
@@ -137,11 +150,11 @@ export default function FullScreenPlayer({
             ) : (
               <div className="fs-ringtone-editor" style={{ background: 'rgba(255,255,255,0.1)', padding: '16px', borderRadius: '12px', width: '100%', maxWidth: '350px' }}>
                 <h4 style={{ color: '#fff', marginBottom: 12, fontSize: 14 }}>Ringtone Start: {formatTime(ringtoneStart)} (30s clip)</h4>
-                <input 
-                  type="range" 
-                  min="0" 
-                  max={Math.max(0, dur - 30)} 
-                  value={ringtoneStart} 
+                <input
+                  type="range"
+                  min="0"
+                  max={Math.max(0, dur - 30)}
+                  value={ringtoneStart}
                   onChange={(e) => setRingtoneStart(Number(e.target.value))}
                   style={{ width: '100%', marginBottom: 16 }}
                 />

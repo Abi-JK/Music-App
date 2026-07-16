@@ -12,10 +12,10 @@ const LogoImage = ({ size = 48 }) => (
 
 export default function Sidebar({ activeTab, setActiveTab, likedCount, onSearch, onInstall }) {
   const playlists = [
-    { label: '🎵 Tamil Kuthu Hits',   term: 'tamil kuthu hits' },
-    { label: '⭐ Evergreen Retro',     term: 'evergreen retro hits' },
-    { label: '🎹 A.R. Rahman Specials', term: 'ar rahman hits' },
-    { label: '🎸 Bollywood Rock',     term: 'bollywood rock' },
+    { label: '🎧 Lo-Fi & Chill',        term: 'lofi chill' },
+    { label: '⚡ Electronic',            term: 'electronic' },
+    { label: '🎤 Hip-Hop & Rap',        term: 'hip hop' },
+    { label: '🎸 Indie & Alternative',  term: 'indie alternative' },
   ];
 
   return (

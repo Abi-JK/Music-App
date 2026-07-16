@@ -65,12 +65,12 @@ export default function LibraryScreen({ navigation }) {
           <Ionicons 
             name={isLiked(item.id) ? 'heart' : 'heart-outline'} 
             size={24} 
-            color={isLiked(item.id) ? '#1DB954' : '#888'} 
+            color={isLiked(item.id) ? '#00d4e8' : '#888'} 
           />
         </TouchableOpacity>
       )}
       {activeTab === 'downloaded' && (
-        <Ionicons name="download-done" size={24} color="#1DB954" />
+        <Ionicons name="download-done" size={24} color="#00d4e8" />
       )}
     </TouchableOpacity>
   );
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#1DB954',
+    color: '#00d4e8',
   },
   tabContainer: {
     flexDirection: 'row',
@@ -158,7 +158,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   tabActive: {
-    borderBottomColor: '#1DB954',
+    borderBottomColor: '#00d4e8',
   },
   tabText: {
     color: '#888',
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   tabTextActive: {
-    color: '#1DB954',
+    color: '#00d4e8',
   },
   songList: {
     flex: 1,

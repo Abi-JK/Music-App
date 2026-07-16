@@ -32,7 +32,7 @@ export default function BottomTabs() {
           paddingBottom: 8,
           paddingTop: 8,
         },
-        tabBarActiveTintColor: '#1DB954',
+        tabBarActiveTintColor: '#00d4e8',
         tabBarInactiveTintColor: '#888',
         tabBarLabelStyle: {
           fontSize: 12,

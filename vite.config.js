@@ -42,7 +42,22 @@ export default defineConfig({
           { src: '/icons/icon-maskable-192.png',  sizes: '192x192', type: 'image/png', purpose: 'maskable' },
           { src: '/icons/icon-maskable-512.png',  sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
-        screenshots: [],
+        screenshots: [
+          {
+            src: '/icons/icon-512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            form_factor: 'wide',
+            label: 'SoundAura Desktop - Free Music Player'
+          },
+          {
+            src: '/icons/icon-192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            form_factor: 'narrow',
+            label: 'SoundAura Mobile - Free Music Player'
+          },
+        ],
         shortcuts: [
           { name: 'Search Songs', short_name: 'Search',  url: '/?tab=search',    icons: [{ src: '/icons/icon-96.png', sizes: '96x96' }] },
           { name: 'Liked Songs',  short_name: 'Liked',   url: '/?tab=liked',     icons: [{ src: '/icons/icon-96.png', sizes: '96x96' }] },

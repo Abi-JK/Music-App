@@ -1,7 +1,7 @@
 import React from 'react';
 import { formatTime } from '../utils/helpers';
 
-export default function SearchScreen({ searchResults, searchLoading, searched, currentSong, isPlaying, playSong, toggleLike, liked }) {
+export default function SearchScreen({ searchResults, searchLoading, searched, currentSong, isPlaying, playSong, toggleLike, liked, downloadSong, downloadedIds, downloadingIds }) {
   if (searchLoading) return (
     <div className="spinner-wrap"><div className="spinner" /><p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Searching...</p></div>
   );
@@ -31,25 +31,40 @@ export default function SearchScreen({ searchResults, searchLoading, searched, c
         {searchResults.map((song, i) => {
           const isActive = currentSong?.id === song.id;
           const isLiked = liked ? liked(song.id) : false;
+          const isDownloaded = downloadedIds ? downloadedIds.includes(song.id) : false;
+          const isDownloading = downloadingIds ? downloadingIds.includes(song.id) : false;
           return (
             <div key={song.id} className={`song-row ${isActive ? 'now-playing' : ''}`}
-              onClick={() => playSong(song, searchResults, i)}>
+              onClick={() => playSong(song, searchResults, i)}
+              title={`${song.title} — ${song.artist}`}>
               <span className="row-num">
                 {isActive && isPlaying ? <div className="eq"><span /><span /><span /></div> : i + 1}
               </span>
               <div className="row-info">
                 {song.coverUrl ? <img src={song.coverUrl} alt="" /> : <div className="r-ph">🎵</div>}
                 <div className="row-text">
-                  <h4>{song.title}</h4>
-                  <p>{song.artist}</p>
+                  <h4 title={song.title}>{song.title}</h4>
+                  <p title={song.artist}>{song.artist}</p>
                 </div>
               </div>
-              <span className="row-album">{song.album || '—'}</span>
+              <span className="row-album" title={song.album || ''}>{song.album || '—'}</span>
               <span className="row-dur">{formatTime(song.duration)}</span>
               <div className="row-acts">
                 {toggleLike && (
-                  <button className="icon-btn" onClick={(e) => { e.stopPropagation(); toggleLike(song); }}>
+                  <button className="icon-btn" onClick={(e) => { e.stopPropagation(); toggleLike(song); }}
+                    title={isLiked ? 'Unlike' : 'Like'}>
                     {isLiked ? '❤️' : '🤍'}
+                  </button>
+                )}
+                {downloadSong && (
+                  <button
+                    className="icon-btn"
+                    onClick={(e) => { e.stopPropagation(); if (!isDownloaded && !isDownloading) downloadSong(song); }}
+                    title={isDownloaded ? 'Downloaded' : isDownloading ? 'Downloading...' : 'Download for offline'}
+                    disabled={isDownloaded || isDownloading}
+                    style={{ opacity: isDownloaded ? 0.5 : 1 }}
+                  >
+                    {isDownloaded ? '✅' : isDownloading ? '⏳' : '📥'}
                   </button>
                 )}
               </div>
