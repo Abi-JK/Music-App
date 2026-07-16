@@ -56,17 +56,17 @@ function AppContent() {
   const [showQueue, setShowQueue] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
 
-  // Repeat: 'off' | 'all' | 'one'
   const [repeatMode, setRepeatMode] = useState('off');
   const [shuffleOn, setShuffleOn] = useState(false);
   const originalPlaylistRef = useRef([]);
+  const shuffleRef = useRef(false);
 
   const currentSong = playlist[currentIndex] || null;
 
-  // Load data from IndexedDB on mount
+  useEffect(() => { shuffleRef.current = shuffleOn; }, [shuffleOn]);
+
   useEffect(() => {
     Storage.requestPersistence().catch(console.error);
-
     const loadData = async () => {
       try {
         await Storage.migrateIfNeeded();
@@ -83,8 +83,6 @@ function AppContent() {
       }
     };
     loadData();
-
-    // PWA Install Prompt Logic
     if (window.__installPrompt) setDeferredPrompt(window.__installPrompt);
     const handler = (e) => { e.preventDefault(); setDeferredPrompt(e); };
     window.addEventListener('beforeinstallprompt', handler);
@@ -95,9 +93,7 @@ function AppContent() {
     if (deferredPrompt) {
       deferredPrompt.prompt();
       const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') {
-        setDeferredPrompt(null);
-      }
+      if (outcome === 'accepted') setDeferredPrompt(null);
     } else {
       showToast('App is already installed or install is not supported on this browser. On iOS, tap Share > Add to Home Screen.');
     }
@@ -121,7 +117,7 @@ function AppContent() {
     if (!song) return;
     const ctx = context || [song];
     originalPlaylistRef.current = ctx;
-    if (shuffleOn) {
+    if (shuffleRef.current) {
       const shuffled = shuffleArray(ctx);
       const idx = shuffled.findIndex(s => s.id === song.id);
       setPlaylist(shuffled);
@@ -132,12 +128,11 @@ function AppContent() {
     }
     setIsPlaying(true);
     addRecent(song);
-  }, [addRecent, shuffleOn]);
+  }, [addRecent]);
 
   const playNext = useCallback(() => {
     if (!playlist.length) return;
     if (repeatMode === 'one') {
-      setIsPlaying(true);
       const audioEl = document.getElementById('main-audio');
       if (audioEl) { audioEl.currentTime = 0; audioEl.play().catch(() => {}); }
       return;
@@ -168,6 +163,7 @@ function AppContent() {
   const toggleShuffle = useCallback(() => {
     setShuffleOn(prev => {
       const next = !prev;
+      shuffleRef.current = next;
       if (next && playlist.length > 0) {
         const current = playlist[currentIndex];
         const shuffled = shuffleArray(playlist);
@@ -197,20 +193,15 @@ function AppContent() {
     setLikedSongs(prev => {
       const already = prev.some(s => s.id === song.id);
       const next = already ? prev.filter(s => s.id !== song.id) : [...prev, song];
-
-      if (already) {
-        Storage.removeLikedSong(song.id).catch(console.error);
-      } else {
-        Storage.addLikedSong(song).catch(console.error);
-      }
-
+      if (already) Storage.removeLikedSong(song.id).catch(console.error);
+      else Storage.addLikedSong(song).catch(console.error);
       showToast(already ? '💔 Removed from Liked Songs' : '❤️ Added to Liked Songs');
       return next;
     });
   }, [showToast]);
 
   const doSearch = useCallback(async (override) => {
-    const q = (override ?? searchQ).trim();
+    const q = (typeof override === 'string' ? override : searchQ).trim();
     if (!q) return;
     setSearchQ(q);
     setActiveTab('search');
@@ -223,7 +214,7 @@ function AppContent() {
       setSearchResults(songs);
       if (songs.length) {
         originalPlaylistRef.current = songs;
-        if (shuffleOn) {
+        if (shuffleRef.current) {
           const shuffled = shuffleArray(songs);
           setPlaylist(shuffled);
           setCurrentIndex(0);
@@ -231,13 +222,12 @@ function AppContent() {
           setPlaylist(songs);
           setCurrentIndex(0);
         }
-      }
-      else showToast('No results found.');
+      } else showToast('No results found.');
     } catch {
       showToast('Search failed. Check your connection.');
     }
     setSearchLoading(false);
-  }, [searchQ, activeLang, showToast, shuffleOn]);
+  }, [searchQ, activeLang, showToast]);
 
   const handleLangChip = useCallback((lang) => {
     setActiveLang(lang);
@@ -252,7 +242,7 @@ function AppContent() {
         setSearchResults(songs);
         if (songs.length) {
           originalPlaylistRef.current = songs;
-          if (shuffleOn) {
+          if (shuffleRef.current) {
             const shuffled = shuffleArray(songs);
             setPlaylist(shuffled);
             setCurrentIndex(0);
@@ -264,20 +254,22 @@ function AppContent() {
       })
       .catch(() => showToast('Could not load.'))
       .finally(() => setSearchLoading(false));
-  }, [showToast, shuffleOn]);
+  }, [showToast]);
 
   const searchByQuery = useCallback(async (term) => {
-    setSearchQ(term);
+    const q = (typeof term === 'string' ? term : '').trim();
+    if (!q) return;
+    setSearchQ(q);
     setActiveTab('search');
     setSearched(true);
     setSearchLoading(true);
     setActiveLang('All');
     try {
-      const songs = await searchSongs(term, 80);
+      const songs = await searchSongs(q, 80);
       setSearchResults(songs);
       if (songs.length) {
         originalPlaylistRef.current = songs;
-        if (shuffleOn) {
+        if (shuffleRef.current) {
           const shuffled = shuffleArray(songs);
           setPlaylist(shuffled);
           setCurrentIndex(0);
@@ -285,13 +277,12 @@ function AppContent() {
           setPlaylist(songs);
           setCurrentIndex(0);
         }
-      }
-      else showToast('No results found.');
+      } else showToast('No results found.');
     } catch {
       showToast('Search failed. Check your connection.');
     }
     setSearchLoading(false);
-  }, [showToast, shuffleOn]);
+  }, [showToast]);
 
   const downloadSong = useCallback(async (song) => {
     if (downloadedSongs.some(s => s.id === song.id)) {
@@ -307,16 +298,9 @@ function AppContent() {
         audioUrl = res.streamUrl || res.audioUrl;
       }
       if (!audioUrl) throw new Error('No audio URL found');
-
       const blob = await downloadAudioBlob(audioUrl);
       if (!blob) throw new Error('Failed to download audio blob');
-
-      const songWithBlob = {
-        ...song,
-        audioBlob: blob,
-        downloadedAt: new Date().toISOString()
-      };
-
+      const songWithBlob = { ...song, audioBlob: blob, downloadedAt: new Date().toISOString() };
       await Storage.addDownloadedSong(songWithBlob);
       setDownloadedSongs(prev => [...prev, songWithBlob]);
       showToast(`📥 "${song.title}" downloaded offline!`);
@@ -349,7 +333,7 @@ function AppContent() {
         <Topbar
           q={searchQ} setQ={setSearchQ}
           activeLang={activeLang} setLang={handleLangChip}
-          onSearch={() => doSearch()}
+          onSearch={(q) => doSearch(q)}
         />
         <div className="main-scroll">
           <InstallBanner />
@@ -426,8 +410,8 @@ function AppContent() {
       <MobileNav activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} onInstall={handleInstallApp} />
       <Toast msg={toastMsg} />
       {showFullScreen && currentSong && (
-        <FullScreenPlayer 
-          currentSong={currentSong} 
+        <FullScreenPlayer
+          currentSong={currentSong}
           isPlaying={isPlaying}
           setIsPlaying={setIsPlaying}
           playNext={playNext}
@@ -436,7 +420,7 @@ function AppContent() {
           toggleLike={toggleLike}
           curTime={audioState.curTime}
           dur={audioState.dur}
-          onClose={closeFullScreen} 
+          onClose={closeFullScreen}
           showToast={showToast}
           repeatMode={repeatMode}
           toggleRepeat={toggleRepeat}
@@ -458,7 +442,6 @@ function AppContent() {
           playlist={playlist}
           currentIndex={currentIndex}
           currentSong={currentSong}
-          isPlaying={isPlaying}
           playSong={playSong}
           onClose={() => setShowQueue(false)}
         />

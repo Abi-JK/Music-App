@@ -29,15 +29,21 @@ export default function FullScreenPlayer({
 
   useEffect(() => {
     if (!currentSong) return;
+    let cancelled = false;
     setLoadingLyrics(true);
     setLyrics('');
 
-    fetchLyrics(currentSong.id, currentSong.title, currentSong.artist)
-      .then(text => {
+    const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 8000));
+    const lyricsPromise = fetchLyrics(currentSong.id, currentSong.title, currentSong.artist);
+
+    Promise.race([lyricsPromise, timeout]).then(text => {
+      if (!cancelled) {
         setLyrics(text || '');
         setLoadingLyrics(false);
-      })
-      .catch(() => setLoadingLyrics(false));
+      }
+    }).catch(() => { if (!cancelled) setLoadingLyrics(false); });
+
+    return () => { cancelled = true; };
   }, [currentSong]);
 
   const onSeek = (e) => {

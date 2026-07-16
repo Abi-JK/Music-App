@@ -4,19 +4,26 @@ import { fetchLyrics } from '../utils/api';
 export default function LyricsPanel({ songId, songTitle, songArtist, onClose }) {
   const [lyrics, setLyrics] = useState('');
   const [loading, setLoading] = useState(true);
-  const [source, setSource] = useState('');
 
   useEffect(() => {
-    if (!songId) return;
+    if (!songId || !songTitle) { setLoading(false); return; }
+    let cancelled = false;
     setLoading(true);
     setLyrics('');
-    setSource('');
-    
-    fetchLyrics(songId, songTitle, songArtist).then(text => {
-      setLyrics(text || '');
-      if (text) setSource('');
-      setLoading(false);
-    }).catch(() => setLoading(false));
+
+    const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 8000));
+    const lyricsPromise = fetchLyrics(songId, songTitle, songArtist);
+
+    Promise.race([lyricsPromise, timeout]).then(text => {
+      if (!cancelled) {
+        setLyrics(text || '');
+        setLoading(false);
+      }
+    }).catch(() => {
+      if (!cancelled) setLoading(false);
+    });
+
+    return () => { cancelled = true; };
   }, [songId, songTitle, songArtist]);
 
   return (
@@ -36,15 +43,12 @@ export default function LyricsPanel({ songId, songTitle, songArtist, onClose }) 
               <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Searching for lyrics...</p>
             </div>
           ) : lyrics ? (
-            <>
-              <pre className="lyrics-text">{lyrics}</pre>
-              {source && <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: 11, marginTop: 16 }}>{source}</p>}
-            </>
+            <pre className="lyrics-text">{lyrics}</pre>
           ) : (
             <div className="empty">
               <div style={{ fontSize: 36 }}>📝</div>
               <h3>Lyrics not available</h3>
-              <p>We searched multiple sources but couldn't find lyrics for this song. Try searching for a different version.</p>
+              <p>Lyrics for independent artists may not be available yet. Try searching for a well-known song to see lyrics.</p>
             </div>
           )}
         </div>

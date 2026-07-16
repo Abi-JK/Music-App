@@ -143,7 +143,10 @@ export async function fetchLyrics(songId, songTitle, artistName) {
 
   const tryLookup = async (artist, title) => {
     try {
-      const res = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`);
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 6000);
+      const res = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`, { signal: ctrl.signal });
+      clearTimeout(t);
       if (res.ok) {
         const data = await res.json();
         if (data?.lyrics && data.lyrics.trim().length > 10) return data.lyrics;

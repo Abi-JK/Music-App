@@ -7,6 +7,7 @@ export default function Topbar({ q, setQ, activeLang, setLang, onSearch }) {
   const [showSugs, setShowSugs] = useState(false);
   const timerRef = useRef(null);
   const wrapRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     const handler = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setShowSugs(false); };
@@ -17,7 +18,7 @@ export default function Topbar({ q, setQ, activeLang, setLang, onSearch }) {
   const onInput = (val) => {
     setQ(val);
     if (timerRef.current) clearTimeout(timerRef.current);
-    if (!val.trim()) { setSugs([]); return; }
+    if (!val.trim()) { setSugs([]); setShowSugs(false); return; }
     timerRef.current = setTimeout(() => {
       searchSongs(val, 8).then(s => { setSugs(s); setShowSugs(true); }).catch(() => {});
     }, 350);
@@ -27,13 +28,13 @@ export default function Topbar({ q, setQ, activeLang, setLang, onSearch }) {
     setShowSugs(false);
     setSugs([]);
     setQ(s.title);
-    // Pass the title directly to onSearch to avoid stale state race condition
     onSearch(s.title);
   };
 
   const handleSearch = () => {
     setShowSugs(false);
-    onSearch();
+    const val = inputRef.current ? inputRef.current.value : q;
+    onSearch(val);
   };
 
   return (
@@ -44,13 +45,14 @@ export default function Topbar({ q, setQ, activeLang, setLang, onSearch }) {
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
           </svg>
           <input
+            ref={inputRef}
             value={q}
             onChange={e => onInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { handleSearch(); } }}
             placeholder="Search songs, artists, genres..."
             onFocus={() => sugs.length && setShowSugs(true)}
           />
-          {q && <button className="clear-btn" onClick={() => { setQ(''); setSugs([]); }}>✕</button>}
+          {q && <button className="clear-btn" onClick={() => { setQ(''); setSugs([]); setShowSugs(false); }}>✕</button>}
         </div>
         {showSugs && sugs.length > 0 && (
           <div className="suggestions">
