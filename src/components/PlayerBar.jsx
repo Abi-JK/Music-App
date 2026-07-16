@@ -37,7 +37,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
         }
       }
     }
-    if (candidates.length === 0 && currentSong.id) {
+    if (candidates.length === 0 && currentSong.id && !String(currentSong.id).startsWith('itunes-')) {
       candidates.push({ url: `https://discoveryprovider.audius.co/v1/tracks/${currentSong.id}/stream?app_name=SoundAura`, type: 'constructed' });
     }
     urlList.current = candidates;

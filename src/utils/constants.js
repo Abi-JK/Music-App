@@ -1,11 +1,11 @@
 export const LANG_QUERIES = [
   { label: 'All',       term: '' },
-  { label: 'Tamil',     term: 'tamil song' },
-  { label: 'Hindi',     term: 'hindi bollywood' },
+  { label: 'Tamil',     term: 'tamil film songs' },
+  { label: 'Hindi',     term: 'bollywood hindi' },
   { label: 'English',   term: 'english pop' },
-  { label: 'Telugu',    term: 'telugu' },
-  { label: 'Malayalam', term: 'malayalam' },
-  { label: 'Kannada',   term: 'kannada' },
+  { label: 'Telugu',    term: 'telugu film' },
+  { label: 'Malayalam', term: 'malayalam film' },
+  { label: 'Kannada',   term: 'kannada film' },
   { label: 'Bengali',   term: 'bengali' },
   { label: 'Punjabi',   term: 'punjabi' },
   { label: 'Marathi',   term: 'marathi' },
@@ -13,17 +13,25 @@ export const LANG_QUERIES = [
 ];
 
 export const HOME_SECTIONS = [
-  { key: 'lofi',       label: 'Lo-Fi & Chill',                query: 'lofi chill' },
-  { key: 'electronic', label: 'Electronic',                   query: 'electronic music' },
-  { key: 'hiphop',     label: 'Hip-Hop & Rap',                query: 'hip hop rap' },
-  { key: 'indie',      label: 'Indie & Alternative',          query: 'indie alternative' },
-  { key: 'ambient',    label: 'Ambient & Focus',              query: 'ambient instrumental' },
-  { key: 'pop',        label: 'Pop Hits',                     query: 'pop music' },
-  { key: 'tamil',      label: 'Tamil Songs',                  query: 'tamil song' },
-  { key: 'hindi',      label: 'Hindi Songs',                  query: 'hindi bollywood song' },
-  { key: 'telugu',     label: 'Telugu Songs',                 query: 'telugu song' },
-  { key: 'english',    label: 'English Songs',                query: 'english pop song' },
-  { key: 'world',      label: 'World & Regional',             query: 'world music' },
+  { key: 'lofi',       label: 'Lo-Fi & Chill',        query: 'lofi chill' },
+  { key: 'hindi',      label: 'Bollywood Hits',       query: 'bollywood hindi' },
+  { key: 'tamil',      label: 'Tamil Hits',           query: 'tamil film ilayaraja' },
+  { key: 'english',    label: 'English Pop',          query: 'english pop' },
+  { key: 'telugu',     label: 'Telugu Hits',          query: 'telugu film' },
+  { key: 'hiphop',     label: 'Hip-Hop & Rap',        query: 'hip hop rap' },
+  { key: 'malayalam',  label: 'Malayalam Hits',       query: 'malayalam film' },
+  { key: 'arrahman',   label: 'A.R. Rahman',          query: 'A.R. Rahman' },
+  { key: 'arijit',     label: 'Arijit Singh',         query: 'Arijit Singh' },
+  { key: 'ilayaraja',  label: 'Ilaiyaraaja',          query: 'Ilaiyaraaja' },
+  { key: 'yesudas',    label: 'K.J. Yesudas',         query: 'K.J. Yesudas' },
+  { key: 'electronic', label: 'Electronic',           query: 'electronic music' },
+];
+
+export const POPULAR_ARTISTS = [
+  'Ilaiyaraaja', 'A.R. Rahman', 'Arijit Singh', 'K.J. Yesudas',
+  'Anirudh Ravichander', 'Harris Jayaraj', 'Yuvan Shankar Raja',
+  'Vijay', 'Ajith', 'Suriya', 'Allu Arjun', 'Prabhas',
+  'Shankar Mahadevan', 'Sonu Nigam', 'KK', 'Udit Narayan',
 ];
 
 export const API = 'https://discoveryprovider.audius.co';

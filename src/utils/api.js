@@ -1,9 +1,12 @@
 // ---------------------------------------------------------------------------
-// SoundAura audio backend — powered by Audius (https://audius.org)
+// SoundAura audio backend — powered by Audius + iTunes Search API
+// Audius: independent artists worldwide (free streaming)
+// iTunes: Indian movie songs catalog (30s previews — perfect for ringtones)
 // ---------------------------------------------------------------------------
 
 const APP_NAME = 'SoundAura';
 
+// ── Audius ──────────────────────────────────────────────────────────────────
 const DISCOVERY_HOSTS = [
   'https://discoveryprovider.audius.co',
   'https://discoveryprovider2.audius.co',
@@ -47,13 +50,9 @@ function normTrack(t, host) {
   const art = t.artwork || {};
   const realStreamUrl = t.stream?.url || null;
   const constructedUrl = `${host}/v1/tracks/${t.id}/stream?app_name=${APP_NAME}`;
-
-  // Build a list of URLs to try — real URL first, then constructed fallback
   const candidates = [];
   if (realStreamUrl) candidates.push(realStreamUrl);
   candidates.push(constructedUrl);
-
-  // Add mirror hosts as further fallbacks (space-separated hostnames)
   if (t.stream?.mirrors && t.track_cid) {
     const mirrors = typeof t.stream.mirrors === 'string' ? t.stream.mirrors.split(' ') : (t.stream.mirrors || []);
     for (const mh of mirrors) {
@@ -62,9 +61,6 @@ function normTrack(t, host) {
       if (!candidates.includes(mirrorUrl)) candidates.push(mirrorUrl);
     }
   }
-
-  const audioUrl = candidates[0] || constructedUrl;
-
   return {
     id: t.id,
     title: t.title || 'Unknown',
@@ -73,30 +69,97 @@ function normTrack(t, host) {
     year: t.release_date ? new Date(t.release_date).getFullYear() : '',
     duration: t.duration || 0,
     coverUrl: art['480x480'] || art['150x150'] || art['1000x1000'] || null,
-    audioUrl: audioUrl,
+    audioUrl: candidates[0] || constructedUrl,
     allAudioUrls: candidates.map(url => ({ quality: 'stream', url })),
     genre: t.genre || '',
-    mood: t.mood || '',
-    copyright: `© ${t.user?.name || 'artist'} — shared via Audius`,
+    source: 'audius',
     downloadable: !!t.downloadable,
     playCount: t.play_count || 0,
   };
 }
 
-export function getProxiedUrl(url) {
-  return url;
+// ── iTunes Search API ───────────────────────────────────────────────────────
+function normITunesTrack(s) {
+  const art100 = s.artworkUrl100 || '';
+  const coverUrl = art100 ? art100.replace('100x100', '600x600') : null;
+  return {
+    id: `itunes-${s.trackId}`,
+    title: s.trackName || 'Unknown',
+    artist: s.artistName || 'Unknown Artist',
+    album: s.collectionName || '',
+    year: s.releaseDate ? new Date(s.releaseDate).getFullYear() : '',
+    duration: s.trackTimeMillis ? Math.round(s.trackTimeMillis / 1000) : 0,
+    coverUrl: coverUrl,
+    audioUrl: s.previewUrl || null,
+    allAudioUrls: s.previewUrl ? [{ quality: 'preview', url: s.previewUrl }] : [],
+    genre: s.primaryGenreName || '',
+    source: 'itunes',
+    downloadable: false,
+    playCount: 0,
+  };
 }
+
+async function searchITunes(query, limit = 20) {
+  try {
+    const res = await fetch(
+      `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=${limit}&entity=song&country=IN`
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    return (data.results || []).filter(s => s.previewUrl).map(normITunesTrack);
+  } catch {
+    return [];
+  }
+}
+
+// ── Public API ──────────────────────────────────────────────────────────────
+export function getProxiedUrl(url) { return url; }
 
 export async function searchSongs(query, limit = 40) {
   try {
-    const host = await pickHost();
-    const data = await apiGet(`/v1/tracks/search?query=${encodeURIComponent(query)}&limit=${limit}`);
-    const results = data?.data || [];
-    return results.map(t => normTrack(t, host)).filter(s => s.id && s.audioUrl);
+    const [audiusResults, iTunesResults] = await Promise.all([
+      pickHost().then(host =>
+        apiGet(`/v1/tracks/search?query=${encodeURIComponent(query)}&limit=${limit}`)
+          .then(data => (data?.data || []).map(t => normTrack(t, host)).filter(s => s.id && s.audioUrl))
+          .catch(() => [])
+      ),
+      searchITunes(query, Math.min(limit, 25)),
+    ]);
+
+    // Merge: dedupe by title+artist, prefer Audius (full songs) over iTunes (previews)
+    const seen = new Set();
+    const merged = [];
+    for (const s of [...audiusResults, ...iTunesResults]) {
+      const key = `${s.title.toLowerCase()}|${s.artist.toLowerCase()}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        merged.push(s);
+      }
+    }
+    return merged;
   } catch (err) {
     console.error('searchSongs error:', err);
     return [];
   }
+}
+
+export async function searchArtistSongs(artistName, limit = 30) {
+  const iTunesResults = await searchITunes(artistName, limit);
+  // Also try Audius
+  let audiusResults = [];
+  try {
+    const host = await pickHost();
+    const data = await apiGet(`/v1/tracks/search?query=${encodeURIComponent(artistName)}&limit=${limit}`);
+    audiusResults = (data?.data || []).map(t => normTrack(t, host)).filter(s => s.id && s.audioUrl);
+  } catch { /* ignore */ }
+
+  const seen = new Set();
+  const merged = [];
+  for (const s of [...audiusResults, ...iTunesResults]) {
+    const key = `${s.title.toLowerCase()}|${s.artist.toLowerCase()}`;
+    if (!seen.has(key)) { seen.add(key); merged.push(s); }
+  }
+  return merged;
 }
 
 export async function getTrending(genre = '', limit = 20) {
@@ -104,8 +167,7 @@ export async function getTrending(genre = '', limit = 20) {
     const host = await pickHost();
     const genreParam = genre ? `&genre=${encodeURIComponent(genre)}` : '';
     const data = await apiGet(`/v1/tracks/trending?limit=${limit}${genreParam}`);
-    const results = data?.data || [];
-    return results.map(t => normTrack(t, host)).filter(s => s.id && s.audioUrl);
+    return (data?.data || []).map(t => normTrack(t, host)).filter(s => s.id && s.audioUrl);
   } catch (err) {
     console.error('getTrending error:', err);
     return [];
@@ -113,6 +175,9 @@ export async function getTrending(genre = '', limit = 20) {
 }
 
 export async function getStreamUrl(songId) {
+  if (String(songId).startsWith('itunes-')) {
+    return { audioUrl: null, streamUrl: null, allUrls: [] };
+  }
   try {
     const host = await pickHost();
     const data = await apiGet(`/v1/tracks/${songId}?app_name=${APP_NAME}`);
@@ -123,9 +188,7 @@ export async function getStreamUrl(songId) {
       const url = realUrl || fallbackUrl;
       return { audioUrl: url, streamUrl: url, allUrls: realUrl ? [{ quality: 'stream', url: realUrl }] : [] };
     }
-  } catch (err) {
-    console.error('getStreamUrl error:', err);
-  }
+  } catch (err) { console.error('getStreamUrl error:', err); }
   const host = await pickHost();
   const url = `${host}/v1/tracks/${songId}/stream?app_name=${APP_NAME}`;
   return { audioUrl: url, streamUrl: url, allUrls: [] };
@@ -135,96 +198,21 @@ export async function fetchAlbumSongs(playlistId, limit = 30) {
   try {
     const host = await pickHost();
     const data = await apiGet(`/v1/playlists/${playlistId}/tracks?limit=${limit}`);
-    const songs = (data?.data || []).map(t => normTrack(t, host)).filter(s => s.id && s.audioUrl);
-    return songs.slice(0, limit);
-  } catch {
-    return [];
-  }
+    return (data?.data || []).map(t => normTrack(t, host)).filter(s => s.id && s.audioUrl).slice(0, limit);
+  } catch { return []; }
 }
 
-export async function searchArtists(query, limit = 5) {
-  try {
-    const host = await pickHost();
-    const data = await apiGet(`/v1/users/search?query=${encodeURIComponent(query)}&limit=${limit}`);
-    return (data?.data || []).filter(u => u.track_count > 0).map(u => ({
-      id: u.id,
-      name: u.name || u.handle,
-      handle: u.handle,
-      trackCount: u.track_count,
-      followerCount: u.follower_count || 0,
-      avatarUrl: u.profile_picture?.['480x480'] || u.profile_picture?.['150x150'] || null,
-    }));
-  } catch {
-    return [];
-  }
-}
-
-export async function getArtistTracks(artistId, limit = 50) {
-  try {
-    const host = await pickHost();
-    const data = await apiGet(`/v1/tracks?user_id=${artistId}&limit=${limit}`);
-    const results = data?.data || [];
-    return results.map(t => normTrack(t, host)).filter(s => s.id && s.audioUrl);
-  } catch {
-    return [];
-  }
-}
-
-export async function getArtistAlbums(artistId, limit = 20) {
-  try {
-    const host = await pickHost();
-    const data = await apiGet(`/v1/users/${artistId}/playlists?limit=${limit}`);
-    const playlists = data?.data || [];
-    return playlists.filter(p => p.playlist_contents?.id?.length > 0).map(p => ({
-      id: p.id,
-      title: p.playlist_name || 'Untitled',
-      trackCount: p.playlist_contents?.id?.length || 0,
-      coverUrl: p.playlist_img_coverart || p.user?.profile_picture?.['480x480'] || null,
-      isAlbum: p.is_album || false,
-    }));
-  } catch {
-    return [];
-  }
-}
-
-export function groupTracksByAlbum(tracks) {
-  const albumMap = {};
-  for (const track of tracks) {
-    const albumTitle = track.album || track.title || 'Unknown';
-    const albumKey = albumTitle.toLowerCase();
-    if (!albumMap[albumKey]) {
-      albumMap[albumKey] = {
-        id: albumKey,
-        title: albumTitle,
-        artist: track.artist,
-        coverUrl: track.coverUrl,
-        year: track.year,
-        tracks: [],
-      };
-    }
-    albumMap[albumKey].tracks.push(track);
-    if (track.coverUrl && !albumMap[albumKey].coverUrl) {
-      albumMap[albumKey].coverUrl = track.coverUrl;
-    }
-  }
-  return Object.values(albumMap).sort((a, b) => b.tracks.length - a.tracks.length);
-}
-
+// ── Lyrics ──────────────────────────────────────────────────────────────────
 export async function fetchLyrics(songId, songTitle, artistName) {
   if (!songTitle || !artistName) return null;
-
   const cleanArtist = artistName.split(',')[0].split('&')[0].trim();
   const cleanTitle = songTitle.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').trim();
 
-  // Source 1: lyrics.ovh
   const tryLyricsOvh = async (artist, title) => {
     try {
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), 5000);
-      const res = await fetch(
-        `https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`,
-        { signal: ctrl.signal }
-      );
+      const res = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`, { signal: ctrl.signal });
       clearTimeout(t);
       if (res.ok) {
         const data = await res.json();
@@ -234,15 +222,11 @@ export async function fetchLyrics(songId, songTitle, artistName) {
     return null;
   };
 
-  // Source 2: lrclib.net (community lyrics)
   const tryLrclib = async (artist, title) => {
     try {
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), 5000);
-      const res = await fetch(
-        `https://lrclib.net/api/search?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(title)}`,
-        { signal: ctrl.signal }
-      );
+      const res = await fetch(`https://lrclib.net/api/search?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(title)}`, { signal: ctrl.signal });
       clearTimeout(t);
       if (res.ok) {
         const data = await res.json();
@@ -255,7 +239,6 @@ export async function fetchLyrics(songId, songTitle, artistName) {
     return null;
   };
 
-  // Try multiple title variations
   const titles = [cleanTitle];
   const simplerTitle = cleanTitle.replace(/feat\.?.*/i, '').replace(/ft\.?.*/i, '').trim();
   if (simplerTitle && simplerTitle !== cleanTitle) titles.push(simplerTitle);
@@ -267,14 +250,11 @@ export async function fetchLyrics(songId, songTitle, artistName) {
     if (lyrics) return lyrics;
   }
 
-  // Try with just the song title (no artist) as last resort
+  // Try lrclib with just title
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 4000);
-    const res = await fetch(
-      `https://lrclib.net/api/search?track_name=${encodeURIComponent(cleanTitle)}`,
-      { signal: ctrl.signal }
-    );
+    const res = await fetch(`https://lrclib.net/api/search?track_name=${encodeURIComponent(cleanTitle)}`, { signal: ctrl.signal });
     clearTimeout(t);
     if (res.ok) {
       const data = await res.json();
@@ -297,4 +277,50 @@ export async function downloadAudioBlob(audioUrl) {
     console.error('Download error:', err);
     return null;
   }
+}
+
+export async function searchArtists(query, limit = 5) {
+  try {
+    const host = await pickHost();
+    const data = await apiGet(`/v1/users/search?query=${encodeURIComponent(query)}&limit=${limit}`);
+    return (data?.data || []).filter(u => u.track_count > 0).map(u => ({
+      id: u.id, name: u.name || u.handle, handle: u.handle,
+      trackCount: u.track_count, followerCount: u.follower_count || 0,
+      avatarUrl: u.profile_picture?.['480x480'] || u.profile_picture?.['150x150'] || null,
+    }));
+  } catch { return []; }
+}
+
+export async function getArtistTracks(artistId, limit = 50) {
+  try {
+    const host = await pickHost();
+    const data = await apiGet(`/v1/tracks?user_id=${artistId}&limit=${limit}`);
+    return (data?.data || []).map(t => normTrack(t, host)).filter(s => s.id && s.audioUrl);
+  } catch { return []; }
+}
+
+export async function getArtistAlbums(artistId, limit = 20) {
+  try {
+    const host = await pickHost();
+    const data = await apiGet(`/v1/users/${artistId}/playlists?limit=${limit}`);
+    return (data?.data || []).filter(p => p.playlist_contents?.id?.length > 0).map(p => ({
+      id: p.id, title: p.playlist_name || 'Untitled',
+      trackCount: p.playlist_contents?.id?.length || 0,
+      coverUrl: p.playlist_img_coverart || null, isAlbum: p.is_album || false,
+    }));
+  } catch { return []; }
+}
+
+export function groupTracksByAlbum(tracks) {
+  const albumMap = {};
+  for (const track of tracks) {
+    const albumTitle = track.album || 'Unknown';
+    const albumKey = albumTitle.toLowerCase();
+    if (!albumMap[albumKey]) {
+      albumMap[albumKey] = { id: albumKey, title: albumTitle, artist: track.artist, coverUrl: track.coverUrl, year: track.year, tracks: [] };
+    }
+    albumMap[albumKey].tracks.push(track);
+    if (track.coverUrl && !albumMap[albumKey].coverUrl) albumMap[albumKey].coverUrl = track.coverUrl;
+  }
+  return Object.values(albumMap).sort((a, b) => b.tracks.length - a.tracks.length);
 }

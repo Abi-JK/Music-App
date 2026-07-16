@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { searchArtists, getArtistTracks, getArtistAlbums, groupTracksByAlbum } from '../utils/api';
+import { searchArtistSongs, groupTracksByAlbum } from '../utils/api';
 import { formatTime } from '../utils/helpers';
 
 export default function ArtistPage({ query, playSong, currentSong, isPlaying, onBack, showToast }) {
-  const [artist, setArtist] = useState(null);
   const [albums, setAlbums] = useState([]);
   const [allTracks, setAllTracks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -16,24 +15,10 @@ export default function ArtistPage({ query, playSong, currentSong, isPlaying, on
     setLoading(true);
     setSelectedAlbum(null);
 
-    searchArtists(query, 3).then(async (artists) => {
-      if (cancelled) return;
-      if (artists.length === 0) {
-        setLoading(false);
-        return;
-      }
-      const topArtist = artists[0];
-      setArtist(topArtist);
-
-      const [tracks, artistAlbums] = await Promise.all([
-        getArtistTracks(topArtist.id, 50),
-        getArtistAlbums(topArtist.id, 20),
-      ]);
-
+    searchArtistSongs(query, 50).then(tracks => {
       if (cancelled) return;
       setAllTracks(tracks);
-      const grouped = groupTracksByAlbum(tracks);
-      setAlbums(grouped);
+      setAlbums(groupTracksByAlbum(tracks));
       setLoading(false);
     }).catch(() => {
       if (!cancelled) setLoading(false);
@@ -45,16 +30,16 @@ export default function ArtistPage({ query, playSong, currentSong, isPlaying, on
   if (loading) return (
     <div className="spinner-wrap">
       <div className="spinner" />
-      <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Finding artist...</p>
+      <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Finding songs by {query}...</p>
     </div>
   );
 
-  if (!artist) return (
+  if (allTracks.length === 0) return (
     <div className="empty">
       <p style={{ fontSize: 36 }}>🎤</p>
-      <h3>No artist found for "{query}"</h3>
+      <h3>No songs found for "{query}"</h3>
       <p>Try searching for a different artist name</p>
-      <button className="fs-ringtone-btn" onClick={onBack} style={{ marginTop: 12 }}>← Back to Search</button>
+      <button className="fs-ringtone-btn" onClick={onBack} style={{ marginTop: 12 }}>Back to Search</button>
     </div>
   );
 
@@ -75,39 +60,32 @@ export default function ArtistPage({ query, playSong, currentSong, isPlaying, on
   return (
     <div className="artist-page">
       <div className="artist-header">
-        <button className="icon-btn" onClick={onBack} style={{ fontSize: 18, marginBottom: 12 }}>← Back</button>
+        <button className="icon-btn" onClick={onBack} style={{ fontSize: 18, marginBottom: 12 }}>Back</button>
         <div className="artist-avatar-row">
-          {artist.avatarUrl ? (
-            <img src={artist.avatarUrl} alt="" className="artist-avatar" />
+          {allTracks[0]?.coverUrl ? (
+            <img src={allTracks[0].coverUrl} alt="" className="artist-avatar" />
           ) : (
             <div className="artist-avatar artist-avatar-ph">🎤</div>
           )}
           <div className="artist-meta">
             <span className="artist-badge">Artist</span>
-            <h1 className="artist-name">{artist.name}</h1>
-            <p className="artist-stats">{artist.trackCount} songs · {artist.followerCount.toLocaleString()} followers</p>
+            <h1 className="artist-name">{query}</h1>
+            <p className="artist-stats">{allTracks.length} songs · {albums.length} albums</p>
           </div>
         </div>
       </div>
 
       <div className="artist-controls">
         <button className="player-play-btn" style={{ width: 48, height: 48, fontSize: 20 }}
-          onClick={() => {
-            if (allTracks.length > 0) {
-              playSong(allTracks[0], allTracks, 0);
-            }
-          }}>
+          onClick={() => { if (allTracks.length > 0) playSong(allTracks[0], allTracks, 0); }}>
           ▶
         </button>
       </div>
 
-      {albums.length > 0 && (
+      {albums.length > 1 && (
         <div className="discography-section">
           <div className="discography-header">
             <h2 className="sec-title" style={{ marginBottom: 0 }}>Discography</h2>
-            {albums.length > 4 && (
-              <button className="icon-btn" style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Show all</button>
-            )}
           </div>
           <div className="filter-chips">
             {filters.map(f => (
@@ -129,7 +107,7 @@ export default function ArtistPage({ query, playSong, currentSong, isPlaying, on
                   <div className="album-cover album-ph">🎵</div>
                 )}
                 <h4 className="album-title">{album.title}</h4>
-                <p className="album-meta">{album.year || ''} · Album · {album.tracks.length} songs</p>
+                <p className="album-meta">{album.year || ''} · {album.tracks.length} songs</p>
               </div>
             ))}
           </div>
@@ -163,15 +141,12 @@ export default function ArtistPage({ query, playSong, currentSong, isPlaying, on
                 </div>
                 <span className="row-album" title={song.album || ''}>{song.album || '—'}</span>
                 <span className="row-dur">{formatTime(song.duration)}</span>
-                <div className="row-acts" />
+                <div className="row-acts">
+                  {song.source === 'itunes' && <span style={{ fontSize: 10, color: 'var(--text-muted)' }} title="30s preview">PREVIEW</span>}
+                </div>
               </div>
             );
           })}
-          {displayTracks.length === 0 && (
-            <div className="empty" style={{ padding: 30 }}>
-              <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>No tracks available</p>
-            </div>
-          )}
         </div>
       </div>
     </div>
