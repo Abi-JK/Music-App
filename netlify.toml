@@ -12,20 +12,6 @@
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "autoplay=(self), fullscreen=(self)"
 
-# CORS for API responses
-[[headers]]
-  for = "/saavn-api"
-  [headers.values]
-    Access-Control-Allow-Origin = "*"
-    Cache-Control = "public, max-age=300"
-
-# CORS for audio proxy
-[[headers]]
-  for = "/saavn-stream/*"
-  [headers.values]
-    Access-Control-Allow-Origin = "*"
-    Cache-Control = "public, max-age=3600"
-
 # Cache static assets aggressively
 [[headers]]
   for = "/assets/*"
@@ -43,13 +29,6 @@
   for = "/manifest.webmanifest"
   [headers.values]
     Cache-Control = "no-cache, must-revalidate"
-
-# CORS for search proxy
-[[headers]]
-  for = "/saavn-search/*"
-  [headers.values]
-    Access-Control-Allow-Origin = "*"
-    Cache-Control = "public, max-age=300"
 
 # SPA fallback — must be LAST (netlify.toml fallback)
 [[redirects]]

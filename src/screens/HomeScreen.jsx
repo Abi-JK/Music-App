@@ -29,7 +29,7 @@ export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyP
     <div className="home-screen">
       <div className="home-hero">
         <h1 className="home-title">SoundAura</h1>
-        <p className="home-subtitle">100% free music streaming · No login · All languages</p>
+        <p className="home-subtitle">100% free · No login · No ads · Independent artists worldwide</p>
       </div>
 
       {recentlyPlayed && recentlyPlayed.length > 0 && (

@@ -19,7 +19,7 @@ export default defineConfig({
       manifest: {
         name: 'SoundAura — Free Music for Everyone',
         short_name: 'SoundAura',
-        description: 'Free ad-free music streaming in all languages. Tamil, Hindi, English, Telugu, Malayalam songs. Offline playback, ringtone cutter, powerful player. No login required.',
+        description: '100% free, ad-free music streaming for independent artists worldwide. Offline playback, ringtone cutter, no login required.',
         start_url: '/',
         scope: '/',
         display: 'standalone',
@@ -56,23 +56,23 @@ export default defineConfig({
         globPatterns: process.env.NODE_ENV === 'development' ? [] : ['**/*.{js,css,html,svg,png,woff2,woff}'],
         // Navigation fallback to index.html for SPA routing
         navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/api/, /^\/saavn/],
+        navigateFallbackDenylist: [/^\/api/],
         // Runtime caching strategies
         runtimeCaching: [
-          // JioSaavn API — network-first, cache fallback
+          // Audius discovery API (search, trending, playlists) — network-first
           {
-            urlPattern: /\/(saavn-api|saavn-search)/,
+            urlPattern: /^https:\/\/discoveryprovider[0-9]*\.audius\.co\/v1\/(tracks|playlists)/,
             handler: 'NetworkFirst',
             options: {
-              cacheName: 'saavn-api-cache',
+              cacheName: 'audius-api-cache',
               networkTimeoutSeconds: 10,
               expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 },
               cacheableResponse: { statuses: [0, 200] },
             },
           },
-          // CDN audio — network-first (streaming URLs)
+          // Audius audio streams — network-first
           {
-            urlPattern: /^https:\/\/aac\.saavncdn\.com/,
+            urlPattern: /^https:\/\/discoveryprovider[0-9]*\.audius\.co\/v1\/tracks\/.*\/stream/,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'audio-cache',
@@ -81,20 +81,9 @@ export default defineConfig({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
-          // Proxied audio — network-first
+          // Cover art / artwork — stale-while-revalidate
           {
-            urlPattern: /^https?:\/\/[^/]+\/saavn-stream\//,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'audio-proxy-cache',
-              networkTimeoutSeconds: 10,
-              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          // CDN images — stale-while-revalidate
-          {
-            urlPattern: /^https:\/\/(.*\.saavncdn\.com|.*\.googleapis\.com|.*\.gstatic\.com)/,
+            urlPattern: /^https:\/\/(.*\.audius\.co|.*\.googleapis\.com|.*\.gstatic\.com)/,
             handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'image-cache',
@@ -123,49 +112,8 @@ export default defineConfig({
   server: {
     port: 5173,
     open: true,
-    proxy: {
-      // ── Official JioSaavn API (song details + generateAuthToken) ──────────
-      '/saavn-api': {
-        target: 'https://www.jiosaavn.com',
-        changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path.replace(/^\/saavn-api/, '/api.php'),
-        configure: (proxy) => {
-          proxy.on('proxyReq', (proxyReq) => {
-            proxyReq.setHeader('Referer', 'https://www.jiosaavn.com/')
-            proxyReq.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-          })
-          proxy.on('error', (err) => console.error('[saavn-api proxy]', err.message))
-        },
-      },
-
-      // ── JioSaavn CDN proxy (signed stream URLs from web.saavncdn.com) ──
-      '/saavn-stream': {
-        target: 'https://web.saavncdn.com',
-        changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path.replace(/^\/saavn-stream/, ''),
-        configure: (proxy) => {
-          proxy.on('proxyReq', (proxyReq) => {
-            proxyReq.setHeader('Referer', 'https://www.jiosaavn.com/')
-            proxyReq.setHeader('Origin', 'https://www.jiosaavn.com')
-            proxyReq.setHeader('User-Agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-          })
-          proxy.on('error', (err) => console.error('[saavn-stream proxy]', err.message))
-        },
-      },
-
-      // ── Vercel JioSaavn API wrapper (for search + lyrics) ────────────────
-      '/saavn-search': {
-        target: 'https://jiosaavn-api-beta.vercel.app',
-        changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path.replace(/^\/saavn-search/, ''),
-        configure: (proxy) => {
-          proxy.on('error', (err) => console.error('[saavn-search proxy]', err.message))
-        },
-      },
-    },
+    // No dev-server proxy needed — Audius's discovery API is public and
+    // CORS-enabled, so the app calls it directly from the browser.
   },
   build: {
     outDir: 'dist',

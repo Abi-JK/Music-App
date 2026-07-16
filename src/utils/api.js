@@ -1,172 +1,180 @@
-const SAavnAPI = '/saavn-search';
+// ---------------------------------------------------------------------------
+// SoundAura audio backend — powered by Audius (https://audius.org)
+//
+// Audius is a decentralized, artist-first music platform. Every track here is
+// uploaded directly by the artist and is free to stream & download by design
+// — there's no scraping, no unofficial mirrors, and no licensing issue. It's
+// a real (if smaller/more independent) music catalog: electronic, hip-hop,
+// lo-fi, indie, ambient, and a growing set of regional/world artists.
+//
+// No API key or signup required. Full docs: https://docs.audius.org/api
+// ---------------------------------------------------------------------------
 
-async function safeFetch(url, signal) {
-  const res = await fetch(url, { signal });
-  if (!res.ok) throw new Error(res.status);
-  const json = await res.json();
-  if (json.status === 'SUCCESS') return json.data;
-  throw new Error(json.message || 'API error');
+const APP_NAME = 'SoundAura';
+
+// Audius is served by many independent "discovery nodes". We try a short
+// list in order and fall back automatically if one is slow/unreachable.
+const DISCOVERY_HOSTS = [
+  'https://discoveryprovider.audius.co',
+  'https://discoveryprovider2.audius.co',
+  'https://discoveryprovider3.audius.co',
+  'https://audius-discovery-1.cultur3stake.com',
+];
+
+let cachedHost = null;
+
+async function pickHost() {
+  if (cachedHost) return cachedHost;
+  for (const host of DISCOVERY_HOSTS) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 4000);
+      const res = await fetch(`${host}/v1/tracks/trending?app_name=${APP_NAME}&limit=1`, { signal: ctrl.signal });
+      clearTimeout(t);
+      if (res.ok) {
+        cachedHost = host;
+        return host;
+      }
+    } catch { /* try next host */ }
+  }
+  // Last resort — just use the first one and let calls fail gracefully
+  cachedHost = DISCOVERY_HOSTS[0];
+  return cachedHost;
 }
 
-function decodeHtml(str) {
-  if (!str) return '';
-  return str.replace(/&quot;/g, '"')
-            .replace(/&amp;/g, '&')
-            .replace(/&#039;/g, "'")
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>');
+async function apiGet(path) {
+  const host = await pickHost();
+  const sep = path.includes('?') ? '&' : '?';
+  const url = `${host}${path}${sep}app_name=${APP_NAME}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    // one retry against a different host in case this node is unhealthy
+    cachedHost = null;
+    const host2 = await pickHost();
+    const res2 = await fetch(`${host2}${path}${sep}app_name=${APP_NAME}`);
+    if (!res2.ok) throw new Error(`HTTP ${res2.status}`);
+    return res2.json();
+  }
+  return res.json();
 }
 
-function normSong(s) {
-  const imageArr = s.image || [];
-  const cover = imageArr.find(i => i.quality === '500x500') || imageArr.find(i => i.quality === '150x150') || imageArr[0];
-  const dlArr = s.downloadUrl || [];
-  const best = dlArr.find(d => d.quality === '320kbps') || dlArr.find(d => d.quality === '160kbps') || dlArr.find(d => d.quality === '96kbps') || dlArr[dlArr.length - 1];
+function streamUrlFor(host, trackId) {
+  return `${host}/v1/tracks/${trackId}/stream?app_name=${APP_NAME}`;
+}
 
-  const allUrls = dlArr.map(d => ({ quality: d.quality, url: d.link })).filter(d => d.url);
-
+function normTrack(t, host) {
+  const art = t.artwork || {};
   return {
-    id: s.id,
-    title: decodeHtml(s.name || 'Unknown'),
-    artist: decodeHtml(s.primaryArtists || s.artists?.primary?.map(a => a.name).join(', ') || 'Unknown Artist'),
-    album: decodeHtml(s.album?.name || ''),
-    year: s.year || '',
-    duration: parseInt(s.duration, 10) || 0,
-    coverUrl: cover?.link || null,
-    audioUrl: best?.link || null,
-    allAudioUrls: allUrls,
-    language: s.language || '',
-    label: s.label || '',
-    copyright: s.copyright || '',
-    hasLyrics: s.hasLyrics === 'true' || s.hasLyrics === true,
-    albumUrl: s.album?.url || null,
-    albumId: s.album?.id || null,
+    id: t.id,
+    title: t.title || 'Unknown',
+    artist: t.user?.name || t.user?.handle || 'Unknown Artist',
+    album: t.album_backlink?.title || '',
+    year: t.release_date ? new Date(t.release_date).getFullYear() : '',
+    duration: t.duration || 0,
+    coverUrl: art['480x480'] || art['150x150'] || art['1000x1000'] || null,
+    audioUrl: streamUrlFor(host, t.id),
+    allAudioUrls: [{ quality: 'stream', url: streamUrlFor(host, t.id) }],
+    language: '', // Audius doesn't tag tracks by language — genre/mood below instead
+    genre: t.genre || '',
+    mood: t.mood || '',
+    label: '',
+    copyright: `© ${t.user?.name || 'artist'} — shared via Audius`,
+    hasLyrics: false, // Audius has no lyrics API; we fall back to lyrics.ovh by title/artist
+    albumUrl: null,
+    albumId: null,
+    downloadable: !!t.downloadable,
+    playCount: t.play_count || 0,
   };
 }
 
-function proxyAudioUrl(url) {
-  if (!url) return null;
-  if (url.includes('saavncdn.com')) {
-    return url.replace(/^https:\/\/[^/]+\.saavncdn\.com/, '/saavn-stream');
-  }
+export function getProxiedUrl(url) {
+  // Audius stream endpoints are CORS-enabled and don't need proxying.
   return url;
 }
 
-export function getProxiedUrl(url) {
-  return proxyAudioUrl(url);
+export async function searchSongs(query, limit = 40) {
+  try {
+    const host = await pickHost();
+    const data = await apiGet(`/v1/tracks/search?query=${encodeURIComponent(query)}&limit=${limit}`);
+    const results = data?.data || [];
+    return results.map(t => normTrack(t, host)).filter(s => s.id && s.audioUrl);
+  } catch (err) {
+    console.error('searchSongs error:', err);
+    return [];
+  }
 }
 
-export async function searchSongs(query, limit = 40) {
-  const url = `${SAavnAPI}/search/songs?query=${encodeURIComponent(query)}&limit=${limit}`;
-  const data = await safeFetch(url);
-  const results = data?.results || [];
-  return results.map(normSong).filter(s => s.id && s.audioUrl);
+export async function getTrending(genre = '', limit = 20) {
+  try {
+    const host = await pickHost();
+    const genreParam = genre ? `&genre=${encodeURIComponent(genre)}` : '';
+    const data = await apiGet(`/v1/tracks/trending?limit=${limit}${genreParam}`);
+    const results = data?.data || [];
+    return results.map(t => normTrack(t, host)).filter(s => s.id && s.audioUrl);
+  } catch (err) {
+    console.error('getTrending error:', err);
+    return [];
+  }
 }
 
 export async function getStreamUrl(songId) {
-  try {
-    const data = await safeFetch(`${SAavnAPI}/songs?id=${songId}`);
-    const songs = Array.isArray(data) ? data : [data];
-    const song = songs[0];
-    if (song) {
-      const normed = normSong(song);
-      return { 
-        audioUrl: normed.audioUrl, 
-        streamUrl: normed.audioUrl,
-        allUrls: normed.allAudioUrls 
-      };
-    }
-  } catch { /* fallback */ }
-  return { audioUrl: null, streamUrl: null, allUrls: [] };
+  // Audius doesn't need a lookup — the stream URL is deterministic from the id.
+  const host = await pickHost();
+  const url = streamUrlFor(host, songId);
+  return { audioUrl: url, streamUrl: url, allUrls: [{ quality: 'stream', url }] };
 }
 
-export async function fetchAlbumSongs(albumId, limit = 30) {
+// Audius doesn't have "film albums" — this fetches a user-made Audius playlist instead.
+export async function fetchAlbumSongs(playlistId, limit = 30) {
   try {
-    const data = await safeFetch(`${SAavnAPI}/albums?id=${albumId}`);
-    const songs = (data?.songs || []).map(normSong).filter(s => s.id && s.audioUrl);
+    const host = await pickHost();
+    const data = await apiGet(`/v1/playlists/${playlistId}/tracks?limit=${limit}`);
+    const songs = (data?.data || []).map(t => normTrack(t, host)).filter(s => s.id && s.audioUrl);
     return songs.slice(0, limit);
   } catch {
     return [];
   }
 }
 
-// Multi-source lyrics fetcher
+// Lyrics: Audius has no lyrics API, so we go straight to the free lyrics.ovh
+// lookup by title + artist (works best for well-known songs/covers).
 export async function fetchLyrics(songId, songTitle, artistName) {
-  // Source 1: JioSaavn API lyrics
-  try {
-    const data = await safeFetch(`${SAavnAPI}/lyrics?id=${songId}`);
-    if (data?.lyrics && data.lyrics.trim().length > 10) {
-      return data.lyrics;
-    }
-  } catch { /* try next source */ }
+  if (!songTitle || !artistName) return null;
 
-  // Source 2: lyrics.ovh free API (uses song title + artist)
-  if (songTitle && artistName) {
+  const tryLookup = async (artist, title) => {
     try {
-      // Clean up artist name — take first artist only
-      const cleanArtist = artistName.split(',')[0].trim();
-      const cleanTitle = songTitle.replace(/\(.*?\)/g, '').trim();
-      const lyricsRes = await fetch(
-        `https://api.lyrics.ovh/v1/${encodeURIComponent(cleanArtist)}/${encodeURIComponent(cleanTitle)}`
-      );
-      if (lyricsRes.ok) {
-        const lyricsData = await lyricsRes.json();
-        if (lyricsData?.lyrics && lyricsData.lyrics.trim().length > 10) {
-          return lyricsData.lyrics;
-        }
+      const res = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.lyrics && data.lyrics.trim().length > 10) return data.lyrics;
       }
-    } catch { /* try next source */ }
-  }
+    } catch { /* ignore, try next */ }
+    return null;
+  };
 
-  // Source 3: Try with simplified title (remove featuring, remix etc.)
-  if (songTitle && artistName) {
-    try {
-      const cleanArtist = artistName.split(',')[0].split('&')[0].trim();
-      const cleanTitle = songTitle
-        .replace(/\(.*?\)/g, '')
-        .replace(/\[.*?\]/g, '')
-        .replace(/feat\.?.*/i, '')
-        .replace(/ft\.?.*/i, '')
-        .trim();
-      if (cleanTitle !== songTitle.trim()) {
-        const lyricsRes = await fetch(
-          `https://api.lyrics.ovh/v1/${encodeURIComponent(cleanArtist)}/${encodeURIComponent(cleanTitle)}`
-        );
-        if (lyricsRes.ok) {
-          const lyricsData = await lyricsRes.json();
-          if (lyricsData?.lyrics && lyricsData.lyrics.trim().length > 10) {
-            return lyricsData.lyrics;
-          }
-        }
-      }
-    } catch { /* no more sources */ }
+  const cleanArtist = artistName.split(',')[0].split('&')[0].trim();
+  const cleanTitle = songTitle.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').trim();
+
+  let lyrics = await tryLookup(cleanArtist, cleanTitle);
+  if (lyrics) return lyrics;
+
+  const simplerTitle = cleanTitle.replace(/feat\.?.*/i, '').replace(/ft\.?.*/i, '').trim();
+  if (simplerTitle && simplerTitle !== cleanTitle) {
+    lyrics = await tryLookup(cleanArtist, simplerTitle);
+    if (lyrics) return lyrics;
   }
 
   return null;
 }
 
-// Download audio as blob for offline storage / ringtone cutter
-// Uses proxy path to avoid CORS issues with CDN
+// Download audio as a blob for offline storage / the ringtone cutter.
 export async function downloadAudioBlob(audioUrl) {
-  const proxyUrl = proxyAudioUrl(audioUrl) || audioUrl;
   try {
-    const response = await fetch(proxyUrl);
+    const response = await fetch(audioUrl);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const blob = await response.blob();
-    return blob;
+    return await response.blob();
   } catch (err) {
-    // Fallback: try direct URL if proxy failed
-    if (proxyUrl !== audioUrl) {
-      try {
-        const response = await fetch(audioUrl);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return await response.blob();
-      } catch (err2) {
-        console.error('Download error (both proxy and direct failed):', err, err2);
-      }
-    } else {
-      console.error('Download error:', err);
-    }
+    console.error('Download error:', err);
     return null;
   }
 }
