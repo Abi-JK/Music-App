@@ -82,18 +82,38 @@ define(['./workbox-3d6fd1c8'], (function (workbox) { 'use strict';
    */
   workbox.precacheAndRoute([{
     "url": "index.html",
-    "revision": "0.maaioa0ipog"
+    "revision": "0.3umpc6f0n18"
   }], {});
   workbox.cleanupOutdatedCaches();
   workbox.registerRoute(new workbox.NavigationRoute(workbox.createHandlerBoundToURL("index.html"), {
     allowlist: [/^\/$/],
     denylist: [/^\/api/, /^\/saavn/]
   }));
-  workbox.registerRoute(/\/(saavn-api|saavn-search|saavn-stream)/, new workbox.NetworkFirst({
+  workbox.registerRoute(/\/(saavn-api|saavn-search)/, new workbox.NetworkFirst({
     "cacheName": "saavn-api-cache",
     "networkTimeoutSeconds": 10,
     plugins: [new workbox.ExpirationPlugin({
       maxEntries: 50,
+      maxAgeSeconds: 86400
+    }), new workbox.CacheableResponsePlugin({
+      statuses: [0, 200]
+    })]
+  }), 'GET');
+  workbox.registerRoute(/^https:\/\/aac\.saavncdn\.com/, new workbox.NetworkFirst({
+    "cacheName": "audio-cache",
+    "networkTimeoutSeconds": 10,
+    plugins: [new workbox.ExpirationPlugin({
+      maxEntries: 30,
+      maxAgeSeconds: 86400
+    }), new workbox.CacheableResponsePlugin({
+      statuses: [0, 200]
+    })]
+  }), 'GET');
+  workbox.registerRoute(/^https?:\/\/[^/]+\/saavn-stream\//, new workbox.NetworkFirst({
+    "cacheName": "audio-proxy-cache",
+    "networkTimeoutSeconds": 10,
+    plugins: [new workbox.ExpirationPlugin({
+      maxEntries: 30,
       maxAgeSeconds: 86400
     }), new workbox.CacheableResponsePlugin({
       statuses: [0, 200]
