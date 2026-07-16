@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { formatTime } from '../utils/helpers';
-import { getStreamUrl } from '../utils/api';
+import { getStreamUrl, getProxiedUrl } from '../utils/api';
 
 export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNext, playPrev, liked, toggleLike, onProgressUpdate, onExpand, onShowLyrics }) {
   const audioRef = useRef(null);
@@ -102,6 +102,15 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
         setStreamUrl(nextUrl.url);
         return;
       }
+    }
+
+    // Try proxied URL if direct CDN URL failed
+    const proxied = getProxiedUrl(currentSong?.audioUrl);
+    if (proxied && proxied !== streamUrl && retryCount.current < maxRetries) {
+      retryCount.current++;
+      console.log('[SoundAura] Trying proxied audio URL...');
+      setStreamUrl(proxied);
+      return;
     }
 
     // Try fetching fresh URLs from API

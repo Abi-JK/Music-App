@@ -44,6 +44,18 @@ function normSong(s) {
   };
 }
 
+function proxyAudioUrl(url) {
+  if (!url) return null;
+  if (url.includes('saavncdn.com')) {
+    return url.replace(/^https:\/\/[^/]+\.saavncdn\.com/, '/saavn-stream');
+  }
+  return url;
+}
+
+export function getProxiedUrl(url) {
+  return proxyAudioUrl(url);
+}
+
 export async function searchSongs(query, limit = 40) {
   const url = `${SAavnAPI}/search/songs?query=${encodeURIComponent(query)}&limit=${limit}`;
   const data = await safeFetch(url);
@@ -133,15 +145,28 @@ export async function fetchLyrics(songId, songTitle, artistName) {
   return null;
 }
 
-// Download audio as blob for offline storage
+// Download audio as blob for offline storage / ringtone cutter
+// Uses proxy path to avoid CORS issues with CDN
 export async function downloadAudioBlob(audioUrl) {
+  const proxyUrl = proxyAudioUrl(audioUrl) || audioUrl;
   try {
-    const response = await fetch(audioUrl);
-    if (!response.ok) throw new Error('Download failed');
+    const response = await fetch(proxyUrl);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const blob = await response.blob();
     return blob;
   } catch (err) {
-    console.error('Download error:', err);
+    // Fallback: try direct URL if proxy failed
+    if (proxyUrl !== audioUrl) {
+      try {
+        const response = await fetch(audioUrl);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return await response.blob();
+      } catch (err2) {
+        console.error('Download error (both proxy and direct failed):', err, err2);
+      }
+    } else {
+      console.error('Download error:', err);
+    }
     return null;
   }
 }

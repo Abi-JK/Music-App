@@ -2,5 +2,8 @@
 /saavn-api  https://www.jiosaavn.com/api.php  200
 /saavn-search/*  https://jiosaavn-api-beta.vercel.app/:splat  200
 
+# Audio proxy — reverse proxy through Netlify with CORS headers
+/saavn-stream/*  https://aac.saavncdn.com/:splat  200
+
 # SPA fallback
 /*  /index.html  200

@@ -19,6 +19,13 @@
     Access-Control-Allow-Origin = "*"
     Cache-Control = "public, max-age=300"
 
+# CORS for audio proxy
+[[headers]]
+  for = "/saavn-stream/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Cache-Control = "public, max-age=3600"
+
 # Cache static assets aggressively
 [[headers]]
   for = "/assets/*"

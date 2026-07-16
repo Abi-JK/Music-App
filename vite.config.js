@@ -81,6 +81,17 @@ export default defineConfig({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
+          // Proxied audio — network-first
+          {
+            urlPattern: /^https?:\/\/[^/]+\/saavn-stream\//,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'audio-proxy-cache',
+              networkTimeoutSeconds: 10,
+              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
           // CDN images — stale-while-revalidate
           {
             urlPattern: /^https:\/\/(.*\.saavncdn\.com|.*\.googleapis\.com|.*\.gstatic\.com)/,
