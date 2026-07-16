@@ -25,6 +25,9 @@ export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyP
     return () => { cancelled = true; };
   }, []);
 
+  const gridSections = Object.values(sections).filter(s => s.songs.length > 0).slice(0, 4);
+  const scrollSections = Object.values(sections).filter(s => s.songs.length > 0).slice(4);
+
   return (
     <div className="home-screen">
       <div className="home-hero">
@@ -35,16 +38,12 @@ export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyP
       {recentlyPlayed && recentlyPlayed.length > 0 && (
         <div className="home-section">
           <h3 className="sec-title">Recently Played</h3>
-          <div className="song-scroll">
-            {recentlyPlayed.map(s => (
-              <div key={s.id} className={`song-card ${currentSong?.id === s.id ? 'active' : ''}`}
+          <div className="home-grid">
+            {recentlyPlayed.slice(0, 6).map(s => (
+              <div key={s.id} className="home-grid-card"
                 onClick={() => playSong(s, recentlyPlayed, recentlyPlayed.indexOf(s))}>
-                {s.coverUrl ? <img src={s.coverUrl} alt="" /> : <div className="qph">🎵</div>}
-                <h4>{s.title}</h4>
-                <p>{s.artist}</p>
-                {currentSong?.id === s.id && isPlaying && (
-                  <div className="eq"><span /><span /><span /></div>
-                )}
+                {s.coverUrl ? <img src={s.coverUrl} alt="" /> : <div className="grid-ph">🎵</div>}
+                <span>{s.title}</span>
               </div>
             ))}
           </div>
@@ -54,24 +53,44 @@ export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyP
       {loading ? (
         <div className="spinner-wrap"><div className="spinner" /><p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading playlists...</p></div>
       ) : (
-        Object.values(sections).map(sec => sec.songs.length > 0 && (
-          <div key={sec.key} className="home-section">
-            <h3 className="sec-title">{sec.label}</h3>
-            <div className="song-scroll">
-              {sec.songs.map(s => (
-                <div key={s.id} className={`song-card ${currentSong?.id === s.id ? 'active' : ''}`}
-                  onClick={() => playSong(s, sec.songs, sec.songs.indexOf(s))}>
-                  {s.coverUrl ? <img src={s.coverUrl} alt="" /> : <div className="qph">🎵</div>}
-                  <h4>{s.title}</h4>
-                  <p>{s.artist}</p>
-                  {currentSong?.id === s.id && isPlaying && (
-                    <div className="eq"><span /><span /><span /></div>
-                  )}
-                </div>
-              ))}
+        <>
+          {gridSections.map(sec => (
+            <div key={sec.key} className="home-section">
+              <h3 className="sec-title">{sec.label}</h3>
+              <div className="song-scroll">
+                {sec.songs.slice(0, 8).map(s => (
+                  <div key={s.id} className={`song-card ${currentSong?.id === s.id ? 'active' : ''}`}
+                    onClick={() => playSong(s, sec.songs, sec.songs.indexOf(s))}>
+                    {s.coverUrl ? <img src={s.coverUrl} alt="" /> : <div className="qph">🎵</div>}
+                    <h4>{s.title}</h4>
+                    <p>{s.artist}</p>
+                    {currentSong?.id === s.id && isPlaying && (
+                      <div className="eq"><span /><span /><span /></div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        ))
+          ))}
+          {scrollSections.map(sec => (
+            <div key={sec.key} className="home-section">
+              <h3 className="sec-title">{sec.label}</h3>
+              <div className="song-scroll">
+                {sec.songs.slice(0, 8).map(s => (
+                  <div key={s.id} className={`song-card ${currentSong?.id === s.id ? 'active' : ''}`}
+                    onClick={() => playSong(s, sec.songs, sec.songs.indexOf(s))}>
+                    {s.coverUrl ? <img src={s.coverUrl} alt="" /> : <div className="qph">🎵</div>}
+                    <h4>{s.title}</h4>
+                    <p>{s.artist}</p>
+                    {currentSong?.id === s.id && isPlaying && (
+                      <div className="eq"><span /><span /><span /></div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </>
       )}
     </div>
   );

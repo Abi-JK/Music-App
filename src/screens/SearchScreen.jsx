@@ -1,7 +1,7 @@
 import React from 'react';
 import { formatTime } from '../utils/helpers';
 
-export default function SearchScreen({ searchResults, searchLoading, searched, currentSong, isPlaying, playSong, toggleLike, liked, downloadSong, downloadedIds, downloadingIds }) {
+export default function SearchScreen({ searchResults, searchLoading, searched, currentSong, isPlaying, playSong, toggleLike, liked, downloadSong, downloadedIds, downloadingIds, onOpenArtist }) {
   if (searchLoading) return (
     <div className="spinner-wrap"><div className="spinner" /><p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Searching...</p></div>
   );
@@ -21,8 +21,28 @@ export default function SearchScreen({ searchResults, searchLoading, searched, c
     </div>
   );
 
+  const topArtist = searchResults.length > 0 ? searchResults[0].artist : null;
+  const artistCount = searchResults.filter(s => s.artist === topArtist).length;
+
   return (
     <div className="search-screen">
+      {topArtist && artistCount >= 1 && onOpenArtist && (
+        <div className="artist-card" onClick={() => onOpenArtist(topArtist)}>
+          <div className="artist-card-left">
+            {searchResults[0].coverUrl ? (
+              <img src={searchResults[0].coverUrl} alt="" className="artist-card-img" />
+            ) : (
+              <div className="artist-card-img artist-card-ph">🎤</div>
+            )}
+            <div className="artist-card-info">
+              <span className="artist-card-badge">Artist</span>
+              <h3>{topArtist}</h3>
+              <p>{searchResults.length} songs · Tap to view discography</p>
+            </div>
+          </div>
+          <span className="artist-card-arrow">→</span>
+        </div>
+      )}
       <div className="search-count">{searchResults.length} songs found</div>
       <div className="song-table">
         <div className="table-head">

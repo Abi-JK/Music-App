@@ -17,6 +17,7 @@ import HomeScreen from './screens/HomeScreen';
 import SearchScreen from './screens/SearchScreen';
 import LikedScreen from './screens/LikedScreen';
 import DownloadsScreen from './screens/DownloadsScreen';
+import ArtistPage from './screens/ArtistPage';
 
 import { searchSongs, downloadAudioBlob } from './utils/api';
 import { Storage } from './utils/storage';
@@ -55,6 +56,7 @@ function AppContent() {
   const [showLyrics, setShowLyrics] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [artistQuery, setArtistQuery] = useState(null);
 
   const [repeatMode, setRepeatMode] = useState('off');
   const [shuffleOn, setShuffleOn] = useState(false);
@@ -207,6 +209,7 @@ function AppContent() {
     setActiveTab('search');
     setSearched(true);
     setSearchLoading(true);
+    setArtistQuery(null);
     try {
       const langObj = LANG_QUERIES.find(l => l.label === activeLang);
       const term = langObj?.term && langObj.label !== 'All' ? `${q} ${langObj.term}` : q;
@@ -326,6 +329,8 @@ function AppContent() {
 
   const openFullScreen = useCallback(() => { if (currentSong) setShowFullScreen(true); }, [currentSong]);
   const closeFullScreen = useCallback(() => setShowFullScreen(false), []);
+  const openArtistPage = useCallback((name) => { setArtistQuery(name); }, []);
+  const closeArtistPage = useCallback(() => { setArtistQuery(null); }, []);
 
   return (
     <div className="app">
@@ -347,19 +352,31 @@ function AppContent() {
             />
           )}
           {activeTab === 'search' && (
-            <SearchScreen
-              searchResults={searchResults}
-              searchLoading={searchLoading}
-              searched={searched}
-              currentSong={currentSong}
-              isPlaying={isPlaying}
-              playSong={playSong}
-              toggleLike={toggleLike}
-              liked={isLiked}
-              downloadSong={downloadSong}
-              downloadedIds={downloadedSongs.map(s => s.id)}
-              downloadingIds={downloadingIds}
-            />
+            artistQuery ? (
+              <ArtistPage
+                query={artistQuery}
+                playSong={playSong}
+                currentSong={currentSong}
+                isPlaying={isPlaying}
+                onBack={closeArtistPage}
+                showToast={showToast}
+              />
+            ) : (
+              <SearchScreen
+                searchResults={searchResults}
+                searchLoading={searchLoading}
+                searched={searched}
+                currentSong={currentSong}
+                isPlaying={isPlaying}
+                playSong={playSong}
+                toggleLike={toggleLike}
+                liked={isLiked}
+                downloadSong={downloadSong}
+                downloadedIds={downloadedSongs.map(s => s.id)}
+                downloadingIds={downloadingIds}
+                onOpenArtist={openArtistPage}
+              />
+            )
           )}
           {activeTab === 'liked' && (
             <LikedScreen
@@ -427,9 +444,6 @@ function AppContent() {
           toggleRepeat={toggleRepeat}
           shuffleOn={shuffleOn}
           toggleShuffle={toggleShuffle}
-          playlist={playlist}
-          currentIndex={currentIndex}
-          playSong={playSong}
           onShowQueue={() => { setShowFullScreen(false); setShowQueue(true); }}
         />
       )}

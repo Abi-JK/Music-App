@@ -142,10 +142,82 @@ export async function fetchAlbumSongs(playlistId, limit = 30) {
   }
 }
 
+export async function searchArtists(query, limit = 5) {
+  try {
+    const host = await pickHost();
+    const data = await apiGet(`/v1/users/search?query=${encodeURIComponent(query)}&limit=${limit}`);
+    return (data?.data || []).filter(u => u.track_count > 0).map(u => ({
+      id: u.id,
+      name: u.name || u.handle,
+      handle: u.handle,
+      trackCount: u.track_count,
+      followerCount: u.follower_count || 0,
+      avatarUrl: u.profile_picture?.['480x480'] || u.profile_picture?.['150x150'] || null,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export async function getArtistTracks(artistId, limit = 50) {
+  try {
+    const host = await pickHost();
+    const data = await apiGet(`/v1/tracks?user_id=${artistId}&limit=${limit}`);
+    const results = data?.data || [];
+    return results.map(t => normTrack(t, host)).filter(s => s.id && s.audioUrl);
+  } catch {
+    return [];
+  }
+}
+
+export async function getArtistAlbums(artistId, limit = 20) {
+  try {
+    const host = await pickHost();
+    const data = await apiGet(`/v1/users/${artistId}/playlists?limit=${limit}`);
+    const playlists = data?.data || [];
+    return playlists.filter(p => p.playlist_contents?.id?.length > 0).map(p => ({
+      id: p.id,
+      title: p.playlist_name || 'Untitled',
+      trackCount: p.playlist_contents?.id?.length || 0,
+      coverUrl: p.playlist_img_coverart || p.user?.profile_picture?.['480x480'] || null,
+      isAlbum: p.is_album || false,
+    }));
+  } catch {
+    return [];
+  }
+}
+
+export function groupTracksByAlbum(tracks) {
+  const albumMap = {};
+  for (const track of tracks) {
+    const albumTitle = track.album || track.title || 'Unknown';
+    const albumKey = albumTitle.toLowerCase();
+    if (!albumMap[albumKey]) {
+      albumMap[albumKey] = {
+        id: albumKey,
+        title: albumTitle,
+        artist: track.artist,
+        coverUrl: track.coverUrl,
+        year: track.year,
+        tracks: [],
+      };
+    }
+    albumMap[albumKey].tracks.push(track);
+    if (track.coverUrl && !albumMap[albumKey].coverUrl) {
+      albumMap[albumKey].coverUrl = track.coverUrl;
+    }
+  }
+  return Object.values(albumMap).sort((a, b) => b.tracks.length - a.tracks.length);
+}
+
 export async function fetchLyrics(songId, songTitle, artistName) {
   if (!songTitle || !artistName) return null;
 
-  const tryLookup = async (artist, title) => {
+  const cleanArtist = artistName.split(',')[0].split('&')[0].trim();
+  const cleanTitle = songTitle.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').trim();
+
+  // Source 1: lyrics.ovh
+  const tryLyricsOvh = async (artist, title) => {
     try {
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), 5000);
@@ -162,17 +234,56 @@ export async function fetchLyrics(songId, songTitle, artistName) {
     return null;
   };
 
-  const cleanArtist = artistName.split(',')[0].split('&')[0].trim();
-  const cleanTitle = songTitle.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').trim();
+  // Source 2: lrclib.net (community lyrics)
+  const tryLrclib = async (artist, title) => {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 5000);
+      const res = await fetch(
+        `https://lrclib.net/api/search?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(title)}`,
+        { signal: ctrl.signal }
+      );
+      clearTimeout(t);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          const best = data.find(l => l.syncedLyrics) || data[0];
+          return best.syncedLyrics || best.plainLyrics || null;
+        }
+      }
+    } catch { /* ignore */ }
+    return null;
+  };
 
-  let lyrics = await tryLookup(cleanArtist, cleanTitle);
-  if (lyrics) return lyrics;
-
+  // Try multiple title variations
+  const titles = [cleanTitle];
   const simplerTitle = cleanTitle.replace(/feat\.?.*/i, '').replace(/ft\.?.*/i, '').trim();
-  if (simplerTitle && simplerTitle !== cleanTitle) {
-    lyrics = await tryLookup(cleanArtist, simplerTitle);
+  if (simplerTitle && simplerTitle !== cleanTitle) titles.push(simplerTitle);
+
+  for (const title of titles) {
+    let lyrics = await tryLyricsOvh(cleanArtist, title);
+    if (lyrics) return lyrics;
+    lyrics = await tryLrclib(cleanArtist, title);
     if (lyrics) return lyrics;
   }
+
+  // Try with just the song title (no artist) as last resort
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 4000);
+    const res = await fetch(
+      `https://lrclib.net/api/search?track_name=${encodeURIComponent(cleanTitle)}`,
+      { signal: ctrl.signal }
+    );
+    clearTimeout(t);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        const best = data.find(l => l.syncedLyrics) || data[0];
+        return best.syncedLyrics || best.plainLyrics || null;
+      }
+    }
+  } catch { /* ignore */ }
 
   return null;
 }
