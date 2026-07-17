@@ -81,7 +81,7 @@ export default function FullScreenPlayer({
         <div className="fs-main-view">
           <div className="fs-art-wrapper">
             {currentSong.coverUrl ? (
-              <img src={currentSong.coverUrl.replace('150x150', '500x500')} alt="" className="fs-cover" />
+              <img src={currentSong.coverUrl.includes('150x150') ? currentSong.coverUrl.replace('150x150', '500x500') : currentSong.coverUrl} alt="" className="fs-cover" />
             ) : (
               <div className="fs-cover fs-ph">🎵</div>
             )}
@@ -125,11 +125,13 @@ export default function FullScreenPlayer({
             ) : (
               <div className="fs-ringtone-editor">
                 <div className="fs-ringtone-header">
-                  <span>Start: {formatTime(ringtoneStart)} · 30s clip</span>
+                  <span>{dur <= 35 ? 'Full track (30s preview)' : `Start: ${formatTime(ringtoneStart)} · 30s clip`}</span>
                   <button className="icon-btn" onClick={() => setShowRingtoneEditor(false)} style={{ fontSize: 14 }}>✕</button>
                 </div>
-                <input type="range" min="0" max={Math.max(0, dur - 30)} value={ringtoneStart}
-                  onChange={(e) => setRingtoneStart(Number(e.target.value))} className="fs-ringtone-slider" />
+                {dur > 35 && (
+                  <input type="range" min="0" max={Math.max(0, dur - 30)} value={ringtoneStart}
+                    onChange={(e) => setRingtoneStart(Number(e.target.value))} className="fs-ringtone-slider" />
+                )}
                 <button className="fs-ringtone-btn" onClick={handleRingtoneDownload} disabled={downloadingRingtone} style={{ width: '100%' }}>
                   {downloadingRingtone ? '⏳ Cutting...' : '📥 Download Ringtone'}
                 </button>

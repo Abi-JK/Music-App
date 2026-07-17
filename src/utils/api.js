@@ -99,7 +99,7 @@ function normITunesTrack(s) {
   };
 }
 
-async function searchITunes(query, limit = 20) {
+export async function searchITunes(query, limit = 20) {
   try {
     const res = await fetch(
       `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=${limit}&entity=song&country=IN`
@@ -116,31 +116,36 @@ async function searchITunes(query, limit = 20) {
 export function getProxiedUrl(url) { return url; }
 
 export async function searchSongs(query, limit = 40) {
-  try {
-    const [audiusResults, iTunesResults] = await Promise.all([
+  const withTimeout = (promise, ms) => Promise.race([
+    promise,
+    new Promise(resolve => setTimeout(() => resolve([]), ms)),
+  ]);
+
+  const [audiusResults, iTunesResults] = await Promise.all([
+    withTimeout(
       pickHost().then(host =>
         apiGet(`/v1/tracks/search?query=${encodeURIComponent(query)}&limit=${limit}`)
           .then(data => (data?.data || []).map(t => normTrack(t, host)).filter(s => s.id && s.audioUrl))
-          .catch(() => [])
       ),
+      8000
+    ),
+    withTimeout(
       searchITunes(query, Math.min(limit, 25)),
-    ]);
+      6000
+    ),
+  ]);
 
-    // Merge: dedupe by title+artist, prefer Audius (full songs) over iTunes (previews)
-    const seen = new Set();
-    const merged = [];
-    for (const s of [...audiusResults, ...iTunesResults]) {
-      const key = `${s.title.toLowerCase()}|${s.artist.toLowerCase()}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        merged.push(s);
-      }
+  // Merge: dedupe by title+artist, prefer Audius (full songs) over iTunes (previews)
+  const seen = new Set();
+  const merged = [];
+  for (const s of [...(audiusResults || []), ...(iTunesResults || [])]) {
+    const key = `${s.title.toLowerCase()}|${s.artist.toLowerCase()}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      merged.push(s);
     }
-    return merged;
-  } catch (err) {
-    console.error('searchSongs error:', err);
-    return [];
   }
+  return merged;
 }
 
 export async function searchArtistSongs(artistName, limit = 30) {
@@ -269,6 +274,7 @@ export async function fetchLyrics(songId, songTitle, artistName) {
 }
 
 export async function downloadAudioBlob(audioUrl) {
+  if (!audioUrl) return null;
   try {
     const response = await fetch(audioUrl);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);

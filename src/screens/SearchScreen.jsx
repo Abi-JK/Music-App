@@ -70,6 +70,9 @@ export default function SearchScreen({ searchResults, searchLoading, searched, c
               <span className="row-album" title={song.album || ''}>{song.album || '—'}</span>
               <span className="row-dur">{formatTime(song.duration)}</span>
               <div className="row-acts">
+                {song.source === 'itunes' && (
+                  <span style={{ fontSize: 10, color: 'var(--accent)', marginRight: 4, flexShrink: 0 }} title="30-second preview from Apple Music">PREVIEW</span>
+                )}
                 {toggleLike && (
                   <button className="icon-btn" onClick={(e) => { e.stopPropagation(); toggleLike(song); }}
                     title={isLiked ? 'Unlike' : 'Like'}>
