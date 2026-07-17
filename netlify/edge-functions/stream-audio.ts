@@ -5,7 +5,7 @@ export default async (request: Request) => {
   const url = new URL(request.url);
   const audioUrl = url.searchParams.get('url');
 
-  if (!audioUrl || !audioUrl.includes('saavncdn.com')) {
+  if (!audioUrl || (!audioUrl.includes('saavncdn.com') && !audioUrl.includes('jiocdn.in') && !audioUrl.includes('saavn.me'))) {
     return new Response(JSON.stringify({ error: 'Invalid URL' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },

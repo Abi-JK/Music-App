@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { formatTime } from '../utils/helpers';
+import { retrySaavnSong } from '../utils/api';
 
 export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNext, playPrev, liked, toggleLike, onProgressUpdate, onExpand, onShowLyrics, repeatMode, toggleRepeat, shuffleOn, toggleShuffle, onShowQueue }) {
   const audioRef = useRef(null);
@@ -62,6 +63,37 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     const a = audioRef.current;
     if (!a || index >= urlList.current.length) {
       setLoading(false);
+      // For saavn songs: try fallback API to get fresh CDN URL
+      if (currentSong?.source === 'saavn' && currentSong?._saavnId && !currentSong._retried) {
+        console.log('[SoundAura] All CDN URLs failed, retrying via fallback API...');
+        currentSong._retried = true;
+        retrySaavnSong(currentSong).then(fresh => {
+          if (fresh) {
+            console.log('[SoundAura] Got fresh URL from fallback API');
+            const newCandidates = [];
+            if (fresh.allAudioUrls) {
+              for (const entry of fresh.allAudioUrls) {
+                if (entry.url) newCandidates.push({ url: entry.url, type: 'fallback-retry' });
+              }
+            }
+            if (fresh.audioUrl && !newCandidates.some(c => c.url === fresh.audioUrl)) {
+              newCandidates.unshift({ url: fresh.audioUrl, type: 'fallback-primary' });
+            }
+            if (newCandidates.length > 0) {
+              urlList.current = newCandidates;
+              urlIndex.current = 0;
+              setLoading(true);
+              loadUrl(0);
+              return;
+            }
+          }
+          console.log('[SoundAura] Fallback retry failed, auto-advancing...');
+          setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 500);
+        }).catch(() => {
+          setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 500);
+        });
+        return;
+      }
       console.log('[SoundAura] All URLs exhausted, auto-advancing to next song...');
       setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 500);
       return;
@@ -162,7 +194,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
 
   if (!currentSong) return (
     <div className="player">
-      <audio ref={audioRef} />
+      <audio ref={audioRef} referrerpolicy="no-referrer" />
       <div className="player-empty">🎵 Select any song to play — 100% free, no login required</div>
     </div>
   );
@@ -172,7 +204,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
 
   return (
     <div className="player">
-      <audio id="main-audio" ref={audioRef} onTimeUpdate={onTimeUpdate} preload="auto" />
+      <audio id="main-audio" ref={audioRef} onTimeUpdate={onTimeUpdate} preload="auto" referrerpolicy="no-referrer" />
       <div className="player-inner">
         <div className="player-song">
           {currentSong.coverUrl ? <img src={currentSong.coverUrl} alt="" className="player-cover" onClick={onExpand} style={{ cursor: 'pointer' }} /> : <div className="player-cover player-ph" onClick={onExpand} style={{ cursor: 'pointer' }}>🎵</div>}

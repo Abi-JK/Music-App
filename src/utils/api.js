@@ -1,15 +1,15 @@
 // ---------------------------------------------------------------------------
 // SoundAura — JioSaavn (full Indian songs) + Audius + iTunes (fallback)
+// All JioSaavn audio proxied via Netlify Edge Function (bypasses CDN blocks)
 // ---------------------------------------------------------------------------
 
 const APP_NAME = 'SoundAura';
 
-// ── JioSaavn (full Indian songs) — saavn.sumit.co API ──────────────────────
+// ── JioSaavn (full Indian songs) ──────────────────────────────────────────
 const SAAVN_API = 'https://saavn.sumit.co/api';
 const SAAVN_FALLBACK = 'https://jiosaavn-api.vercel.app';
-const PROXY_BASE = '/.netlify/functions/jiosaavn';
 
-function proxyUrl(cdnUrl) {
+function streamProxy(cdnUrl) {
   if (!cdnUrl) return null;
   return `/api/stream-audio?url=${encodeURIComponent(cdnUrl)}`;
 }
@@ -26,7 +26,8 @@ function normSaavnResult(s) {
   const url320 = downloadUrls.find(u => u.quality === '320kbps')?.url;
   const url160 = downloadUrls.find(u => u.quality === '160kbps')?.url;
   const url96 = downloadUrls.find(u => u.quality === '96kbps')?.url;
-  const audioUrl = proxyUrl(url320) || proxyUrl(url160) || proxyUrl(url96) || null;
+  const rawAudio = url320 || url160 || url96 || null;
+  const audioUrl = streamProxy(rawAudio);
   return {
     id: `saavn-${s.id}`,
     title: s.name || 'Unknown',
@@ -37,9 +38,9 @@ function normSaavnResult(s) {
     coverUrl: img500,
     audioUrl,
     allAudioUrls: [
-      ...(url320 ? [{ quality: '320kbps', url: proxyUrl(url320) }] : []),
-      ...(url160 ? [{ quality: '160kbps', url: proxyUrl(url160) }] : []),
-      ...(url96 ? [{ quality: '96kbps', url: proxyUrl(url96) }] : []),
+      ...(url320 ? [{ quality: '320kbps', url: streamProxy(url320) }] : []),
+      ...(url160 ? [{ quality: '160kbps', url: streamProxy(url160) }] : []),
+      ...(url96 ? [{ quality: '96kbps', url: streamProxy(url96) }] : []),
     ],
     rawAudioUrls: [
       ...(url320 ? [{ quality: '320kbps', url: url320 }] : []),
@@ -49,6 +50,7 @@ function normSaavnResult(s) {
     genre: s.language || '',
     source: 'saavn',
     downloadable: true,
+    _saavnId: s.id,
   };
 }
 
@@ -95,14 +97,15 @@ async function searchSaavnMain(query, limit = 15) {
           year: d.year || '',
           duration: durSec,
           coverUrl: d.image || null,
-          audioUrl: proxyUrl(raw320) || proxyUrl(raw160) || null,
+          audioUrl: streamProxy(raw320) || streamProxy(raw160) || null,
           allAudioUrls: [
-            ...(raw320 ? [{ quality: '320kbps', url: proxyUrl(raw320) }] : []),
-            ...(raw160 ? [{ quality: '160kbps', url: proxyUrl(raw160) }] : []),
+            ...(raw320 ? [{ quality: '320kbps', url: streamProxy(raw320) }] : []),
+            ...(raw160 ? [{ quality: '160kbps', url: streamProxy(raw160) }] : []),
           ],
           genre: d.language || '',
           source: 'saavn',
           downloadable: true,
+          _saavnId: d.id,
         };
       })
     );
@@ -113,6 +116,35 @@ async function searchSaavnMain(query, limit = 15) {
 async function proxySearch(query, limit = 15) {
   return searchSaavnMain(query, limit);
 }
+
+// Retry a single saavn song via fallback API (gets fresh CDN URL)
+async function retrySaavnSong(song) {
+  const rawId = String(song._saavnId || song.id).replace('saavn-', '');
+  if (!rawId) return null;
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 8000);
+    const res = await fetch(`${SAAVN_FALLBACK}/song?id=${rawId}`, { signal: ctrl.signal });
+    clearTimeout(t);
+    if (!res.ok) return null;
+    const d = await res.json();
+    if (!d?.status || !d.id) return null;
+    const raw320 = d.media_urls?.['320_KBPS'];
+    const raw160 = d.media_url;
+    const freshUrl = raw320 || raw160;
+    if (!freshUrl) return null;
+    return {
+      ...song,
+      audioUrl: streamProxy(raw320) || streamProxy(raw160),
+      allAudioUrls: [
+        ...(raw320 ? [{ quality: '320kbps', url: streamProxy(raw320) }] : []),
+        ...(raw160 ? [{ quality: '160kbps', url: streamProxy(raw160) }] : []),
+      ],
+    };
+  } catch { return null; }
+}
+
+export { retrySaavnSong };
 
 async function proxyLyrics(id) {
   const rawId = String(id).replace('saavn-', '');
