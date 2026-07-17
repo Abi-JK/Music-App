@@ -151,16 +151,16 @@ function AppContent() {
 
   const playPrev = useCallback(() => {
     if (!playlist.length) return;
-    const audioEl = document.getElementById('main-audio');
-    if (audioEl && audioEl.currentTime > 3) {
-      audioEl.currentTime = 0;
+    if (audioState.curTime > 3) {
+      const audioEl = document.getElementById('main-audio');
+      if (audioEl) { audioEl.currentTime = 0; }
       return;
     }
     let prev = (currentIndex - 1 + playlist.length) % playlist.length;
     setCurrentIndex(prev);
     setIsPlaying(true);
     if (playlist[prev]) addRecent(playlist[prev]);
-  }, [playlist, currentIndex, addRecent]);
+  }, [playlist, currentIndex, addRecent, audioState.curTime]);
 
   const toggleShuffle = useCallback(() => {
     setShuffleOn(prev => {
@@ -213,7 +213,7 @@ function AppContent() {
     try {
       const langObj = LANG_QUERIES.find(l => l.label === activeLang);
       const term = langObj?.term && langObj.label !== 'All' ? `${q} ${langObj.term}` : q;
-      const songs = await searchSongs(term, 200);
+      const songs = await searchSongs(term, 50);
       setSearchResults(songs);
       if (songs.length) {
         originalPlaylistRef.current = songs;

@@ -15,7 +15,7 @@ export default defineConfig({
       // Inline service worker registration (replaces manual registration in main.jsx)
       injectRegister: 'inline',
       // Include all assets that need to be pre-cached
-      includeAssets: ['favicon.svg', 'icons/*.png', 'offline.html'],
+      includeAssets: ['favicon.svg', 'icons/*.png'],
       manifest: {
         name: 'SoundAura — Free Music for Everyone',
         short_name: 'SoundAura',

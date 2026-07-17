@@ -70,12 +70,6 @@ export default function SearchScreen({ searchResults, searchLoading, searched, c
               <span className="row-album" title={song.album || ''}>{song.album || '—'}</span>
               <span className="row-dur">{formatTime(song.duration)}</span>
               <div className="row-acts">
-                {song.source === 'itunes' && (
-                  <span style={{ fontSize: 10, color: '#ff9500', marginRight: 4, flexShrink: 0 }} title="30-second preview">30s</span>
-                )}
-                {song.source === 'saavn' && song.duration > 120 && (
-                  <span style={{ fontSize: 10, color: 'var(--accent)', marginRight: 4, flexShrink: 0 }} title="Full song from JioSaavn">FULL</span>
-                )}
                 {toggleLike && (
                   <button className="icon-btn" onClick={(e) => { e.stopPropagation(); toggleLike(song); }}
                     title={isLiked ? 'Unlike' : 'Like'}>

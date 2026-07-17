@@ -30,13 +30,3 @@ export const HOME_SECTIONS = [
   { key: 'pritham',     label: 'Pritam',                  query: 'Pritam music' },
   { key: 'romantic',     label: 'Romantic Hits',           query: 'romantic bollywood' },
 ];
-
-export const POPULAR_ARTISTS = [
-  'Arijit Singh', 'Pritam', 'Shreya Ghoshal', 'A.R. Rahman',
-  'Anirudh Ravichander', 'Sachin-Jigar', 'Alka Yagnik', 'Udit Narayan',
-  'Tanishk Bagchi', 'Ilaiyaraaja', 'K.J. Yesudas',
-  'Harris Jayaraj', 'Yuvan Shankar Raja', 'Vijay',
-  'Allu Arjun', 'Prabhas', 'Sonu Nigam', 'KK',
-];
-
-export const API = 'https://discoveryprovider.audius.co';

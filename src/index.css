@@ -268,14 +268,14 @@ img { display: block; max-width: 100%; }
 /* ── Song Table ─────────────────────────── */
 .song-table { display: flex; flex-direction: column; gap: 1px; width: 100%; min-width: 0; }
 .table-head {
-  display: grid; grid-template-columns: 40px 1fr 140px 70px 50px;
+  display: grid; grid-template-columns: 40px 2fr 1fr 70px 80px;
   align-items: center; padding: 5px 14px; gap: 12px;
   color: var(--text-muted); font-size: 10.5px; font-weight: 700;
   letter-spacing: 0.5px; text-transform: uppercase;
   border-bottom: 1px solid var(--border-subtle); margin-bottom: 3px;
 }
 .song-row {
-  display: grid; grid-template-columns: 40px 1fr 140px 70px 50px;
+  display: grid; grid-template-columns: 40px 2fr 1fr 70px 80px;
   align-items: center; padding: 8px 14px; border-radius: var(--r-sm);
   gap: 12px; transition: background var(--t) var(--ease); cursor: pointer;
 }

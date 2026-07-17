@@ -13,6 +13,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
   const lastProgressTick = useRef(0);
   const urlIndex = useRef(0);
   const urlList = useRef([]);
+  const blobUrls = useRef([]);
   const playNextRef = useRef(playNext);
   const playPrevRef = useRef(playPrev);
 
@@ -24,6 +25,8 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
       prevSongId.current = null;
       const a = audioRef.current;
       if (a) { a.pause(); a.removeAttribute('src'); a.load(); }
+      blobUrls.current.forEach(u => URL.revokeObjectURL(u));
+      blobUrls.current = [];
       setDur(0); setCurTime(0); setLoading(false); setErrorMsg('');
       return;
     }
@@ -31,9 +34,15 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     prevSongId.current = currentSong.id;
     setCurTime(0); setDur(0); setLoading(true); setErrorMsg('');
     urlIndex.current = 0;
+    blobUrls.current.forEach(u => URL.revokeObjectURL(u));
+    blobUrls.current = [];
 
     const candidates = [];
-    if (currentSong.audioBlob) candidates.push({ url: URL.createObjectURL(currentSong.audioBlob), type: 'blob' });
+    if (currentSong.audioBlob) {
+      const blobUrl = URL.createObjectURL(currentSong.audioBlob);
+      candidates.push({ url: blobUrl, type: 'blob' });
+      blobUrls.current.push(blobUrl);
+    }
     if (currentSong.audioUrl) candidates.push({ url: currentSong.audioUrl, type: 'primary' });
     if (currentSong.allAudioUrls) {
       for (const entry of currentSong.allAudioUrls) {
@@ -61,8 +70,9 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     const candidate = urlList.current[index];
     console.log(`[SoundAura] Loading URL ${index + 1}/${urlList.current.length}: ${candidate.type}`);
     a.src = candidate.url;
+    a.volume = vol;
     a.load();
-  }, []);
+  }, [vol]);
 
   useEffect(() => {
     const a = audioRef.current;

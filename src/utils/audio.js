@@ -3,6 +3,7 @@ export async function cutAudio(blob, startTime, endTime) {
   const AudioContext = window.AudioContext || window.webkitAudioContext;
   const audioCtx = new AudioContext();
   const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+  await audioCtx.close();
   
   const sampleRate = audioBuffer.sampleRate;
   const startOffset = Math.max(0, Math.floor(startTime * sampleRate));

@@ -142,7 +142,6 @@ export default function ArtistPage({ query, playSong, currentSong, isPlaying, on
                 <span className="row-album" title={song.album || ''}>{song.album || '—'}</span>
                 <span className="row-dur">{formatTime(song.duration)}</span>
                 <div className="row-acts">
-                  {song.source === 'itunes' && <span style={{ fontSize: 10, color: 'var(--text-muted)' }} title="30s preview">PREVIEW</span>}
                 </div>
               </div>
             );

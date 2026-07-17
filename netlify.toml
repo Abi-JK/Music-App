@@ -1,6 +1,7 @@
 [build]
   publish = "dist"
   command = "npm run build"
+  functions = "netlify/functions"
 
 # Security headers
 [[headers]]
@@ -30,6 +31,11 @@
     Cache-Control = "no-cache, must-revalidate"
 
 # SPA fallback — must be LAST (netlify.toml fallback)
+[[redirects]]
+  from = "/.netlify/functions/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
 [[redirects]]
   from = "/*"
   to = "/index.html"
