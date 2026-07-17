@@ -74,6 +74,17 @@ export default defineConfig({
       navigateFallbackDenylist: [/^\/api/, /^\/\.netlify/],
       // Runtime caching strategies
       runtimeCaching: [
+        // Netlify function audio stream proxy — network-first (long cache for audio)
+        {
+          urlPattern: /^https:\/\/[^/]+\/\.netlify\/functions\/jiosaavn\?action=stream/,
+          handler: 'NetworkFirst',
+          options: {
+            cacheName: 'audio-stream-cache',
+            networkTimeoutSeconds: 10,
+            expiration: { maxEntries: 20, maxAgeSeconds: 60 * 60 * 24 },
+            cacheableResponse: { statuses: [0, 200, 206] },
+          },
+        },
         // JioSaavn API — network-first
         {
           urlPattern: /^https:\/\/(saavn\.sumit\.co|jiosaavn-api\.vercel\.app)/,
