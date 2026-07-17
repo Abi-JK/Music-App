@@ -11,7 +11,7 @@ const PROXY_BASE = '/.netlify/functions/jiosaavn';
 
 function proxyUrl(cdnUrl) {
   if (!cdnUrl) return null;
-  return `${PROXY_BASE}?action=stream&url=${encodeURIComponent(cdnUrl)}`;
+  return `/api/stream-audio?url=${encodeURIComponent(cdnUrl)}`;
 }
 
 function normSaavnResult(s) {
@@ -117,20 +117,20 @@ async function proxySearch(query, limit = 15) {
 async function proxyLyrics(id) {
   const rawId = String(id).replace('saavn-', '');
 
-  // Try saavn.sumit.co lyrics via Netlify proxy
+  // 1. Try jiosaavn-api.vercel.app lyrics (known working)
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 6000);
-    const res = await fetch(`${PROXY_BASE}?action=lyrics&id=${rawId}`, { signal: ctrl.signal });
+    const res = await fetch(`https://jiosaavn-api.vercel.app/lyrics?id=${rawId}`, { signal: ctrl.signal });
     clearTimeout(t);
     if (res.ok) {
       const data = await res.json();
       const lyrics = data?.lyrics || null;
-      if (lyrics) return lyrics;
+      if (lyrics) return lyrics.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '').trim();
     }
-  } catch { /* try direct */ }
+  } catch { /* try next */ }
 
-  // Try direct saavn.sumit.co lyrics
+  // 2. Try saavn.sumit.co lyrics
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 6000);

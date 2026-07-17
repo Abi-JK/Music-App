@@ -3,13 +3,16 @@
   command = "npm run build"
   functions = "netlify/functions"
 
+[functions]
+  node_bundler = "esbuild"
+
 # Security headers
 [[headers]]
   for = "/*"
   [headers.values]
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
-    Referrer-Policy = "strict-origin-when-cross-origin"
+    Referrer-Policy = "no-referrer"
     Permissions-Policy = "autoplay=(self), fullscreen=(self)"
 
 # Cache static assets aggressively
@@ -29,6 +32,11 @@
   for = "/manifest.webmanifest"
   [headers.values]
     Cache-Control = "no-cache, must-revalidate"
+
+# Edge Function for audio streaming (no body size limit)
+[[edge_functions]]
+  path = "/api/stream-audio"
+  function = "stream-audio"
 
 # SPA fallback — must be LAST (netlify.toml fallback)
 [[redirects]]

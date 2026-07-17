@@ -74,9 +74,9 @@ export default defineConfig({
       navigateFallbackDenylist: [/^\/api/, /^\/\.netlify/],
       // Runtime caching strategies
       runtimeCaching: [
-        // Netlify function audio stream proxy — network-first (long cache for audio)
+        // Edge Function audio stream proxy — network-first (full audio, no size limit)
         {
-          urlPattern: /^https:\/\/[^/]+\/\.netlify\/functions\/jiosaavn\?action=stream/,
+          urlPattern: /^https:\/\/[^/]+\/api\/stream-audio/,
           handler: 'NetworkFirst',
           options: {
             cacheName: 'audio-stream-cache',
