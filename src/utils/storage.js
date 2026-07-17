@@ -111,8 +111,8 @@ export const Storage = {
       if (backupLiked.length > 0) lsSet(LS_LIKED_KEY, backupLiked);
       if (backupRecent.length > 0) lsSet(LS_RECENT_KEY, backupRecent.slice(0, 12));
 
-      // Clear IndexedDB stores
-      await Promise.all([STORE_LIKED, STORE_RECENT, STORE_DOWNLOADS].map(storeName =>
+      // Clear IndexedDB stores — but NEVER clear downloads (large audio blobs)
+      await Promise.all([STORE_LIKED, STORE_RECENT].map(storeName =>
         new Promise((resolve) => {
           try {
             const tx = database.transaction([storeName], 'readwrite');

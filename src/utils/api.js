@@ -243,6 +243,7 @@ function normTrack(t, host) {
     coverUrl: art['480x480'] || art['150x150'] || art['1000x1000'] || null,
     audioUrl: candidates[0] || constructedUrl,
     allAudioUrls: candidates.map(url => ({ quality: 'stream', url })),
+    rawAudioUrls: candidates.map(url => ({ quality: 'stream', url })),
     genre: t.genre || '',
     source: 'audius',
     downloadable: !!t.downloadable,
@@ -254,6 +255,7 @@ function normTrack(t, host) {
 function normITunesTrack(s) {
   const art100 = s.artworkUrl100 || '';
   const coverUrl = art100 ? art100.replace('100x100', '600x600') : null;
+  const audioUrl = s.previewUrl || null;
   return {
     id: `itunes-${s.trackId}`,
     title: s.trackName || 'Unknown',
@@ -262,8 +264,9 @@ function normITunesTrack(s) {
     year: s.releaseDate ? new Date(s.releaseDate).getFullYear() : '',
     duration: s.trackTimeMillis ? Math.round(s.trackTimeMillis / 1000) : 0,
     coverUrl,
-    audioUrl: s.previewUrl || null,
-    allAudioUrls: s.previewUrl ? [{ quality: 'preview', url: s.previewUrl }] : [],
+    audioUrl,
+    allAudioUrls: audioUrl ? [{ quality: 'preview', url: audioUrl }] : [],
+    rawAudioUrls: audioUrl ? [{ quality: 'preview', url: audioUrl }] : [],
     genre: s.primaryGenreName || '',
     source: 'itunes',
     downloadable: false,
@@ -355,7 +358,7 @@ export async function fetchLyrics(songId, songTitle, artistName) {
       const params = new URLSearchParams({ track_name: title });
       if (artist) params.set('artist_name', artist);
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 5000);
+      const t = setTimeout(() => ctrl.abort(), 8000);
       const res = await fetch(`https://lrclib.net/api/search?${params.toString()}`, { signal: ctrl.signal });
       clearTimeout(t);
       if (res.ok) {
@@ -371,9 +374,11 @@ export async function fetchLyrics(songId, songTitle, artistName) {
 
   const tryLrclibGet = async (artist, title) => {
     try {
+      const params = new URLSearchParams({ track_name: title });
+      if (artist) params.set('artist_name', artist);
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 5000);
-      const res = await fetch(`https://lrclib.net/api/get?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(title)}`, { signal: ctrl.signal });
+      const t = setTimeout(() => ctrl.abort(), 8000);
+      const res = await fetch(`https://lrclib.net/api/get?${params.toString()}`, { signal: ctrl.signal });
       clearTimeout(t);
       if (res.ok) {
         const data = await res.json();
@@ -386,7 +391,7 @@ export async function fetchLyrics(songId, songTitle, artistName) {
   const tryOvh = async (artist, title) => {
     try {
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 5000);
+      const t = setTimeout(() => ctrl.abort(), 8000);
       const res = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`, { signal: ctrl.signal });
       clearTimeout(t);
       if (res.ok) {
@@ -402,6 +407,8 @@ export async function fetchLyrics(songId, songTitle, artistName) {
   if (simplerTitle && simplerTitle !== cleanTitle) titleVariations.push(simplerTitle);
   const noYearTitle = cleanTitle.replace(/\d{4}/g, '').trim();
   if (noYearTitle && noYearTitle !== cleanTitle) titleVariations.push(noYearTitle);
+  const noParenTitle = cleanTitle.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').replace(/[-–—].*$/, '').trim();
+  if (noParenTitle && noParenTitle !== cleanTitle && !titleVariations.includes(noParenTitle)) titleVariations.push(noParenTitle);
 
   for (const title of titleVariations) {
     let lyrics = await tryLrclib(cleanArtist, title);
@@ -418,23 +425,33 @@ export async function fetchLyrics(songId, songTitle, artistName) {
   }
 
   for (const title of titleVariations) {
-    const lyrics = await tryLrclib('', title);
+    let lyrics = await tryLrclib('', title);
+    if (lyrics) return lyrics;
+    lyrics = await tryLrclibGet('', title);
     if (lyrics) return lyrics;
   }
 
   return null;
 }
 
-export async function downloadAudioBlob(audioUrl) {
-  if (!audioUrl) return null;
-  try {
-    const response = await fetch(audioUrl);
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.blob();
-  } catch (err) {
-    console.error('Download error:', err);
-    return null;
+export async function downloadAudioBlob(audioUrl, rawUrls) {
+  const urlsToTry = [];
+  if (rawUrls && rawUrls.length > 0) {
+    for (const entry of rawUrls) {
+      if (entry.url) urlsToTry.push(entry.url);
+    }
   }
+  if (audioUrl) urlsToTry.push(audioUrl);
+
+  for (const url of urlsToTry) {
+    try {
+      const response = await fetch(url, { cache: 'no-store' });
+      if (!response.ok) continue;
+      const blob = await response.blob();
+      if (blob && blob.size > 100000) return blob;
+    } catch { continue; }
+  }
+  return null;
 }
 
 export function groupTracksByAlbum(tracks) {

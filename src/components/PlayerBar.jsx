@@ -22,6 +22,39 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
   useEffect(() => { playPrevRef.current = playPrev; }, [playPrev]);
 
   useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+    navigator.mediaSession.setActionHandler('play', () => { setIsPlaying(true); });
+    navigator.mediaSession.setActionHandler('pause', () => { setIsPlaying(false); });
+    navigator.mediaSession.setActionHandler('previoustrack', () => { if (playPrevRef.current) playPrevRef.current(); });
+    navigator.mediaSession.setActionHandler('nexttrack', () => { if (playNextRef.current) playNextRef.current(); });
+    navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+      const a = audioRef.current;
+      if (a) a.currentTime = Math.max(0, a.currentTime - (details.seekOffset || 10));
+    });
+    navigator.mediaSession.setActionHandler('seekforward', (details) => {
+      const a = audioRef.current;
+      if (a) a.currentTime = Math.min(a.duration || 0, a.currentTime + (details.seekOffset || 10));
+    });
+    navigator.mediaSession.setActionHandler('seekto', (details) => {
+      const a = audioRef.current;
+      if (a && details.seekTime != null) a.currentTime = details.seekTime;
+    });
+    return () => {
+      if ('mediaSession' in navigator) {
+        try {
+          navigator.mediaSession.setActionHandler('play', null);
+          navigator.mediaSession.setActionHandler('pause', null);
+          navigator.mediaSession.setActionHandler('previoustrack', null);
+          navigator.mediaSession.setActionHandler('nexttrack', null);
+          navigator.mediaSession.setActionHandler('seekbackward', null);
+          navigator.mediaSession.setActionHandler('seekforward', null);
+          navigator.mediaSession.setActionHandler('seekto', null);
+        } catch {}
+      }
+    };
+  }, [setIsPlaying]);
+
+  useEffect(() => {
     if (!currentSong) {
       prevSongId.current = null;
       const a = audioRef.current;
@@ -29,6 +62,10 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
       blobUrls.current.forEach(u => URL.revokeObjectURL(u));
       blobUrls.current = [];
       setDur(0); setCurTime(0); setLoading(false); setErrorMsg('');
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = null;
+        navigator.mediaSession.playbackState = 'none';
+      }
       return;
     }
     if (prevSongId.current === currentSong.id) return;
@@ -56,6 +93,19 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
       candidates.push({ url: `https://discoveryprovider.audius.co/v1/tracks/${currentSong.id}/stream?app_name=SoundAura`, type: 'constructed' });
     }
     urlList.current = candidates;
+
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title: currentSong.title || 'Unknown',
+        artist: currentSong.artist || 'Unknown Artist',
+        album: currentSong.album || 'SoundAura',
+        artwork: currentSong.coverUrl ? [
+          { src: currentSong.coverUrl, sizes: '512x512', type: 'image/jpeg' },
+          { src: currentSong.coverUrl, sizes: '256x256', type: 'image/jpeg' },
+        ] : [],
+      });
+    }
+
     loadUrl(0);
   }, [currentSong?.id]);
 
@@ -126,7 +176,10 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
       setLoading(false); setErrorMsg('');
       const playPromise = a.play();
       if (playPromise) {
-        playPromise.then(() => setIsPlaying(true)).catch(() => {
+        playPromise.then(() => {
+          setIsPlaying(true);
+          if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+        }).catch(() => {
           setIsPlaying(false);
           setErrorMsg('Tap play to start');
         });
@@ -152,9 +205,12 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     const a = audioRef.current;
     if (!a) return;
     if (isPlaying) {
-      a.play().catch(() => setIsPlaying(false));
+      a.play().then(() => {
+        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+      }).catch(() => setIsPlaying(false));
     } else {
       a.pause();
+      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
     }
   }, [isPlaying]);
 

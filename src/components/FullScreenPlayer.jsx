@@ -20,7 +20,7 @@ export default function FullScreenPlayer({
     let cancelled = false;
     setLoadingLyrics(true);
     setLyrics('');
-    const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 8000));
+    const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 12000));
     const lyricsPromise = fetchLyrics(currentSong.id, currentSong.title, currentSong.artist);
     Promise.race([lyricsPromise, timeout]).then(text => {
       if (!cancelled) { setLyrics(text || ''); setLoadingLyrics(false); }
@@ -41,10 +41,7 @@ export default function FullScreenPlayer({
     showToast('Cutting ringtone...');
     try {
       let blob = null;
-      const urls = [currentSong.audioUrl, ...(currentSong.allAudioUrls || []).map(u => u.url)].filter(Boolean);
-      for (const url of urls) {
-        try { blob = await downloadAudioBlob(url); if (blob && blob.size > 0) break; } catch { /* next */ }
-      }
+      blob = await downloadAudioBlob(currentSong.audioUrl, currentSong.rawAudioUrls || []);
       if (!blob) throw new Error('Download failed');
       const end = Math.min(dur, ringtoneStart + 30);
       const cutBlob = await cutAudio(blob, ringtoneStart, end);

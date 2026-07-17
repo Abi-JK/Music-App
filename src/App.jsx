@@ -89,7 +89,21 @@ function AppContent() {
     if (window.__installPrompt) setDeferredPrompt(window.__installPrompt);
     const handler = (e) => { e.preventDefault(); setDeferredPrompt(e); };
     window.addEventListener('beforeinstallprompt', handler);
-    return () => window.removeEventListener('beforeinstallprompt', handler);
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        const a = document.getElementById('main-audio');
+        if (a && a.paused && a.src && !a.ended) {
+          a.play().then(() => setIsPlaying(true)).catch(() => {});
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
 
   const handleInstallApp = async () => {
@@ -109,9 +123,11 @@ function AppContent() {
   }, []);
 
   const addRecent = useCallback(async (song) => {
+    const slim = { ...song };
+    delete slim.audioBlob;
     setRecentlyPlayed(prev => {
-      const next = [song, ...prev.filter(s => s.id !== song.id)].slice(0, 12);
-      Storage.addRecentlyPlayed(song).catch(console.error);
+      const next = [slim, ...prev.filter(s => s.id !== slim.id)].slice(0, 12);
+      Storage.addRecentlyPlayed(slim).catch(console.error);
       return next;
     });
   }, []);
@@ -226,12 +242,14 @@ function AppContent() {
 
   const isLiked = useCallback((id) => likedSongs.some(s => s.id === id), [likedSongs]);
   const toggleLike = useCallback(async (song) => {
+    const slim = { ...song };
+    delete slim.audioBlob;
     setLikedSongs(prev => {
-      const already = prev.some(s => s.id === song.id);
-      const next = already ? prev.filter(s => s.id !== song.id) : [...prev, song];
-      if (already) Storage.removeLikedSong(song.id).catch(console.error);
-      else Storage.addLikedSong(song).catch(console.error);
-      showToast(already ? '💔 Removed from Liked Songs' : '❤️ Added to Liked Songs');
+      const already = prev.some(s => s.id === slim.id);
+      const next = already ? prev.filter(s => s.id !== slim.id) : [...prev, slim];
+      if (already) Storage.removeLikedSong(slim.id).catch(console.error);
+      else Storage.addLikedSong(slim).catch(console.error);
+      showToast(already ? 'Removed from Liked Songs' : 'Added to Liked Songs');
       return next;
     });
   }, [showToast]);
@@ -329,19 +347,12 @@ function AppContent() {
     setDownloadingIds(prev => [...prev, song.id]);
     showToast(`Downloading "${song.title}"...`);
     try {
-      const urlsToTry = [song.audioUrl, ...(song.allAudioUrls || []).map(u => u.url)].filter(Boolean);
-      let blob = null;
-      for (const url of urlsToTry) {
-        try {
-          blob = await downloadAudioBlob(url);
-          if (blob && blob.size > 0) break;
-        } catch { /* try next */ }
-      }
+      const blob = await downloadAudioBlob(song.audioUrl, song.rawAudioUrls || []);
       if (!blob) throw new Error('Failed to download audio blob');
       const songWithBlob = { ...song, audioBlob: blob, downloadedAt: new Date().toISOString() };
       await Storage.addDownloadedSong(songWithBlob);
       setDownloadedSongs(prev => [...prev, songWithBlob]);
-      showToast(`📥 "${song.title}" downloaded offline!`);
+      showToast(`"${song.title}" downloaded offline!`);
     } catch (err) {
       console.error(err);
       showToast(`Failed to download "${song.title}".`);
