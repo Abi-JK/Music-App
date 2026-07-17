@@ -1,9 +1,8 @@
 // ---------------------------------------------------------------------------
-// SoundAura — JioSaavn (full Indian songs) + Audius + iTunes (fallback)
+// SoundAura — JioSaavn ONLY (full Indian songs 4-5 min, all languages)
 // All JioSaavn audio proxied via Netlify Edge Function (bypasses CDN blocks)
+// No Audius, no iTunes — only Indian full songs with lyrics
 // ---------------------------------------------------------------------------
-
-const APP_NAME = 'SoundAura';
 
 // ── JioSaavn (full Indian songs) ──────────────────────────────────────────
 const SAAVN_API = 'https://saavn.sumit.co/api';
@@ -16,6 +15,7 @@ function streamProxy(cdnUrl) {
 
 function normSaavnResult(s) {
   const dur = typeof s.duration === 'number' ? s.duration : 0;
+  if (dur > 0 && dur < 60) return null;
   const artists = s.artists?.primary?.map(a => a.name).join(', ')
     || s.artists?.featured?.map(a => a.name).join(', ')
     || s.primaryArtists || s.singers || 'Unknown';
@@ -54,8 +54,7 @@ function normSaavnResult(s) {
   };
 }
 
-async function searchSaavnMain(query, limit = 15) {
-  // PRIMARY: saavn.sumit.co (search results include download URLs)
+async function searchSaavnMain(query, limit = 20) {
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 12000);
@@ -64,12 +63,11 @@ async function searchSaavnMain(query, limit = 15) {
     if (res.ok) {
       const data = await res.json();
       const results = data?.data?.results || [];
-      const songs = results.map(normSaavnResult).filter(s => s.audioUrl);
+      const songs = results.map(normSaavnResult).filter(Boolean).filter(s => s.audioUrl);
       if (songs.length > 0) return songs;
     }
   } catch { /* try fallback */ }
 
-  // FALLBACK: jiosaavn-api.vercel.app (needs separate resolve)
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 10000);
@@ -78,7 +76,7 @@ async function searchSaavnMain(query, limit = 15) {
     if (!res.ok) return [];
     const data = await res.json();
     if (!data?.results) return [];
-    const toResolve = data.results.slice(0, Math.min(limit, 10));
+    const toResolve = data.results.slice(0, Math.min(limit, 15));
     const resolved = await Promise.allSettled(
       toResolve.map(async (r) => {
         const sRes = await fetch(`${SAAVN_FALLBACK}/song?id=${r.id}`);
@@ -87,6 +85,7 @@ async function searchSaavnMain(query, limit = 15) {
         if (!d?.status || !d.id) return null;
         const durParts = (d.duration || '').split(':');
         const durSec = durParts.length === 2 ? parseInt(durParts[0]) * 60 + parseInt(durParts[1]) : 0;
+        if (durSec > 0 && durSec < 60) return null;
         const raw320 = d.media_urls?.['320_KBPS'];
         const raw160 = d.media_url;
         return {
@@ -102,6 +101,10 @@ async function searchSaavnMain(query, limit = 15) {
             ...(raw320 ? [{ quality: '320kbps', url: streamProxy(raw320) }] : []),
             ...(raw160 ? [{ quality: '160kbps', url: streamProxy(raw160) }] : []),
           ],
+          rawAudioUrls: [
+            ...(raw320 ? [{ quality: '320kbps', url: raw320 }] : []),
+            ...(raw160 ? [{ quality: '160kbps', url: raw160 }] : []),
+          ],
           genre: d.language || '',
           source: 'saavn',
           downloadable: true,
@@ -113,11 +116,10 @@ async function searchSaavnMain(query, limit = 15) {
   } catch { return []; }
 }
 
-async function proxySearch(query, limit = 15) {
+async function proxySearch(query, limit = 20) {
   return searchSaavnMain(query, limit);
 }
 
-// Retry a single saavn song via fallback API (gets fresh CDN URL)
 async function retrySaavnSong(song) {
   const rawId = String(song._saavnId || song.id).replace('saavn-', '');
   if (!rawId) return null;
@@ -140,6 +142,10 @@ async function retrySaavnSong(song) {
         ...(raw320 ? [{ quality: '320kbps', url: streamProxy(raw320) }] : []),
         ...(raw160 ? [{ quality: '160kbps', url: streamProxy(raw160) }] : []),
       ],
+      rawAudioUrls: [
+        ...(raw320 ? [{ quality: '320kbps', url: raw320 }] : []),
+        ...(raw160 ? [{ quality: '160kbps', url: raw160 }] : []),
+      ],
     };
   } catch { return null; }
 }
@@ -149,10 +155,9 @@ export { retrySaavnSong };
 async function proxyLyrics(id) {
   const rawId = String(id).replace('saavn-', '');
 
-  // 1. Try jiosaavn-api.vercel.app lyrics (known working)
   try {
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 6000);
+    const t = setTimeout(() => ctrl.abort(), 8000);
     const res = await fetch(`https://jiosaavn-api.vercel.app/lyrics?id=${rawId}`, { signal: ctrl.signal });
     clearTimeout(t);
     if (res.ok) {
@@ -162,10 +167,9 @@ async function proxyLyrics(id) {
     }
   } catch { /* try next */ }
 
-  // 2. Try saavn.sumit.co lyrics
   try {
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 6000);
+    const t = setTimeout(() => ctrl.abort(), 8000);
     const res = await fetch(`${SAAVN_API}/songs/${rawId}/lyrics`, { signal: ctrl.signal });
     clearTimeout(t);
     if (res.ok) {
@@ -176,115 +180,6 @@ async function proxyLyrics(id) {
   } catch { /* no lyrics */ }
 
   return null;
-}
-
-// ── Audius ──────────────────────────────────────────────────────────────────
-const DISCOVERY_HOSTS = [
-  'https://discoveryprovider.audius.co',
-  'https://discoveryprovider2.audius.co',
-  'https://discoveryprovider3.audius.co',
-  'https://audius-discovery-1.cultur3stake.com',
-];
-
-let cachedHost = null;
-
-async function pickHost() {
-  if (cachedHost) return cachedHost;
-  for (const host of DISCOVERY_HOSTS) {
-    try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 4000);
-      const res = await fetch(`${host}/v1/tracks/trending?app_name=${APP_NAME}&limit=1`, { signal: ctrl.signal });
-      clearTimeout(t);
-      if (res.ok) { cachedHost = host; return host; }
-    } catch { /* try next */ }
-  }
-  cachedHost = DISCOVERY_HOSTS[0];
-  return cachedHost;
-}
-
-async function apiGet(path) {
-  const host = await pickHost();
-  const sep = path.includes('?') ? '&' : '?';
-  const url = `${host}${path}${sep}app_name=${APP_NAME}`;
-  const res = await fetch(url);
-  if (!res.ok) {
-    cachedHost = null;
-    const host2 = await pickHost();
-    const res2 = await fetch(`${host2}${path}${sep}app_name=${APP_NAME}`);
-    if (!res2.ok) throw new Error(`HTTP ${res2.status}`);
-    return res2.json();
-  }
-  return res.json();
-}
-
-function normTrack(t, host) {
-  const art = t.artwork || {};
-  const realStreamUrl = t.stream?.url || null;
-  const constructedUrl = `${host}/v1/tracks/${t.id}/stream?app_name=${APP_NAME}`;
-  const candidates = [];
-  if (realStreamUrl) candidates.push(realStreamUrl);
-  candidates.push(constructedUrl);
-  if (t.stream?.mirrors && t.track_cid) {
-    const mirrors = typeof t.stream.mirrors === 'string' ? t.stream.mirrors.split(' ') : (t.stream.mirrors || []);
-    for (const mh of mirrors) {
-      if (!mh) continue;
-      const mirrorUrl = `https://${mh.replace(/^https?:\/\//, '')}/tracks/cidstream/${t.track_cid}`;
-      if (!candidates.includes(mirrorUrl)) candidates.push(mirrorUrl);
-    }
-  }
-  return {
-    id: t.id,
-    title: t.title || 'Unknown',
-    artist: t.user?.name || t.user?.handle || 'Unknown Artist',
-    album: t.album_backlink?.title || '',
-    year: t.release_date ? new Date(t.release_date).getFullYear() : '',
-    duration: t.duration || 0,
-    coverUrl: art['480x480'] || art['150x150'] || art['1000x1000'] || null,
-    audioUrl: candidates[0] || constructedUrl,
-    allAudioUrls: candidates.map(url => ({ quality: 'stream', url })),
-    rawAudioUrls: candidates.map(url => ({ quality: 'stream', url })),
-    genre: t.genre || '',
-    source: 'audius',
-    downloadable: !!t.downloadable,
-    playCount: t.play_count || 0,
-  };
-}
-
-// ── iTunes (30s previews — last resort) ────────────────────────────────────
-function normITunesTrack(s) {
-  const art100 = s.artworkUrl100 || '';
-  const coverUrl = art100 ? art100.replace('100x100', '600x600') : null;
-  const audioUrl = s.previewUrl || null;
-  return {
-    id: `itunes-${s.trackId}`,
-    title: s.trackName || 'Unknown',
-    artist: s.artistName || 'Unknown Artist',
-    album: s.collectionName || '',
-    year: s.releaseDate ? new Date(s.releaseDate).getFullYear() : '',
-    duration: s.trackTimeMillis ? Math.round(s.trackTimeMillis / 1000) : 0,
-    coverUrl,
-    audioUrl,
-    allAudioUrls: audioUrl ? [{ quality: 'preview', url: audioUrl }] : [],
-    rawAudioUrls: audioUrl ? [{ quality: 'preview', url: audioUrl }] : [],
-    genre: s.primaryGenreName || '',
-    source: 'itunes',
-    downloadable: false,
-    playCount: 0,
-  };
-}
-
-async function searchITunes(query, limit = 20) {
-  try {
-    const res = await fetch(
-      `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=${limit}&entity=song&country=IN`
-    );
-    if (!res.ok) return [];
-    const data = await res.json();
-    return (data.results || []).filter(s => s.previewUrl).map(normITunesTrack);
-  } catch {
-    return [];
-  }
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -308,39 +203,17 @@ function withTimeout(promise, ms) {
 // ── Public API ──────────────────────────────────────────────────────────────
 
 export async function searchSongs(query, limit = 40) {
-  const [saavnResults, audiusResults, iTunesResults] = await Promise.all([
-    withTimeout(proxySearch(query, Math.min(limit, 50)), 15000),
-    withTimeout(
-      pickHost().then(host =>
-        apiGet(`/v1/tracks/search?query=${encodeURIComponent(query)}&limit=${limit}`)
-          .then(data => (data?.data || []).map(t => normTrack(t, host)).filter(s => s.id && s.audioUrl))
-      ),
-      8000
-    ),
-    withTimeout(searchITunes(query, Math.min(limit, 10)), 6000),
-  ]);
-
-  return dedupe([...(saavnResults || []), ...(audiusResults || []), ...(iTunesResults || [])]);
+  const results = await withTimeout(proxySearch(query, Math.min(limit, 50)), 15000);
+  return dedupe(results || []);
 }
 
-export async function searchSaavn(query, limit = 15) {
+export async function searchSaavn(query, limit = 20) {
   return proxySearch(query, limit);
 }
 
-export async function searchArtistSongs(artistName, limit = 30) {
-  const [saavnResults, audiusResults, iTunesResults] = await Promise.all([
-    withTimeout(proxySearch(artistName, Math.min(limit, 50)), 15000),
-    withTimeout(
-      pickHost().then(host =>
-        apiGet(`/v1/tracks/search?query=${encodeURIComponent(artistName)}&limit=${limit}`)
-          .then(data => (data?.data || []).map(t => normTrack(t, host)).filter(s => s.id && s.audioUrl))
-      ),
-      8000
-    ),
-    withTimeout(searchITunes(artistName, Math.min(limit, 10)), 6000),
-  ]);
-
-  return dedupe([...(saavnResults || []), ...(audiusResults || []), ...(iTunesResults || [])]);
+export async function searchArtistSongs(artistName, limit = 50) {
+  const results = await withTimeout(proxySearch(artistName, Math.min(limit, 50)), 15000);
+  return dedupe(results || []);
 }
 
 export async function fetchLyrics(songId, songTitle, artistName) {
@@ -372,31 +245,15 @@ export async function fetchLyrics(songId, songTitle, artistName) {
     return null;
   };
 
-  const tryLrclibGet = async (artist, title) => {
-    try {
-      const params = new URLSearchParams({ track_name: title });
-      if (artist) params.set('artist_name', artist);
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 8000);
-      const res = await fetch(`https://lrclib.net/api/get?${params.toString()}`, { signal: ctrl.signal });
-      clearTimeout(t);
-      if (res.ok) {
-        const data = await res.json();
-        if (data) return data.syncedLyrics || data.plainLyrics || null;
-      }
-    } catch { /* ignore */ }
-    return null;
-  };
-
-  const tryOvh = async (artist, title) => {
+  const tryLyricsOvh = async (artist, title) => {
     try {
       const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 8000);
+      const t = setTimeout(() => ctrl.abort(), 6000);
       const res = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`, { signal: ctrl.signal });
       clearTimeout(t);
       if (res.ok) {
         const data = await res.json();
-        if (data?.lyrics) return data.lyrics;
+        return data?.lyrics || null;
       }
     } catch { /* ignore */ }
     return null;
@@ -407,27 +264,22 @@ export async function fetchLyrics(songId, songTitle, artistName) {
   if (simplerTitle && simplerTitle !== cleanTitle) titleVariations.push(simplerTitle);
   const noYearTitle = cleanTitle.replace(/\d{4}/g, '').trim();
   if (noYearTitle && noYearTitle !== cleanTitle) titleVariations.push(noYearTitle);
-  const noParenTitle = cleanTitle.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').replace(/[-–—].*$/, '').trim();
-  if (noParenTitle && noParenTitle !== cleanTitle && !titleVariations.includes(noParenTitle)) titleVariations.push(noParenTitle);
+  const noVersionTitle = cleanTitle.replace(/-\s*(Remix|Version|Edited|Reprise|Unplugged|Live|Acoustic|Club|Extended|Remastered|Original).*/i, '').trim();
+  if (noVersionTitle && noVersionTitle !== cleanTitle) titleVariations.push(noVersionTitle);
 
   for (const title of titleVariations) {
-    let lyrics = await tryLrclib(cleanArtist, title);
-    if (lyrics) return lyrics;
-    lyrics = await tryLrclibGet(cleanArtist, title);
+    const lyrics = await tryLrclib(cleanArtist, title);
     if (lyrics) return lyrics;
   }
 
-  if (cleanArtist) {
-    for (const title of titleVariations) {
-      const lyrics = await tryOvh(cleanArtist, title);
-      if (lyrics) return lyrics;
-    }
+  for (const title of titleVariations) {
+    if (!cleanArtist) continue;
+    const lyrics = await tryLyricsOvh(cleanArtist, title);
+    if (lyrics) return lyrics;
   }
 
   for (const title of titleVariations) {
-    let lyrics = await tryLrclib('', title);
-    if (lyrics) return lyrics;
-    lyrics = await tryLrclibGet('', title);
+    const lyrics = await tryLrclib('', title);
     if (lyrics) return lyrics;
   }
 

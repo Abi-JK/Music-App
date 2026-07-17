@@ -266,15 +266,24 @@ function AppContent() {
       const langObj = LANG_QUERIES.find(l => l.label === activeLang);
       const term = langObj?.term && langObj.label !== 'All' ? `${q} ${langObj.term}` : q;
       const songs = await searchSongs(term, 50);
-      setSearchResults(songs);
-      if (songs.length) {
-        originalPlaylistRef.current = songs;
+      const indianSongs = songs.filter(s => {
+        if (s.genre && s.genre.toLowerCase().includes('english')) return false;
+        if (s.title && /^[a-zA-Z\s.'-]+$/.test(s.title) && !/[^\x00-\x7F]/.test(s.title)) {
+          const artistLower = (s.artist || '').toLowerCase();
+          const indianArtists = ['singh', 'sharma', 'patel', 'kumar', 'rao', 'reddy', 'iyer', 'nair', 'menon', 'gupta', 'joshi', 'singh', 'verma', 'khan', 'ali', 'ahmed', 'malik', 'nigam', 'mukesh', 'ghoshal', 'chopra', 'kapoor', 'bachchan'];
+          if (!indianArtists.some(a => artistLower.includes(a))) return false;
+        }
+        return true;
+      });
+      setSearchResults(indianSongs);
+      if (indianSongs.length) {
+        originalPlaylistRef.current = indianSongs;
         if (shuffleRef.current) {
-          const shuffled = shuffleArray(songs);
+          const shuffled = shuffleArray(indianSongs);
           setPlaylist(shuffled);
           setCurrentIndex(0);
         } else {
-          setPlaylist(songs);
+          setPlaylist(indianSongs);
           setCurrentIndex(0);
         }
       } else showToast('No results found.');

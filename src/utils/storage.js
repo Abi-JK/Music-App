@@ -15,7 +15,7 @@ const LS_DOWNLOADS_KEY = 'soundaura_downloads_backup';
 // Older cached data (liked/recent/downloads) from a prior backend is
 // wiped automatically on first load after an update, instead of sitting
 // around as silently-broken entries that fail to play.
-const BACKEND_VERSION = 'audius-v1';
+const BACKEND_VERSION = 'saavn-v2';
 const BACKEND_VERSION_KEY = 'soundaura_backend_version';
 
 let db = null;

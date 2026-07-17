@@ -47,40 +47,21 @@ async function loadSaavnSection(sec) {
   }
 }
 
-async function loadOtherSection(sec) {
-  try {
-    const songs = await searchSongs(sec.query, 10);
-    return { key: sec.key, label: sec.label, songs };
-  } catch {
-    return { key: sec.key, label: sec.label, songs: [] };
-  }
-}
-
 export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyPlayed, downloadSong, downloadedIds, downloadingIds }) {
   const [sections, setSections] = useState({});
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+useEffect(() => {
     let cancelled = false;
 
-    const indianKeys = ['hindi', 'tamil', 'telugu', 'malayalam', 'arrahman', 'arijit', 'ilayaraja', 'yesudas', 'msv', 'kannadasan', 'spb', 'tamilold', 'sadha'];
-    const indianSections = HOME_SECTIONS.filter(s => indianKeys.includes(s.key));
-    const otherSections = HOME_SECTIONS.filter(s => !indianKeys.includes(s.key));
-
     (async () => {
-      const indianResults = await Promise.all(indianSections.map(loadSaavnSection));
+      const results = await Promise.all(HOME_SECTIONS.map(loadSaavnSection));
 
       if (cancelled) return;
       const data = {};
-      indianResults.forEach(r => { data[r.key] = r; });
+      results.forEach(r => { data[r.key] = r; });
       setSections({ ...data });
       setLoading(false);
-
-      const otherResults = await Promise.all(otherSections.map(loadOtherSection));
-
-      if (cancelled) return;
-      otherResults.forEach(r => { data[r.key] = r; });
-      setSections({ ...data });
     })();
 
     return () => { cancelled = true; };

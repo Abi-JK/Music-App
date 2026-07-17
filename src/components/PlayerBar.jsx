@@ -89,8 +89,8 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
         }
       }
     }
-    if (candidates.length === 0 && currentSong.id && !String(currentSong.id).startsWith('itunes-') && !String(currentSong.id).startsWith('saavn-')) {
-      candidates.push({ url: `https://discoveryprovider.audius.co/v1/tracks/${currentSong.id}/stream?app_name=SoundAura`, type: 'constructed' });
+    if (candidates.length === 0 && currentSong.id && !String(currentSong.id).startsWith('saavn-')) {
+      // No fallback needed - using JioSaavn only
     }
     urlList.current = candidates;
 

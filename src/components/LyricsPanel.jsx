@@ -48,7 +48,7 @@ export default function LyricsPanel({ songId, songTitle, songArtist, onClose }) 
             <div className="empty">
               <div style={{ fontSize: 36 }}>📝</div>
               <h3>Lyrics not available</h3>
-              <p>Lyrics for independent artists may not be available yet. Try searching for a well-known song to see lyrics.</p>
+              <p>Lyrics for this song may not be available yet. Try another version or language of the same song.</p>
             </div>
           )}
         </div>
