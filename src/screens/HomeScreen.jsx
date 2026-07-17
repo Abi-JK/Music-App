@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { searchSongs, searchITunes } from '../utils/api';
+import { searchSongs, searchSaavn } from '../utils/api';
 import { HOME_SECTIONS } from '../utils/constants';
 
 function SectionRow({ sec, currentSong, isPlaying, playSong }) {
@@ -24,6 +24,24 @@ function SectionRow({ sec, currentSong, isPlaying, playSong }) {
   );
 }
 
+async function loadSaavnSection(sec) {
+  try {
+    const songs = await searchSaavn(sec.query, 10);
+    return { key: sec.key, label: sec.label, songs };
+  } catch {
+    return { key: sec.key, label: sec.label, songs: [] };
+  }
+}
+
+async function loadOtherSection(sec) {
+  try {
+    const songs = await searchSongs(sec.query, 10);
+    return { key: sec.key, label: sec.label, songs };
+  } catch {
+    return { key: sec.key, label: sec.label, songs: [] };
+  }
+}
+
 export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyPlayed }) {
   const [sections, setSections] = useState({});
   const [loading, setLoading] = useState(true);
@@ -31,31 +49,12 @@ export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyP
   useEffect(() => {
     let cancelled = false;
 
-    const indianSections = HOME_SECTIONS.filter(s =>
-      ['hindi', 'tamil', 'telugu', 'malayalam', 'arrahman', 'arijit', 'ilayaraja', 'yesudas'].includes(s.key)
-    );
-    const otherSections = HOME_SECTIONS.filter(s =>
-      !['hindi', 'tamil', 'telugu', 'malayalam', 'arrahman', 'arijit', 'ilayaraja', 'yesudas'].includes(s.key)
-    );
-
-    async function loadSection(sec, useITunesOnly) {
-      try {
-        if (useITunesOnly) {
-          const songs = await searchITunes(sec.query, 12);
-          return { key: sec.key, label: sec.label, songs };
-        }
-        const songs = await searchSongs(sec.query, 12);
-        return { key: sec.key, label: sec.label, songs };
-      } catch {
-        return { key: sec.key, label: sec.label, songs: [] };
-      }
-    }
+    const indianKeys = ['hindi', 'tamil', 'telugu', 'malayalam', 'arrahman', 'arijit', 'ilayaraja', 'yesudas'];
+    const indianSections = HOME_SECTIONS.filter(s => indianKeys.includes(s.key));
+    const otherSections = HOME_SECTIONS.filter(s => !indianKeys.includes(s.key));
 
     (async () => {
-      // Load Indian sections via iTunes directly (fast, no Audius dependency)
-      const indianResults = await Promise.all(
-        indianSections.map(sec => loadSection(sec, true))
-      );
+      const indianResults = await Promise.all(indianSections.map(loadSaavnSection));
 
       if (cancelled) return;
       const data = {};
@@ -63,10 +62,7 @@ export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyP
       setSections({ ...data });
       setLoading(false);
 
-      // Load remaining sections in background (can use combined search)
-      const otherResults = await Promise.all(
-        otherSections.map(sec => loadSection(sec, false))
-      );
+      const otherResults = await Promise.all(otherSections.map(loadOtherSection));
 
       if (cancelled) return;
       otherResults.forEach(r => { data[r.key] = r; });
@@ -82,7 +78,7 @@ export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyP
     <div className="home-screen">
       <div className="home-hero">
         <h1 className="home-title">SoundAura</h1>
-        <p className="home-subtitle">Tamil · Hindi · Telugu · Malayalam · English — 100% free, no login, no ads</p>
+        <p className="home-subtitle">All Indian languages · Full songs · 100% free, no login</p>
       </div>
 
       {recentlyPlayed && recentlyPlayed.length > 0 && (
@@ -101,7 +97,7 @@ export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyP
       )}
 
       {loading ? (
-        <div className="spinner-wrap"><div className="spinner" /><p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading Indian music...</p></div>
+        <div className="spinner-wrap"><div className="spinner" /><p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading full songs...</p></div>
       ) : (
         allSections.map(sec => (
           <SectionRow key={sec.key} sec={sec} currentSong={currentSong} isPlaying={isPlaying} playSong={playSong} />

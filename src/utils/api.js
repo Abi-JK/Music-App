@@ -1,10 +1,87 @@
 // ---------------------------------------------------------------------------
-// SoundAura audio backend — powered by Audius + iTunes Search API
-// Audius: independent artists worldwide (free streaming)
-// iTunes: Indian movie songs catalog (30s previews — perfect for ringtones)
+// SoundAura — JioSaavn (full Indian songs) + Audius + iTunes (fallback)
 // ---------------------------------------------------------------------------
 
 const APP_NAME = 'SoundAura';
+
+// ── JioSaavn API ────────────────────────────────────────────────────────────
+const SAAVN_INSTANCES = [
+  'https://jiosaavn-api.vercel.app',
+];
+
+async function fetchSaavn(path) {
+  for (const base of SAAVN_INSTANCES) {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 8000);
+      const res = await fetch(`${base}${path}`, { signal: ctrl.signal });
+      clearTimeout(t);
+      if (res.ok) return await res.json();
+    } catch { /* try next */ }
+  }
+  return null;
+}
+
+function normSaavnSearch(r) {
+  return {
+    id: `saavn-${r.id}`,
+    title: r.title || 'Unknown',
+    artist: r.more_info?.singers || r.description?.split(' – ')[1] || 'Unknown Artist',
+    album: r.album || '',
+    year: '',
+    duration: 0,
+    coverUrl: r.images?.['500x500'] || r.images?.['150x150'] || r.image || null,
+    audioUrl: null,
+    allAudioUrls: [],
+    genre: r.more_info?.language || '',
+    source: 'saavn',
+    downloadable: true,
+    playCount: 0,
+    _saavnId: r.id,
+  };
+}
+
+async function resolveSaavnTrack(songId) {
+  const data = await fetchSaavn(`/song?id=${songId}`);
+  if (!data?.status) return null;
+  const mediaUrl = data.media_urls?.['320_KBPS'] || data.media_url || null;
+  const durParts = (data.duration || '').split(':');
+  const durSec = durParts.length === 2 ? parseInt(durParts[0]) * 60 + parseInt(durParts[1]) : 0;
+  return {
+    id: `saavn-${data.id}`,
+    title: data.song || 'Unknown',
+    artist: data.primary_artists || data.singers || 'Unknown Artist',
+    album: data.album || '',
+    year: data.year ? Number(data.year) : '',
+    duration: durSec,
+    coverUrl: data.images?.['500x500'] || data.image || null,
+    audioUrl: mediaUrl,
+    allAudioUrls: [
+      ...(data.media_urls?.['320_KBPS'] ? [{ quality: '320kbps', url: data.media_urls['320_KBPS'] }] : []),
+      ...(data.media_url ? [{ quality: '160kbps', url: data.media_url }] : []),
+      ...(data.media_urls?.['96_KBPS'] ? [{ quality: '96kbps', url: data.media_urls['96_KBPS'] }] : []),
+    ],
+    genre: data.language || '',
+    source: 'saavn',
+    downloadable: true,
+    playCount: 0,
+    _saavnLyrics: data.lyrics || null,
+  };
+}
+
+export async function searchSaavn(query, limit = 20) {
+  const data = await fetchSaavn(`/search?query=${encodeURIComponent(query)}&limit=${limit}`);
+  if (!data?.status || !data.results) return [];
+  const searchResults = data.results.map(normSaavnSearch);
+
+  // Resolve full track details for each result (gets streaming URLs)
+  const resolved = await Promise.allSettled(
+    searchResults.map(s => resolveSaavnTrack(s._saavnId))
+  );
+  return resolved
+    .filter(r => r.status === 'fulfilled' && r.value && r.value.audioUrl)
+    .map(r => r.value);
+}
 
 // ── Audius ──────────────────────────────────────────────────────────────────
 const DISCOVERY_HOSTS = [
@@ -78,7 +155,7 @@ function normTrack(t, host) {
   };
 }
 
-// ── iTunes Search API ───────────────────────────────────────────────────────
+// ── iTunes Search API (30s previews — last resort) ─────────────────────────
 function normITunesTrack(s) {
   const art100 = s.artworkUrl100 || '';
   const coverUrl = art100 ? art100.replace('100x100', '600x600') : null;
@@ -89,7 +166,7 @@ function normITunesTrack(s) {
     album: s.collectionName || '',
     year: s.releaseDate ? new Date(s.releaseDate).getFullYear() : '',
     duration: s.trackTimeMillis ? Math.round(s.trackTimeMillis / 1000) : 0,
-    coverUrl: coverUrl,
+    coverUrl,
     audioUrl: s.previewUrl || null,
     allAudioUrls: s.previewUrl ? [{ quality: 'preview', url: s.previewUrl }] : [],
     genre: s.primaryGenreName || '',
@@ -99,7 +176,7 @@ function normITunesTrack(s) {
   };
 }
 
-export async function searchITunes(query, limit = 20) {
+async function searchITunes(query, limit = 20) {
   try {
     const res = await fetch(
       `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&limit=${limit}&entity=song&country=IN`
@@ -112,34 +189,12 @@ export async function searchITunes(query, limit = 20) {
   }
 }
 
-// ── Public API ──────────────────────────────────────────────────────────────
-export function getProxiedUrl(url) { return url; }
-
-export async function searchSongs(query, limit = 40) {
-  const withTimeout = (promise, ms) => Promise.race([
-    promise,
-    new Promise(resolve => setTimeout(() => resolve([]), ms)),
-  ]);
-
-  const [audiusResults, iTunesResults] = await Promise.all([
-    withTimeout(
-      pickHost().then(host =>
-        apiGet(`/v1/tracks/search?query=${encodeURIComponent(query)}&limit=${limit}`)
-          .then(data => (data?.data || []).map(t => normTrack(t, host)).filter(s => s.id && s.audioUrl))
-      ),
-      8000
-    ),
-    withTimeout(
-      searchITunes(query, Math.min(limit, 25)),
-      6000
-    ),
-  ]);
-
-  // Merge: dedupe by title+artist, prefer Audius (full songs) over iTunes (previews)
+// ── Helpers ────────────────────────────────────────────────────────────────
+function dedupe(sources) {
   const seen = new Set();
   const merged = [];
-  for (const s of [...(audiusResults || []), ...(iTunesResults || [])]) {
-    const key = `${s.title.toLowerCase()}|${s.artist.toLowerCase()}`;
+  for (const s of sources) {
+    const key = `${s.title.toLowerCase().replace(/[^a-z0-9]/g, '')}|${s.artist.toLowerCase().replace(/[^a-z0-9]/g, '')}`;
     if (!seen.has(key)) {
       seen.add(key);
       merged.push(s);
@@ -148,23 +203,47 @@ export async function searchSongs(query, limit = 40) {
   return merged;
 }
 
-export async function searchArtistSongs(artistName, limit = 30) {
-  const iTunesResults = await searchITunes(artistName, limit);
-  // Also try Audius
-  let audiusResults = [];
-  try {
-    const host = await pickHost();
-    const data = await apiGet(`/v1/tracks/search?query=${encodeURIComponent(artistName)}&limit=${limit}`);
-    audiusResults = (data?.data || []).map(t => normTrack(t, host)).filter(s => s.id && s.audioUrl);
-  } catch { /* ignore */ }
+function withTimeout(promise, ms) {
+  return Promise.race([promise, new Promise(resolve => setTimeout(() => resolve([]), ms))]);
+}
 
-  const seen = new Set();
-  const merged = [];
-  for (const s of [...audiusResults, ...iTunesResults]) {
-    const key = `${s.title.toLowerCase()}|${s.artist.toLowerCase()}`;
-    if (!seen.has(key)) { seen.add(key); merged.push(s); }
-  }
-  return merged;
+// ── Public API ──────────────────────────────────────────────────────────────
+export function getProxiedUrl(url) { return url; }
+
+export { searchITunes };
+
+export async function searchSongs(query, limit = 40) {
+  // Search JioSaavn + Audius + iTunes in parallel
+  const [saavnResults, audiusResults, iTunesResults] = await Promise.all([
+    withTimeout(searchSaavn(query, Math.min(limit, 20)), 12000),
+    withTimeout(
+      pickHost().then(host =>
+        apiGet(`/v1/tracks/search?query=${encodeURIComponent(query)}&limit=${limit}`)
+          .then(data => (data?.data || []).map(t => normTrack(t, host)).filter(s => s.id && s.audioUrl))
+      ),
+      8000
+    ),
+    withTimeout(searchITunes(query, Math.min(limit, 15)), 6000),
+  ]);
+
+  // Priority: JioSaavn (full songs) > Audius (full songs) > iTunes (30s preview)
+  return dedupe([...(saavnResults || []), ...(audiusResults || []), ...(iTunesResults || [])]);
+}
+
+export async function searchArtistSongs(artistName, limit = 30) {
+  const [saavnResults, audiusResults, iTunesResults] = await Promise.all([
+    withTimeout(searchSaavn(artistName, Math.min(limit, 20)), 12000),
+    withTimeout(
+      pickHost().then(host =>
+        apiGet(`/v1/tracks/search?query=${encodeURIComponent(artistName)}&limit=${limit}`)
+          .then(data => (data?.data || []).map(t => normTrack(t, host)).filter(s => s.id && s.audioUrl))
+      ),
+      8000
+    ),
+    withTimeout(searchITunes(artistName, Math.min(limit, 15)), 6000),
+  ]);
+
+  return dedupe([...(saavnResults || []), ...(audiusResults || []), ...(iTunesResults || [])]);
 }
 
 export async function getTrending(genre = '', limit = 20) {
@@ -181,6 +260,11 @@ export async function getTrending(genre = '', limit = 20) {
 
 export async function getStreamUrl(songId) {
   if (String(songId).startsWith('itunes-')) {
+    return { audioUrl: null, streamUrl: null, allUrls: [] };
+  }
+  if (String(songId).startsWith('saavn-')) {
+    const track = await resolveSaavnTrack(songId.replace('saavn-', ''));
+    if (track) return { audioUrl: track.audioUrl, streamUrl: track.audioUrl, allUrls: track.allAudioUrls };
     return { audioUrl: null, streamUrl: null, allUrls: [] };
   }
   try {
@@ -209,24 +293,22 @@ export async function fetchAlbumSongs(playlistId, limit = 30) {
 
 // ── Lyrics ──────────────────────────────────────────────────────────────────
 export async function fetchLyrics(songId, songTitle, artistName) {
+  // 1. Try JioSaavn lyrics API (best for Indian songs — Tamil, Hindi, Telugu, etc.)
+  if (String(songId).startsWith('saavn-')) {
+    try {
+      const data = await fetchSaavn(`/lyrics?id=${songId.replace('saavn-', '')}`);
+      if (data?.status && data.lyrics) {
+        const clean = data.lyrics.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '').trim();
+        if (clean.length > 10) return clean;
+      }
+    } catch { /* ignore */ }
+  }
+
   if (!songTitle || !artistName) return null;
   const cleanArtist = artistName.split(',')[0].split('&')[0].trim();
   const cleanTitle = songTitle.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').trim();
 
-  const tryLyricsOvh = async (artist, title) => {
-    try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 5000);
-      const res = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`, { signal: ctrl.signal });
-      clearTimeout(t);
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.lyrics && data.lyrics.trim().length > 10) return data.lyrics;
-      }
-    } catch { /* ignore */ }
-    return null;
-  };
-
+  // 2. Try lrclib.net
   const tryLrclib = async (artist, title) => {
     try {
       const ctrl = new AbortController();
@@ -249,9 +331,7 @@ export async function fetchLyrics(songId, songTitle, artistName) {
   if (simplerTitle && simplerTitle !== cleanTitle) titles.push(simplerTitle);
 
   for (const title of titles) {
-    let lyrics = await tryLyricsOvh(cleanArtist, title);
-    if (lyrics) return lyrics;
-    lyrics = await tryLrclib(cleanArtist, title);
+    const lyrics = await tryLrclib(cleanArtist, title);
     if (lyrics) return lyrics;
   }
 

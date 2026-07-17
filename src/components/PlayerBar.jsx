@@ -13,6 +13,11 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
   const lastProgressTick = useRef(0);
   const urlIndex = useRef(0);
   const urlList = useRef([]);
+  const playNextRef = useRef(playNext);
+  const playPrevRef = useRef(playPrev);
+
+  useEffect(() => { playNextRef.current = playNext; }, [playNext]);
+  useEffect(() => { playPrevRef.current = playPrev; }, [playPrev]);
 
   useEffect(() => {
     if (!currentSong) {
@@ -37,7 +42,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
         }
       }
     }
-    if (candidates.length === 0 && currentSong.id && !String(currentSong.id).startsWith('itunes-')) {
+    if (candidates.length === 0 && currentSong.id && !String(currentSong.id).startsWith('itunes-') && !String(currentSong.id).startsWith('saavn-')) {
       candidates.push({ url: `https://discoveryprovider.audius.co/v1/tracks/${currentSong.id}/stream?app_name=SoundAura`, type: 'constructed' });
     }
     urlList.current = candidates;
@@ -47,8 +52,9 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
   const loadUrl = useCallback((index) => {
     const a = audioRef.current;
     if (!a || index >= urlList.current.length) {
-      setLoading(false); setIsPlaying(false);
-      setErrorMsg('Playback failed — try another song');
+      setLoading(false);
+      console.log('[SoundAura] All URLs exhausted, auto-advancing to next song...');
+      setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 500);
       return;
     }
     urlIndex.current = index;
@@ -56,7 +62,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     console.log(`[SoundAura] Loading URL ${index + 1}/${urlList.current.length}: ${candidate.type}`);
     a.src = candidate.url;
     a.load();
-  }, [setIsPlaying]);
+  }, []);
 
   useEffect(() => {
     const a = audioRef.current;
@@ -68,8 +74,9 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
         console.log(`[SoundAura] Audio error, trying next URL (${next + 1}/${urlList.current.length})...`);
         loadUrl(next);
       } else {
-        setLoading(false); setIsPlaying(false);
-        setErrorMsg('Playback failed — try another song');
+        setLoading(false);
+        console.log('[SoundAura] All URLs failed, auto-advancing...');
+        setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 500);
       }
     };
 
@@ -84,11 +91,18 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
       }
     };
 
+    const onEnded = () => {
+      console.log('[SoundAura] Song ended, calling playNext...');
+      if (playNextRef.current) playNextRef.current();
+    };
+
     a.addEventListener('error', onError);
     a.addEventListener('canplay', onCanPlay);
+    a.addEventListener('ended', onEnded);
     return () => {
       a.removeEventListener('error', onError);
       a.removeEventListener('canplay', onCanPlay);
+      a.removeEventListener('ended', onEnded);
     };
   }, [currentSong?.id, loadUrl, setIsPlaying]);
 
@@ -116,8 +130,6 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
       }
     }
   }, [onProgressUpdate]);
-
-  const onEnded = useCallback(() => { if (playNext) playNext(); }, [playNext]);
 
   const toggleMute = useCallback(() => {
     const a = audioRef.current;
@@ -150,7 +162,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
 
   return (
     <div className="player">
-      <audio id="main-audio" ref={audioRef} onTimeUpdate={onTimeUpdate} onEnded={onEnded} preload="auto" />
+      <audio id="main-audio" ref={audioRef} onTimeUpdate={onTimeUpdate} preload="auto" />
       <div className="player-inner">
         <div className="player-song">
           {currentSong.coverUrl ? <img src={currentSong.coverUrl} alt="" className="player-cover" onClick={onExpand} style={{ cursor: 'pointer' }} /> : <div className="player-cover player-ph" onClick={onExpand} style={{ cursor: 'pointer' }}>🎵</div>}

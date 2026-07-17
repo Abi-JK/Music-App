@@ -12,13 +12,17 @@ const LogoImage = ({ size = 48 }) => (
 
 export default function Sidebar({ activeTab, setActiveTab, likedCount, onSearch, onInstall }) {
   const playlists = [
-    { label: '🎬 Bollywood Hits',       term: 'bollywood hindi' },
-    { label: '🎵 Tamil Hits',           term: 'tamil film songs' },
-    { label: '🎶 Telugu Hits',          term: 'telugu film songs' },
-    { label: '🎤 Malayalam Hits',       term: 'malayalam film songs' },
-    { label: '🎧 Lo-Fi & Chill',        term: 'lofi chill' },
-    { label: '⚡ Electronic',           term: 'electronic music' },
-    { label: '🎤 Hip-Hop & Rap',        term: 'hip hop rap' },
+    { label: '🎬 Bollywood Hits',        term: 'bollywood hindi 2025' },
+    { label: '🎵 Tamil Hits',            term: 'tamil film songs' },
+    { label: '🎶 Telugu Hits',           term: 'telugu film songs' },
+    { label: '🎤 Malayalam Hits',        term: 'malayalam film songs' },
+    { label: '🎸 Punjabi Hits',          term: 'punjabi songs' },
+    { label: '🎤 Kannada Hits',          term: 'kannada film songs' },
+    { label: '🎹 I-Pop & Indie',         query: 'indian pop' },
+  ];
+
+  const topArtists = [
+    'Arijit Singh', 'A.R. Rahman', 'Anirudh', 'Shreya Ghoshal', 'Ilaiyaraaja',
   ];
 
   return (
@@ -51,6 +55,13 @@ export default function Sidebar({ activeTab, setActiveTab, likedCount, onSearch,
         {playlists.map(pl => (
           <button key={pl.term} className="pl-item" onClick={() => onSearch && onSearch(pl.term)}>
             {pl.label}
+          </button>
+        ))}
+
+        <div className="nav-label">Top Artists</div>
+        {topArtists.map(name => (
+          <button key={name} className="pl-item" onClick={() => onSearch && onSearch(name)}>
+            🎤 {name}
           </button>
         ))}
       </div>
