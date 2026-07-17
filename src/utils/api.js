@@ -4,38 +4,71 @@
 
 const APP_NAME = 'SoundAura';
 
-// ── JioSaavn via Netlify proxy (with direct fallback) ──────────────────────
-const PROXY_BASE = '/.netlify/functions/jiosaavn';
-const SAAVN_DIRECT = 'https://jiosaavn-api.vercel.app';
+// ── JioSaavn (full Indian songs) — saavn.sumit.co API ──────────────────────
+const SAAVN_API = 'https://saavn.sumit.co/api';
+const SAAVN_FALLBACK = 'https://jiosaavn-api.vercel.app';
 
-async function proxySearch(query, limit = 10) {
-  // Try Netlify proxy first
+function normSaavnResult(s) {
+  const dur = typeof s.duration === 'number' ? s.duration : 0;
+  const artists = s.artists?.primary?.map(a => a.name).join(', ')
+    || s.artists?.featured?.map(a => a.name).join(', ')
+    || s.primaryArtists || s.singers || 'Unknown';
+  const img500 = s.image?.find(i => i.quality === '500x500')?.url
+    || s.image?.find(i => i.quality === '150x150')?.url
+    || s.image?.[0]?.url || null;
+  const downloadUrls = s.downloadUrl || [];
+  const url320 = downloadUrls.find(u => u.quality === '320kbps')?.url;
+  const url160 = downloadUrls.find(u => u.quality === '160kbps')?.url;
+  const url96 = downloadUrls.find(u => u.quality === '96kbps')?.url;
+  const audioUrl = url320 || url160 || url96 || null;
+  return {
+    id: `saavn-${s.id}`,
+    title: s.name || 'Unknown',
+    artist: artists,
+    album: s.album?.name || '',
+    year: s.year || s.releaseDate || '',
+    duration: dur,
+    coverUrl: img500,
+    audioUrl,
+    allAudioUrls: [
+      ...(url320 ? [{ quality: '320kbps', url: url320 }] : []),
+      ...(url160 ? [{ quality: '160kbps', url: url160 }] : []),
+      ...(url96 ? [{ quality: '96kbps', url: url96 }] : []),
+    ],
+    genre: s.language || '',
+    source: 'saavn',
+    downloadable: true,
+  };
+}
+
+async function searchSaavnMain(query, limit = 15) {
+  // PRIMARY: saavn.sumit.co (search results include download URLs)
   try {
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 15000);
-    const res = await fetch(`${PROXY_BASE}?action=search&q=${encodeURIComponent(query)}&limit=${limit}`, { signal: ctrl.signal });
+    const t = setTimeout(() => ctrl.abort(), 12000);
+    const res = await fetch(`${SAAVN_API}/search/songs?query=${encodeURIComponent(query)}&limit=${limit}`, { signal: ctrl.signal });
     clearTimeout(t);
     if (res.ok) {
       const data = await res.json();
-      if (data.songs && data.songs.length > 0) return data.songs;
+      const results = data?.data?.results || [];
+      const songs = results.map(normSaavnResult).filter(s => s.audioUrl);
+      if (songs.length > 0) return songs;
     }
-  } catch { /* proxy not available, try direct */ }
+  } catch { /* try fallback */ }
 
-  // Fallback: direct JioSaavn API (search only, resolve top 3)
+  // FALLBACK: jiosaavn-api.vercel.app (needs separate resolve)
   try {
     const ctrl = new AbortController();
     const t = setTimeout(() => ctrl.abort(), 10000);
-    const res = await fetch(`${SAAVN_DIRECT}/search?query=${encodeURIComponent(query)}&limit=${limit}`, { signal: ctrl.signal });
+    const res = await fetch(`${SAAVN_FALLBACK}/search?query=${encodeURIComponent(query)}&limit=${limit}`, { signal: ctrl.signal });
     clearTimeout(t);
     if (!res.ok) return [];
     const data = await res.json();
     if (!data?.results) return [];
-
-    // Resolve only first 5 tracks (fast)
-    const toResolve = data.results.slice(0, Math.min(limit, 5));
+    const toResolve = data.results.slice(0, Math.min(limit, 10));
     const resolved = await Promise.allSettled(
       toResolve.map(async (r) => {
-        const sRes = await fetch(`${SAAVN_DIRECT}/song?id=${r.id}`);
+        const sRes = await fetch(`${SAAVN_FALLBACK}/song?id=${r.id}`);
         if (!sRes.ok) return null;
         const d = await sRes.json();
         if (!d?.status || !d.id) return null;
@@ -43,7 +76,7 @@ async function proxySearch(query, limit = 10) {
         const durSec = durParts.length === 2 ? parseInt(durParts[0]) * 60 + parseInt(durParts[1]) : 0;
         return {
           id: `saavn-${d.id}`,
-          title: d.song || 'Unknown',
+          title: d.song || r.title || 'Unknown',
           artist: d.primary_artists || d.singers || 'Unknown',
           album: d.album || '',
           year: d.year || '',
@@ -53,7 +86,6 @@ async function proxySearch(query, limit = 10) {
           allAudioUrls: [
             ...(d.media_urls?.['320_KBPS'] ? [{ quality: '320kbps', url: d.media_urls['320_KBPS'] }] : []),
             ...(d.media_url ? [{ quality: '160kbps', url: d.media_url }] : []),
-            ...(d.media_urls?.['96_KBPS'] ? [{ quality: '96kbps', url: d.media_urls['96_KBPS'] }] : []),
           ],
           genre: d.language || '',
           source: 'saavn',
@@ -65,17 +97,40 @@ async function proxySearch(query, limit = 10) {
   } catch { return []; }
 }
 
+async function proxySearch(query, limit = 15) {
+  return searchSaavnMain(query, limit);
+}
+
 async function proxyLyrics(id) {
+  const rawId = String(id).replace('saavn-', '');
+
+  // Try saavn.sumit.co lyrics
   try {
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 8000);
-    const rawId = String(id).replace('saavn-', '');
-    const res = await fetch(`${PROXY_BASE}?action=lyrics&id=${rawId}`, { signal: ctrl.signal });
+    const t = setTimeout(() => ctrl.abort(), 6000);
+    const res = await fetch(`${SAAVN_API}/songs/${rawId}/lyrics`, { signal: ctrl.signal });
     clearTimeout(t);
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.lyrics || null;
-  } catch { return null; }
+    if (res.ok) {
+      const data = await res.json();
+      const lyrics = data?.data?.lyrics || null;
+      if (lyrics) return lyrics.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '').trim();
+    }
+  } catch { /* try next */ }
+
+  // Try fallback API lyrics
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 6000);
+    const res = await fetch(`${SAAVN_FALLBACK}/lyrics?id=${rawId}`, { signal: ctrl.signal });
+    clearTimeout(t);
+    if (res.ok) {
+      const data = await res.json();
+      const lyrics = data?.lyrics || null;
+      if (lyrics) return lyrics.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '').trim();
+    }
+  } catch { /* no lyrics */ }
+
+  return null;
 }
 
 // ── Audius ──────────────────────────────────────────────────────────────────
@@ -206,7 +261,7 @@ function withTimeout(promise, ms) {
 
 export async function searchSongs(query, limit = 40) {
   const [saavnResults, audiusResults, iTunesResults] = await Promise.all([
-    withTimeout(proxySearch(query, Math.min(limit, 15)), 18000),
+    withTimeout(proxySearch(query, Math.min(limit, 15)), 15000),
     withTimeout(
       pickHost().then(host =>
         apiGet(`/v1/tracks/search?query=${encodeURIComponent(query)}&limit=${limit}`)
@@ -226,7 +281,7 @@ export async function searchSaavn(query, limit = 15) {
 
 export async function searchArtistSongs(artistName, limit = 30) {
   const [saavnResults, audiusResults, iTunesResults] = await Promise.all([
-    withTimeout(proxySearch(artistName, Math.min(limit, 15)), 18000),
+    withTimeout(proxySearch(artistName, Math.min(limit, 15)), 15000),
     withTimeout(
       pickHost().then(host =>
         apiGet(`/v1/tracks/search?query=${encodeURIComponent(artistName)}&limit=${limit}`)

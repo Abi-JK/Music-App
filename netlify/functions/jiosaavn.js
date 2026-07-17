@@ -1,7 +1,7 @@
-// Netlify serverless function — proxy JioSaavn via community API
-// Handles CORS + resolves search + song details in one call
+// Netlify serverless function — JioSaavn proxy via saavn.sumit.co
+// Search results include download URLs (no separate resolve needed)
 
-const SAAVN_API = 'https://jiosaavn-api.vercel.app';
+const SAAVN_API = 'https://saavn.sumit.co/api';
 
 exports.handler = async (event) => {
   const headers = {
@@ -22,87 +22,42 @@ exports.handler = async (event) => {
       const query = params.q || '';
       const limit = Math.min(parseInt(params.limit) || 10, 20);
 
-      const searchRes = await fetch(`${SAAVN_API}/search?query=${encodeURIComponent(query)}&limit=${limit}`);
+      const searchRes = await fetch(`${SAAVN_API}/search/songs?query=${encodeURIComponent(query)}&limit=${limit}`);
       if (!searchRes.ok) throw new Error(`Search failed: ${searchRes.status}`);
       const searchData = await searchRes.json();
 
-      if (!searchData?.results) {
-        return { statusCode: 200, headers, body: JSON.stringify({ songs: [] }) };
-      }
+      const results = searchData?.data?.results || [];
+      const songs = results.map(s => {
+        const dur = typeof s.duration === 'number' ? s.duration : 0;
+        const artists = s.artists?.primary?.map(a => a.name).join(', ')
+          || s.artists?.featured?.map(a => a.name).join(', ') || 'Unknown';
+        const img500 = s.image?.find(i => i.quality === '500x500')?.url
+          || s.image?.[0]?.url || null;
+        const dl = s.downloadUrl || [];
+        const url320 = dl.find(u => u.quality === '320kbps')?.url;
+        const url160 = dl.find(u => u.quality === '160kbps')?.url;
+        const url96 = dl.find(u => u.quality === '96kbps')?.url;
+        return {
+          id: `saavn-${s.id}`, title: s.name || 'Unknown', artist: artists,
+          album: s.album?.name || '', year: s.year || '', duration: dur,
+          coverUrl: img500, audioUrl: url320 || url160 || url96 || null,
+          allAudioUrls: [
+            ...(url320 ? [{ quality: '320kbps', url: url320 }] : []),
+            ...(url160 ? [{ quality: '160kbps', url: url160 }] : []),
+            ...(url96 ? [{ quality: '96kbps', url: url96 }] : []),
+          ],
+          genre: s.language || '', source: 'saavn', downloadable: true,
+        };
+      }).filter(s => s.audioUrl);
 
-      // Resolve songs in batches of 3
-      const resolvedSongs = [];
-      const ids = searchData.results.map(r => r.id).filter(Boolean);
-
-      for (let i = 0; i < ids.length; i += 3) {
-        const batch = ids.slice(i, i + 3);
-        const results = await Promise.allSettled(
-          batch.map(async (id) => {
-            const res = await fetch(`${SAAVN_API}/song?id=${id}`);
-            if (!res.ok) return null;
-            const d = await res.json();
-            if (!d?.status || !d.id) return null;
-            const durParts = (d.duration || '').split(':');
-            const durSec = durParts.length === 2 ? parseInt(durParts[0]) * 60 + parseInt(durParts[1]) : 0;
-            return {
-              id: `saavn-${d.id}`,
-              title: d.song || 'Unknown',
-              artist: d.primary_artists || d.singers || 'Unknown',
-              album: d.album || '',
-              year: d.year || '',
-              duration: durSec,
-              coverUrl: d.image || null,
-              audioUrl: d.media_url || null,
-              allAudioUrls: [
-                ...(d.media_urls?.['320_KBPS'] ? [{ quality: '320kbps', url: d.media_urls['320_KBPS'] }] : []),
-                ...(d.media_url ? [{ quality: '160kbps', url: d.media_url }] : []),
-                ...(d.media_urls?.['96_KBPS'] ? [{ quality: '96kbps', url: d.media_urls['96_KBPS'] }] : []),
-              ],
-              genre: d.language || '',
-              source: 'saavn',
-              downloadable: true,
-            };
-          })
-        );
-        for (const r of results) {
-          if (r.status === 'fulfilled' && r.value) resolvedSongs.push(r.value);
-        }
-      }
-
-      return { statusCode: 200, headers, body: JSON.stringify({ songs: resolvedSongs }) };
-
-    } else if (action === 'song') {
-      const id = params.id || '';
-      const res = await fetch(`${SAAVN_API}/song?id=${id}`);
-      if (!res.ok) throw new Error(`Song failed: ${res.status}`);
-      const d = await res.json();
-      if (!d?.status || !d.id) {
-        return { statusCode: 200, headers, body: JSON.stringify({ song: null }) };
-      }
-      const durParts = (d.duration || '').split(':');
-      const durSec = durParts.length === 2 ? parseInt(durParts[0]) * 60 + parseInt(durParts[1]) : 0;
-      return {
-        statusCode: 200, headers,
-        body: JSON.stringify({
-          song: {
-            id: `saavn-${d.id}`, title: d.song, artist: d.primary_artists || d.singers,
-            album: d.album, year: d.year, duration: durSec, coverUrl: d.image,
-            audioUrl: d.media_url,
-            allAudioUrls: [
-              ...(d.media_urls?.['320_KBPS'] ? [{ quality: '320kbps', url: d.media_urls['320_KBPS'] }] : []),
-              ...(d.media_url ? [{ quality: '160kbps', url: d.media_url }] : []),
-            ],
-            genre: d.language, source: 'saavn', downloadable: true,
-          },
-        }),
-      };
+      return { statusCode: 200, headers, body: JSON.stringify({ songs }) };
 
     } else if (action === 'lyrics') {
-      const id = params.id || '';
-      const res = await fetch(`${SAAVN_API}/lyrics?id=${id}`);
+      const id = (params.id || '').replace('saavn-', '');
+      const res = await fetch(`${SAAVN_API}/songs/${id}/lyrics`);
       if (!res.ok) throw new Error(`Lyrics failed: ${res.status}`);
       const data = await res.json();
-      const lyrics = data?.lyrics || null;
+      const lyrics = data?.data?.lyrics || null;
       const cleanLyrics = lyrics ? lyrics.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '').trim() : null;
       return { statusCode: 200, headers, body: JSON.stringify({ lyrics: cleanLyrics }) };
     }

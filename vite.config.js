@@ -71,10 +71,31 @@ export default defineConfig({
         globPatterns: process.env.NODE_ENV === 'development' ? [] : ['**/*.{js,css,html,svg,png,woff2,woff}'],
         // Navigation fallback to index.html for SPA routing
         navigateFallback: 'index.html',
-        navigateFallbackDenylist: [/^\/api/],
-        // Runtime caching strategies
-        runtimeCaching: [
-          // Audius discovery API (search, trending, playlists) — network-first
+      navigateFallbackDenylist: [/^\/api/, /^\/\.netlify/],
+      // Runtime caching strategies
+      runtimeCaching: [
+        // JioSaavn API — network-first
+        {
+          urlPattern: /^https:\/\/(saavn\.sumit\.co|jiosaavn-api\.vercel\.app)/,
+          handler: 'NetworkFirst',
+          options: {
+            cacheName: 'jiosaavn-api-cache',
+            networkTimeoutSeconds: 8,
+            expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 },
+            cacheableResponse: { statuses: [0, 200] },
+          },
+        },
+        // JioSaavn CDN (cover art + audio) — stale-while-revalidate
+        {
+          urlPattern: /^https:\/\/(.*\.saavncdn\.com|.*\.jiocdn\.in)/,
+          handler: 'StaleWhileRevalidate',
+          options: {
+            cacheName: 'jiosaavn-cdn-cache',
+            expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 7 },
+            cacheableResponse: { statuses: [0, 200] },
+          },
+        },
+        // Audius discovery API (search, trending, playlists) — network-first
           {
             urlPattern: /^https:\/\/discoveryprovider[0-9]*\.audius\.co\/v1\/(tracks|playlists)/,
             handler: 'NetworkFirst',
@@ -98,7 +119,7 @@ export default defineConfig({
           },
           // Cover art / artwork — stale-while-revalidate
           {
-            urlPattern: /^https:\/\/(.*\.audius\.co|.*\.googleapis\.com|.*\.gstatic\.com)/,
+            urlPattern: /^https:\/\/(.*\.audius\.co|.*\.googleapis\.com|.*\.gstatic\.com|.*\.saavncdn\.com|.*\.jiocdn\.in)/,
             handler: 'StaleWhileRevalidate',
             options: {
               cacheName: 'image-cache',
