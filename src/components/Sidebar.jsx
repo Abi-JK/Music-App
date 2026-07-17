@@ -18,11 +18,16 @@ export default function Sidebar({ activeTab, setActiveTab, likedCount, onSearch,
     { label: '🎤 Malayalam Hits',        term: 'malayalam film songs' },
     { label: '🎸 Punjabi Hits',          term: 'punjabi songs' },
     { label: '🎤 Kannada Hits',          term: 'kannada film songs' },
-    { label: '🎹 I-Pop & Indie',         query: 'indian pop' },
+    { label: '🎹 I-Pop & Indie',         term: 'indian pop' },
+    { label: '📻 Old Hindi Classics',    term: 'old hindi songs golden era' },
+    { label: '🎵 Tamil Old Hits',        term: 'tamil old song hits' },
+    { label: '🎶 Romantic Hits',         term: 'romantic bollywood' },
   ];
 
   const topArtists = [
     'Arijit Singh', 'A.R. Rahman', 'Anirudh', 'Shreya Ghoshal', 'Ilaiyaraaja',
+    'M.S. Viswanathan', 'Kannadasan', 'S.P. Balasubrahmanyam', 'K.J. Yesudas',
+    'Lata Mangeshkar', 'Kishore Kumar', 'Sonu Nigam', 'Udit Narayan',
   ];
 
   return (

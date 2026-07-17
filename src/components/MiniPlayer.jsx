@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function MiniPlayer({ currentSong, isPlaying, setIsPlaying, onPlayNext, curTime, dur, onExpand, onShowLyrics }) {
+export default function MiniPlayer({ currentSong, isPlaying, setIsPlaying, onPlayNext, curTime, dur, onExpand, onShowLyrics, downloadSong, currentSongDownloaded }) {
   if (!currentSong) return null;
 
   const prog = dur ? (curTime / dur) * 100 : 0;
@@ -17,6 +17,17 @@ export default function MiniPlayer({ currentSong, isPlaying, setIsPlaying, onPla
         <button className="mini-play-btn" onClick={() => setIsPlaying(!isPlaying)}>
           {isPlaying ? '⏸' : '▶'}
         </button>
+        {downloadSong && (
+          <button
+            className="icon-btn"
+            onClick={() => { if (!currentSongDownloaded) downloadSong(currentSong); }}
+            title={currentSongDownloaded ? 'Downloaded' : 'Download'}
+            style={{ fontSize: 14, padding: 4, opacity: currentSongDownloaded ? 0.5 : 1 }}
+            disabled={currentSongDownloaded}
+          >
+            {currentSongDownloaded ? '✅' : '📥'}
+          </button>
+        )}
         {onShowLyrics && (
           <button className="icon-btn" onClick={onShowLyrics} title="Lyrics" style={{ fontSize: 14, padding: 4 }}>📝</button>
         )}

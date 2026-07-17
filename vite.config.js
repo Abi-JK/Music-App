@@ -148,6 +148,17 @@ export default defineConfig({
               cacheableResponse: { statuses: [0, 200] },
             },
           },
+          // Lyrics APIs — network-first with cache fallback
+          {
+            urlPattern: /^https:\/\/(lrclib\.net|api\.lyrics\.ovh)/,
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'lyrics-api-cache',
+              networkTimeoutSeconds: 8,
+              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
         ],
       },
       devOptions: {

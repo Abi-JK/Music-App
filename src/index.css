@@ -264,6 +264,15 @@ img { display: block; max-width: 100%; }
   font-size: 11px; color: var(--text-secondary); white-space: nowrap;
   overflow: hidden; text-overflow: ellipsis;
 }
+.song-card-dl {
+  position: absolute; top: 8px; right: 8px;
+  background: rgba(0,0,0,0.6); border: none; border-radius: 50%;
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 13px; transition: all var(--t) var(--ease);
+  backdrop-filter: blur(4px);
+}
+.song-card-dl:hover { background: var(--accent); transform: scale(1.1); }
+.song-card-dl:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
 
 /* ── Song Table ─────────────────────────── */
 .song-table { display: flex; flex-direction: column; gap: 1px; width: 100%; min-width: 0; }

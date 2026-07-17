@@ -2,23 +2,37 @@ import React, { useEffect, useState } from 'react';
 import { searchSongs, searchSaavn } from '../utils/api';
 import { HOME_SECTIONS } from '../utils/constants';
 
-function SectionRow({ sec, currentSong, isPlaying, playSong }) {
+function SectionRow({ sec, currentSong, isPlaying, playSong, downloadSong, downloadedIds, downloadingIds }) {
   if (!sec.songs || sec.songs.length === 0) return null;
   return (
     <div className="home-section">
       <h3 className="sec-title">{sec.label}</h3>
       <div className="song-scroll">
-        {sec.songs.slice(0, 8).map(s => (
-          <div key={s.id} className={`song-card ${currentSong?.id === s.id ? 'active' : ''}`}
-            onClick={() => playSong(s, sec.songs, sec.songs.indexOf(s))}>
-            {s.coverUrl ? <img src={s.coverUrl} alt="" /> : <div className="qph">🎵</div>}
-            <h4>{s.title}</h4>
-            <p>{s.artist}</p>
-            {currentSong?.id === s.id && isPlaying && (
-              <div className="eq"><span /><span /><span /></div>
-            )}
-          </div>
-        ))}
+        {sec.songs.slice(0, 8).map(s => {
+          const isDownloaded = downloadedIds?.includes(s.id);
+          const isDownloading = downloadingIds?.includes(s.id);
+          return (
+            <div key={s.id} className={`song-card ${currentSong?.id === s.id ? 'active' : ''}`}
+              onClick={() => playSong(s, sec.songs, sec.songs.indexOf(s))}>
+              {s.coverUrl ? <img src={s.coverUrl} alt="" /> : <div className="qph">🎵</div>}
+              <h4>{s.title}</h4>
+              <p>{s.artist}</p>
+              {currentSong?.id === s.id && isPlaying && (
+                <div className="eq"><span /><span /><span /></div>
+              )}
+              {downloadSong && (
+                <button
+                  className="song-card-dl"
+                  onClick={(e) => { e.stopPropagation(); if (!isDownloaded && !isDownloading) downloadSong(s); }}
+                  title={isDownloaded ? 'Downloaded' : isDownloading ? 'Downloading...' : 'Download'}
+                  disabled={isDownloaded || isDownloading}
+                >
+                  {isDownloaded ? '✅' : isDownloading ? '⏳' : '📥'}
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -42,14 +56,14 @@ async function loadOtherSection(sec) {
   }
 }
 
-export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyPlayed }) {
+export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyPlayed, downloadSong, downloadedIds, downloadingIds }) {
   const [sections, setSections] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
-    const indianKeys = ['hindi', 'tamil', 'telugu', 'malayalam', 'arrahman', 'arijit', 'ilayaraja', 'yesudas'];
+    const indianKeys = ['hindi', 'tamil', 'telugu', 'malayalam', 'arrahman', 'arijit', 'ilayaraja', 'yesudas', 'msv', 'kannadasan', 'spb', 'tamilold', 'sadha'];
     const indianSections = HOME_SECTIONS.filter(s => indianKeys.includes(s.key));
     const otherSections = HOME_SECTIONS.filter(s => !indianKeys.includes(s.key));
 
@@ -100,7 +114,8 @@ export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyP
         <div className="spinner-wrap"><div className="spinner" /><p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading full songs...</p></div>
       ) : (
         allSections.map(sec => (
-          <SectionRow key={sec.key} sec={sec} currentSong={currentSong} isPlaying={isPlaying} playSong={playSong} />
+          <SectionRow key={sec.key} sec={sec} currentSong={currentSong} isPlaying={isPlaying} playSong={playSong}
+            downloadSong={downloadSong} downloadedIds={downloadedIds} downloadingIds={downloadingIds} />
         ))
       )}
     </div>

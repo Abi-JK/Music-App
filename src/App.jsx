@@ -19,7 +19,7 @@ import LikedScreen from './screens/LikedScreen';
 import DownloadsScreen from './screens/DownloadsScreen';
 import ArtistPage from './screens/ArtistPage';
 
-import { searchSongs, downloadAudioBlob } from './utils/api';
+import { searchSongs, downloadAudioBlob, searchSaavn } from './utils/api';
 import { Storage } from './utils/storage';
 import { LANG_QUERIES } from './utils/constants';
 
@@ -62,6 +62,7 @@ function AppContent() {
   const [shuffleOn, setShuffleOn] = useState(false);
   const originalPlaylistRef = useRef([]);
   const shuffleRef = useRef(false);
+  const autoPlayGenreRef = useRef(null);
 
   const currentSong = playlist[currentIndex] || null;
 
@@ -119,6 +120,7 @@ function AppContent() {
     if (!song) return;
     const ctx = context || [song];
     originalPlaylistRef.current = ctx;
+    autoPlayGenreRef.current = song.genre || song.language || null;
     if (shuffleRef.current) {
       const shuffled = shuffleArray(ctx);
       const idx = shuffled.findIndex(s => s.id === song.id);
@@ -132,6 +134,34 @@ function AppContent() {
     addRecent(song);
   }, [addRecent]);
 
+  const autoPlayGenre = useCallback(async (genre) => {
+    if (!genre) return;
+    try {
+      showToast(`Playing more ${genre} songs...`);
+      const moreSongs = await searchSaavn(genre, 20);
+      if (moreSongs.length > 0) {
+        const filtered = moreSongs.filter(s => !playlist.some(p => p.id === s.id));
+        if (filtered.length > 0) {
+          const newPlaylist = [...playlist, ...filtered];
+          originalPlaylistRef.current = newPlaylist;
+          setPlaylist(newPlaylist);
+          setCurrentIndex(playlist.length);
+          setIsPlaying(true);
+        } else {
+          const allNew = moreSongs;
+          originalPlaylistRef.current = allNew;
+          setPlaylist(allNew);
+          setCurrentIndex(0);
+          setIsPlaying(true);
+        }
+      } else {
+        showToast('No more songs found in this genre.');
+      }
+    } catch {
+      showToast('Could not load more songs.');
+    }
+  }, [playlist, showToast]);
+
   const playNext = useCallback(() => {
     if (!playlist.length) return;
     if (repeatMode === 'one') {
@@ -141,13 +171,17 @@ function AppContent() {
     }
     let next = (currentIndex + 1) % playlist.length;
     if (next === 0 && repeatMode === 'off') {
-      setIsPlaying(false);
+      if (autoPlayGenreRef.current) {
+        autoPlayGenre(autoPlayGenreRef.current);
+      } else {
+        setIsPlaying(false);
+      }
       return;
     }
     setCurrentIndex(next);
     setIsPlaying(true);
     if (playlist[next]) addRecent(playlist[next]);
-  }, [playlist, currentIndex, addRecent, repeatMode]);
+  }, [playlist, currentIndex, addRecent, repeatMode, autoPlayGenre]);
 
   const playPrev = useCallback(() => {
     if (!playlist.length) return;
@@ -332,6 +366,8 @@ function AppContent() {
   const openArtistPage = useCallback((name) => { setArtistQuery(name); }, []);
   const closeArtistPage = useCallback(() => { setArtistQuery(null); }, []);
 
+  const downloadedIds = downloadedSongs.map(s => s.id);
+
   return (
     <div className="app">
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} onSearch={searchByQuery} onInstall={handleInstallApp} />
@@ -349,6 +385,9 @@ function AppContent() {
               currentSong={currentSong}
               isPlaying={isPlaying}
               recentlyPlayed={recentlyPlayed}
+              downloadSong={downloadSong}
+              downloadedIds={downloadedIds}
+              downloadingIds={downloadingIds}
             />
           )}
           {activeTab === 'search' && (
@@ -360,6 +399,9 @@ function AppContent() {
                 isPlaying={isPlaying}
                 onBack={closeArtistPage}
                 showToast={showToast}
+                downloadSong={downloadSong}
+                downloadedIds={downloadedIds}
+                downloadingIds={downloadingIds}
               />
             ) : (
               <SearchScreen
@@ -372,7 +414,7 @@ function AppContent() {
                 toggleLike={toggleLike}
                 liked={isLiked}
                 downloadSong={downloadSong}
-                downloadedIds={downloadedSongs.map(s => s.id)}
+                downloadedIds={downloadedIds}
                 downloadingIds={downloadingIds}
                 onOpenArtist={openArtistPage}
               />
@@ -385,6 +427,9 @@ function AppContent() {
               isPlaying={isPlaying}
               playSong={playSong}
               toggleLike={toggleLike}
+              downloadSong={downloadSong}
+              downloadedIds={downloadedIds}
+              downloadingIds={downloadingIds}
             />
           )}
           {activeTab === 'downloads' && (
@@ -414,6 +459,8 @@ function AppContent() {
         shuffleOn={shuffleOn}
         toggleShuffle={toggleShuffle}
         onShowQueue={() => setShowQueue(true)}
+        downloadSong={downloadSong}
+        currentSongDownloaded={currentSong ? downloadedIds.includes(currentSong.id) : false}
       />
       <MiniPlayer
         currentSong={currentSong}
@@ -424,6 +471,8 @@ function AppContent() {
         dur={audioState.dur}
         onExpand={openFullScreen}
         onShowLyrics={() => currentSong && setShowLyrics(true)}
+        downloadSong={downloadSong}
+        currentSongDownloaded={currentSong ? downloadedIds.includes(currentSong.id) : false}
       />
       <MobileNav activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} onInstall={handleInstallApp} />
       <Toast msg={toastMsg} />
@@ -445,6 +494,8 @@ function AppContent() {
           shuffleOn={shuffleOn}
           toggleShuffle={toggleShuffle}
           onShowQueue={() => { setShowFullScreen(false); setShowQueue(true); }}
+          downloadSong={downloadSong}
+          currentSongDownloaded={downloadedIds.includes(currentSong?.id)}
         />
       )}
       {showLyrics && currentSong && (

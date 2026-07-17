@@ -8,6 +8,7 @@ const STORE_DOWNLOADS = 'downloadedSongs';
 // LocalStorage backup keys (secondary persistence layer)
 const LS_LIKED_KEY = 'soundaura_liked_backup';
 const LS_RECENT_KEY = 'soundaura_recent_backup';
+const LS_DOWNLOADS_KEY = 'soundaura_downloads_backup';
 
 // Bump this whenever the audio backend changes in a way that makes
 // previously cached song objects (old audioUrl/id format) unplayable.
@@ -82,10 +83,35 @@ export const Storage = {
   async migrateIfNeeded() {
     try {
       const stored = localStorage.getItem(BACKEND_VERSION_KEY);
-      if (stored === BACKEND_VERSION) return false; // already migrated
+      if (stored === BACKEND_VERSION) return false;
 
-      console.log('[SoundAura] Audio backend changed — clearing incompatible cached songs...');
+      console.log('[SoundAura] Audio backend changed — migrating cached songs...');
       const database = await getDB();
+
+      // Backup existing data before migration
+      const backupLiked = await new Promise(resolve => {
+        try {
+          const tx = database.transaction([STORE_LIKED], 'readonly');
+          const req = tx.objectStore(STORE_LIKED).getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => resolve([]);
+        } catch { resolve([]); }
+      });
+
+      const backupRecent = await new Promise(resolve => {
+        try {
+          const tx = database.transaction([STORE_RECENT], 'readonly');
+          const req = tx.objectStore(STORE_RECENT).getAll();
+          req.onsuccess = () => resolve(req.result || []);
+          req.onerror = () => resolve([]);
+        } catch { resolve([]); }
+      });
+
+      // Save backup to localStorage before clearing
+      if (backupLiked.length > 0) lsSet(LS_LIKED_KEY, backupLiked);
+      if (backupRecent.length > 0) lsSet(LS_RECENT_KEY, backupRecent.slice(0, 12));
+
+      // Clear IndexedDB stores
       await Promise.all([STORE_LIKED, STORE_RECENT, STORE_DOWNLOADS].map(storeName =>
         new Promise((resolve) => {
           try {
@@ -96,10 +122,9 @@ export const Storage = {
           } catch { resolve(); }
         })
       ));
-      try { localStorage.removeItem(LS_LIKED_KEY); } catch {}
-      try { localStorage.removeItem(LS_RECENT_KEY); } catch {}
+
       localStorage.setItem(BACKEND_VERSION_KEY, BACKEND_VERSION);
-      return true; // migration happened
+      return true;
     } catch (e) {
       console.warn('[SoundAura] Migration check failed:', e);
       return false;
@@ -266,7 +291,18 @@ export const Storage = {
       const store = transaction.objectStore(STORE_DOWNLOADS);
       const request = store.put(song);
       
-      request.onsuccess = () => resolve(request.result);
+      request.onsuccess = () => {
+        // Backup metadata (without blob) to localStorage
+        Storage.getDownloadedSongs().then(all => {
+          const slim = all.map(s => ({
+            id: s.id, title: s.title, artist: s.artist,
+            album: s.album, duration: s.duration,
+            coverUrl: s.coverUrl, audioUrl: s.audioUrl,
+          }));
+          try { localStorage.setItem(LS_DOWNLOADS_KEY, JSON.stringify(slim)); } catch {}
+        }).catch(() => {});
+        resolve(request.result);
+      };
       request.onerror = () => reject(request.error);
     });
   },
@@ -278,7 +314,18 @@ export const Storage = {
       const store = transaction.objectStore(STORE_DOWNLOADS);
       const request = store.delete(songId);
       
-      request.onsuccess = () => resolve();
+      request.onsuccess = () => {
+        // Update localStorage backup
+        Storage.getDownloadedSongs().then(all => {
+          const slim = all.map(s => ({
+            id: s.id, title: s.title, artist: s.artist,
+            album: s.album, duration: s.duration,
+            coverUrl: s.coverUrl, audioUrl: s.audioUrl,
+          }));
+          try { localStorage.setItem(LS_DOWNLOADS_KEY, JSON.stringify(slim)); } catch {}
+        }).catch(() => {});
+        resolve();
+      };
       request.onerror = () => reject(request.error);
     });
   },
@@ -287,7 +334,16 @@ export const Storage = {
   async exportBackup() {
     const liked = await Storage.getLikedSongs();
     const recent = await Storage.getRecentlyPlayed();
-    const data = { liked, recent, exportedAt: new Date().toISOString() };
+    const downloads = await Storage.getDownloadedSongs();
+    const data = {
+      liked, recent,
+      downloads: downloads.map(s => ({
+        id: s.id, title: s.title, artist: s.artist,
+        album: s.album, duration: s.duration,
+        coverUrl: s.coverUrl, audioUrl: s.audioUrl,
+      })),
+      exportedAt: new Date().toISOString()
+    };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -314,7 +370,16 @@ export const Storage = {
               await Storage.addRecentlyPlayed(song);
             }
           }
-          resolve({ likedCount: data.liked?.length || 0, recentCount: data.recent?.length || 0 });
+          if (data.downloads && Array.isArray(data.downloads)) {
+            for (const song of data.downloads) {
+              // Only restore metadata (no audio blob available in backup)
+              const database = await getDB();
+              const tx = database.transaction([STORE_DOWNLOADS], 'readwrite');
+              const store = tx.objectStore(STORE_DOWNLOADS);
+              store.put(song);
+            }
+          }
+          resolve({ likedCount: data.liked?.length || 0, recentCount: data.recent?.length || 0, downloadsCount: data.downloads?.length || 0 });
         } catch (err) {
           reject(err);
         }

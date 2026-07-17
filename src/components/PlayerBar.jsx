@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { formatTime } from '../utils/helpers';
 import { retrySaavnSong } from '../utils/api';
 
-export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNext, playPrev, liked, toggleLike, onProgressUpdate, onExpand, onShowLyrics, repeatMode, toggleRepeat, shuffleOn, toggleShuffle, onShowQueue }) {
+export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNext, playPrev, liked, toggleLike, onProgressUpdate, onExpand, onShowLyrics, repeatMode, toggleRepeat, shuffleOn, toggleShuffle, onShowQueue, downloadSong, currentSongDownloaded }) {
   const audioRef = useRef(null);
   const [dur, setDur] = useState(0);
   const [curTime, setCurTime] = useState(0);
@@ -215,6 +215,17 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
           {toggleLike && (
             <button className="icon-btn" onClick={() => toggleLike(currentSong)} title="Like">
               {isLiked ? '❤️' : '🤍'}
+            </button>
+          )}
+          {downloadSong && (
+            <button
+              className="icon-btn"
+              onClick={() => { if (!currentSongDownloaded) downloadSong(currentSong); }}
+              title={currentSongDownloaded ? 'Downloaded' : 'Download for offline'}
+              disabled={currentSongDownloaded}
+              style={{ opacity: currentSongDownloaded ? 0.5 : 1 }}
+            >
+              {currentSongDownloaded ? '✅' : '📥'}
             </button>
           )}
           {onExpand && (

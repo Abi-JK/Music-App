@@ -6,7 +6,8 @@ import { cutAudio } from '../utils/audio';
 export default function FullScreenPlayer({
   currentSong, isPlaying, setIsPlaying, playNext, playPrev,
   liked, toggleLike, curTime, dur, onClose, showToast,
-  repeatMode, toggleRepeat, shuffleOn, toggleShuffle, onShowQueue
+  repeatMode, toggleRepeat, shuffleOn, toggleShuffle, onShowQueue,
+  downloadSong, currentSongDownloaded
 }) {
   const [lyrics, setLyrics] = useState('');
   const [loadingLyrics, setLoadingLyrics] = useState(true);
@@ -91,11 +92,24 @@ export default function FullScreenPlayer({
               <h2 className="fs-title">{currentSong.title}</h2>
               <p className="fs-artist">{currentSong.artist}</p>
             </div>
-            {toggleLike && (
-              <button className="icon-btn" onClick={() => toggleLike(currentSong)} style={{ fontSize: 22 }}>
-                {isLiked ? '❤️' : '🤍'}
-              </button>
-            )}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {downloadSong && (
+                <button
+                  className="icon-btn"
+                  onClick={() => { if (!currentSongDownloaded) downloadSong(currentSong); }}
+                  style={{ fontSize: 22, opacity: currentSongDownloaded ? 0.5 : 1 }}
+                  disabled={currentSongDownloaded}
+                  title={currentSongDownloaded ? 'Downloaded' : 'Download for offline'}
+                >
+                  {currentSongDownloaded ? '✅' : '📥'}
+                </button>
+              )}
+              {toggleLike && (
+                <button className="icon-btn" onClick={() => toggleLike(currentSong)} style={{ fontSize: 22 }}>
+                  {isLiked ? '❤️' : '🤍'}
+                </button>
+              )}
+            </div>
           </div>
           <div className="fs-progress-wrap">
             <div className="player-progress" onClick={onSeek} style={{ height: 5 }}>

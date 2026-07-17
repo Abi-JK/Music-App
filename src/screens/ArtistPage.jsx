@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { searchArtistSongs, groupTracksByAlbum } from '../utils/api';
 import { formatTime } from '../utils/helpers';
 
-export default function ArtistPage({ query, playSong, currentSong, isPlaying, onBack, showToast }) {
+export default function ArtistPage({ query, playSong, currentSong, isPlaying, onBack, showToast, downloadSong, downloadedIds, downloadingIds }) {
   const [albums, setAlbums] = useState([]);
   const [allTracks, setAllTracks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -124,6 +124,8 @@ export default function ArtistPage({ query, playSong, currentSong, isPlaying, on
           </div>
           {displayTracks.map((song, i) => {
             const isActive = currentSong?.id === song.id;
+            const isDownloaded = downloadedIds?.includes(song.id);
+            const isDownloading = downloadingIds?.includes(song.id);
             return (
               <div key={song.id}
                 className={`song-row ${isActive ? 'now-playing' : ''}`}
@@ -142,6 +144,17 @@ export default function ArtistPage({ query, playSong, currentSong, isPlaying, on
                 <span className="row-album" title={song.album || ''}>{song.album || '—'}</span>
                 <span className="row-dur">{formatTime(song.duration)}</span>
                 <div className="row-acts">
+                  {downloadSong && (
+                    <button
+                      className="icon-btn"
+                      onClick={(e) => { e.stopPropagation(); if (!isDownloaded && !isDownloading) downloadSong(song); }}
+                      title={isDownloaded ? 'Downloaded' : isDownloading ? 'Downloading...' : 'Download for offline'}
+                      disabled={isDownloaded || isDownloading}
+                      style={{ opacity: isDownloaded ? 0.5 : 1 }}
+                    >
+                      {isDownloaded ? '✅' : isDownloading ? '⏳' : '📥'}
+                    </button>
+                  )}
                 </div>
               </div>
             );

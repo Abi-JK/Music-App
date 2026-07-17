@@ -1,7 +1,7 @@
 import React from 'react';
 import { formatTime } from '../utils/helpers';
 
-export default function LikedScreen({ likedSongs, currentSong, isPlaying, playSong, toggleLike }) {
+export default function LikedScreen({ likedSongs, currentSong, isPlaying, playSong, toggleLike, downloadSong, downloadedIds, downloadingIds }) {
   if (!likedSongs.length) return (
     <div className="empty">
       <div style={{ fontSize: 48 }}>❤️</div>
@@ -19,6 +19,8 @@ export default function LikedScreen({ likedSongs, currentSong, isPlaying, playSo
         </div>
         {likedSongs.map((song, i) => {
           const isActive = currentSong?.id === song.id;
+          const isDownloaded = downloadedIds?.includes(song.id);
+          const isDownloading = downloadingIds?.includes(song.id);
           return (
             <div key={song.id} className={`song-row ${isActive ? 'now-playing' : ''}`}
               onClick={() => playSong(song, likedSongs, i)}
@@ -38,6 +40,17 @@ export default function LikedScreen({ likedSongs, currentSong, isPlaying, playSo
               <div className="row-acts">
                 <button className="icon-btn" onClick={(e) => { e.stopPropagation(); toggleLike(song); }}
                   title="Unlike">❤️</button>
+                {downloadSong && (
+                  <button
+                    className="icon-btn"
+                    onClick={(e) => { e.stopPropagation(); if (!isDownloaded && !isDownloading) downloadSong(song); }}
+                    title={isDownloaded ? 'Downloaded' : isDownloading ? 'Downloading...' : 'Download for offline'}
+                    disabled={isDownloaded || isDownloading}
+                    style={{ opacity: isDownloaded ? 0.5 : 1 }}
+                  >
+                    {isDownloaded ? '✅' : isDownloading ? '⏳' : '📥'}
+                  </button>
+                )}
               </div>
             </div>
           );

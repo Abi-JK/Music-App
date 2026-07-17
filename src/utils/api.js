@@ -346,15 +346,17 @@ export async function fetchLyrics(songId, songTitle, artistName) {
     if (lyrics && lyrics.length > 10) return lyrics;
   }
 
-  if (!songTitle || !artistName) return null;
-  const cleanArtist = artistName.split(',')[0].split('&')[0].trim();
+  if (!songTitle) return null;
+  const cleanArtist = artistName ? artistName.split(',')[0].split('&')[0].trim() : '';
   const cleanTitle = songTitle.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').trim();
 
   const tryLrclib = async (artist, title) => {
     try {
+      const params = new URLSearchParams({ track_name: title });
+      if (artist) params.set('artist_name', artist);
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), 5000);
-      const res = await fetch(`https://lrclib.net/api/search?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(title)}`, { signal: ctrl.signal });
+      const res = await fetch(`https://lrclib.net/api/search?${params.toString()}`, { signal: ctrl.signal });
       clearTimeout(t);
       if (res.ok) {
         const data = await res.json();
@@ -367,12 +369,56 @@ export async function fetchLyrics(songId, songTitle, artistName) {
     return null;
   };
 
-  const titles = [cleanTitle];
-  const simplerTitle = cleanTitle.replace(/feat\.?.*/i, '').replace(/ft\.?.*/i, '').trim();
-  if (simplerTitle && simplerTitle !== cleanTitle) titles.push(simplerTitle);
+  const tryLrclibGet = async (artist, title) => {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 5000);
+      const res = await fetch(`https://lrclib.net/api/get?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(title)}`, { signal: ctrl.signal });
+      clearTimeout(t);
+      if (res.ok) {
+        const data = await res.json();
+        if (data) return data.syncedLyrics || data.plainLyrics || null;
+      }
+    } catch { /* ignore */ }
+    return null;
+  };
 
-  for (const title of titles) {
-    const lyrics = await tryLrclib(cleanArtist, title);
+  const tryOvh = async (artist, title) => {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 5000);
+      const res = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`, { signal: ctrl.signal });
+      clearTimeout(t);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.lyrics) return data.lyrics;
+      }
+    } catch { /* ignore */ }
+    return null;
+  };
+
+  const titleVariations = [cleanTitle];
+  const simplerTitle = cleanTitle.replace(/feat\.?.*/i, '').replace(/ft\.?.*/i, '').trim();
+  if (simplerTitle && simplerTitle !== cleanTitle) titleVariations.push(simplerTitle);
+  const noYearTitle = cleanTitle.replace(/\d{4}/g, '').trim();
+  if (noYearTitle && noYearTitle !== cleanTitle) titleVariations.push(noYearTitle);
+
+  for (const title of titleVariations) {
+    let lyrics = await tryLrclib(cleanArtist, title);
+    if (lyrics) return lyrics;
+    lyrics = await tryLrclibGet(cleanArtist, title);
+    if (lyrics) return lyrics;
+  }
+
+  if (cleanArtist) {
+    for (const title of titleVariations) {
+      const lyrics = await tryOvh(cleanArtist, title);
+      if (lyrics) return lyrics;
+    }
+  }
+
+  for (const title of titleVariations) {
+    const lyrics = await tryLrclib('', title);
     if (lyrics) return lyrics;
   }
 
