@@ -11,7 +11,7 @@ export default function LyricsPanel({ songId, songTitle, songArtist, onClose }) 
     setLoading(true);
     setLyrics('');
 
-    const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 12000));
+    const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 20000));
     const lyricsPromise = fetchLyrics(songId, songTitle, songArtist);
 
     Promise.race([lyricsPromise, timeout]).then(text => {

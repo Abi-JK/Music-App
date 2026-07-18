@@ -282,6 +282,16 @@ export async function fetchFreshUrls(song) {
   };
 }
 
+export async function refreshSongUrl(song) {
+  if (!song) return null;
+  if (song.source === 'youtube') return null;
+  const rawId = song._saavnId || String(song.id || '').replace('saavn-', '');
+  if (!rawId) return null;
+  const fullSong = await fetchSongById(rawId);
+  if (!fullSong) return null;
+  return normalizeSong(fullSong);
+}
+
 export async function retrySaavnSong(song) {
   return fetchFreshUrls(song);
 }

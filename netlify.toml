@@ -13,7 +13,7 @@
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "no-referrer"
-    Permissions-Policy = "autoplay=(self), fullscreen=(self)"
+    Permissions-Policy = "autoplay=(self), fullscreen=(self), screen-wake-lock=(self)"
 
 # Cache static assets aggressively
 [[headers]]

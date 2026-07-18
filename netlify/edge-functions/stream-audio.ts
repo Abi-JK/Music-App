@@ -1,4 +1,17 @@
 export default async (request: Request) => {
+  // Handle CORS preflight
+  if (request.method === 'OPTIONS') {
+    return new Response(null, {
+      status: 204,
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+        'Access-Control-Allow-Headers': 'Range, Content-Type',
+        'Access-Control-Max-Age': '86400',
+      },
+    });
+  }
+
   const url = new URL(request.url);
   const audioUrl = url.searchParams.get('url');
 
@@ -29,9 +42,19 @@ export default async (request: Request) => {
   if (range) fetchHeaders['Range'] = range;
   fetchHeaders['User-Agent'] = 'Mozilla/5.0 (Linux; Android 13; SM-G991B) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36';
   fetchHeaders['Referer'] = 'https://www.jiosaavn.com/';
+  fetchHeaders['Accept'] = '*/*';
+  fetchHeaders['Accept-Encoding'] = 'identity';
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 25000);
 
   try {
-    const res = await fetch(audioUrl, { headers: fetchHeaders, redirect: 'follow' });
+    const res = await fetch(audioUrl, {
+      headers: fetchHeaders,
+      redirect: 'follow',
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
 
     const responseHeaders = new Headers();
     const ct = res.headers.get('content-type');
@@ -40,21 +63,27 @@ export default async (request: Request) => {
     responseHeaders.set('Access-Control-Allow-Origin', '*');
     responseHeaders.set('Access-Control-Allow-Headers', 'Range, Content-Type');
     responseHeaders.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-    responseHeaders.set('Cache-Control', 'public, max-age=86400');
+    responseHeaders.set('Cache-Control', 'public, max-age=3600');
 
     const cl = res.headers.get('content-length');
     const cr = res.headers.get('content-range');
     if (cl) responseHeaders.set('Content-Length', cl);
     if (cr) responseHeaders.set('Content-Range', cr);
+    if (range && res.status === 206) responseHeaders.set('Status', '206');
 
     return new Response(res.body, {
       status: res.status,
       headers: responseHeaders,
     });
   } catch (err) {
-    return new Response(JSON.stringify({ error: 'Failed to fetch audio' }), {
+    clearTimeout(timeout);
+    return new Response(JSON.stringify({ error: 'Failed to fetch audio', detail: String(err) }), {
       status: 502,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+        'Cache-Control': 'no-store',
+      },
     });
   }
 };

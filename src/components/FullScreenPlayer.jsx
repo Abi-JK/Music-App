@@ -20,7 +20,7 @@ export default function FullScreenPlayer({
     let cancelled = false;
     setLoadingLyrics(true);
     setLyrics('');
-    const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 12000));
+    const timeout = new Promise((resolve) => setTimeout(() => resolve(null), 20000));
     const lyricsPromise = fetchLyrics(currentSong.id, currentSong.title, currentSong.artist);
     Promise.race([lyricsPromise, timeout]).then(text => {
       if (!cancelled) { setLyrics(text || ''); setLoadingLyrics(false); }

@@ -57,13 +57,14 @@ async function getDB() {
 // Safely write to localStorage as backup
 function lsSet(key, data) {
   try {
-    // Only store essential fields to save space (no audio blobs)
     const slim = data.map(s => ({
       id: s.id, title: s.title, artist: s.artist,
       album: s.album, duration: s.duration,
       coverUrl: s.coverUrl, audioUrl: s.audioUrl,
       language: s.language, hasLyrics: s.hasLyrics,
       allAudioUrls: s.allAudioUrls,
+      rawAudioUrls: s.rawAudioUrls,
+      _saavnId: s._saavnId, source: s.source, genre: s.genre,
     }));
     localStorage.setItem(key, JSON.stringify(slim));
   } catch { /* quota exceeded — silently skip */ }

@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { formatTime } from '../utils/helpers';
+import { refreshSongUrl } from '../utils/api';
 
 export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNext, playPrev, liked, toggleLike, onProgressUpdate, onExpand, onShowLyrics, repeatMode, toggleRepeat, shuffleOn, toggleShuffle, onShowQueue, downloadSong, currentSongDownloaded }) {
   const audioRef = useRef(null);
@@ -18,14 +19,24 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
   const playPrevRef = useRef(playPrev);
   const endedGuard = useRef(false);
   const volRef = useRef(vol);
+  const isPlayingRef = useRef(isPlaying);
+  const errorRetryCount = useRef(0);
 
   useEffect(() => { playNextRef.current = playNext; }, [playNext]);
   useEffect(() => { playPrevRef.current = playPrev; }, [playPrev]);
   useEffect(() => { volRef.current = vol; }, [vol]);
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
 
   useEffect(() => {
     if (!('mediaSession' in navigator)) return;
-    navigator.mediaSession.setActionHandler('play', () => { setIsPlaying(true); });
+    navigator.mediaSession.setActionHandler('play', () => {
+      const a = audioRef.current;
+      if (a && a.src && a.paused) {
+        a.play().then(() => setIsPlaying(true)).catch(() => {});
+      } else {
+        setIsPlaying(true);
+      }
+    });
     navigator.mediaSession.setActionHandler('pause', () => { setIsPlaying(false); });
     navigator.mediaSession.setActionHandler('previoustrack', () => { if (playPrevRef.current) playPrevRef.current(); });
     navigator.mediaSession.setActionHandler('nexttrack', () => { if (playNextRef.current) playNextRef.current(); });
@@ -60,6 +71,20 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     const a = audioRef.current;
     if (!a) return;
 
+    const onPlay = () => {
+      if (!isPlayingRef.current) setIsPlaying(true);
+      if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+      errorRetryCount.current = 0;
+      setLoading(false);
+      setErrorMsg('');
+    };
+
+    const onPause = () => {
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = 'paused';
+      }
+    };
+
     const onError = () => {
       const next = urlIndex.current + 1;
       if (next < urlList.current.length) {
@@ -69,9 +94,46 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
         a.volume = volRef.current;
         a.load();
       } else {
-        setLoading(false);
-        setErrorMsg('Could not play. Trying next...');
-        setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 800);
+        errorRetryCount.current++;
+        if (errorRetryCount.current < 2) {
+          setLoading(true);
+          setErrorMsg('Refreshing URL...');
+          refreshSongUrl(currentSong).then(fresh => {
+            if (fresh && fresh.audioUrl) {
+              const newCandidates = [];
+              if (fresh.audioUrl) newCandidates.push({ url: fresh.audioUrl, type: 'refreshed' });
+              if (fresh.allAudioUrls) {
+                for (const entry of fresh.allAudioUrls) {
+                  if (entry.url && !newCandidates.some(c => c.url === entry.url)) {
+                    newCandidates.push({ url: entry.url, type: entry.quality || 'fallback' });
+                  }
+                }
+              }
+              urlList.current = newCandidates;
+              urlIndex.current = 0;
+              if (newCandidates.length > 0) {
+                a.src = newCandidates[0].url;
+                a.volume = volRef.current;
+                a.load();
+                return;
+              }
+            }
+            setLoading(false);
+            setErrorMsg('Could not play. Next song...');
+            errorRetryCount.current = 0;
+            setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 1000);
+          }).catch(() => {
+            setLoading(false);
+            setErrorMsg('Could not play. Next song...');
+            errorRetryCount.current = 0;
+            setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 1000);
+          });
+        } else {
+          setLoading(false);
+          setErrorMsg('Could not play. Next song...');
+          errorRetryCount.current = 0;
+          setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 1000);
+        }
       }
     };
 
@@ -84,7 +146,6 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
           setIsPlaying(true);
           if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
         }).catch(() => {
-          setIsPlaying(false);
           setErrorMsg('Tap play to start');
         });
       }
@@ -96,10 +157,14 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
       if (playNextRef.current) playNextRef.current();
     };
 
+    a.addEventListener('play', onPlay);
+    a.addEventListener('pause', onPause);
     a.addEventListener('error', onError);
     a.addEventListener('canplay', onCanPlay);
     a.addEventListener('ended', onEnded);
     return () => {
+      a.removeEventListener('play', onPlay);
+      a.removeEventListener('pause', onPause);
       a.removeEventListener('error', onError);
       a.removeEventListener('canplay', onCanPlay);
       a.removeEventListener('ended', onEnded);
@@ -127,6 +192,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     blobUrls.current.forEach(u => URL.revokeObjectURL(u));
     blobUrls.current = [];
     endedGuard.current = false;
+    errorRetryCount.current = 0;
 
     const a = audioRef.current;
     if (a) { a.pause(); a.removeAttribute('src'); }
@@ -177,11 +243,16 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     const a = audioRef.current;
     if (!a) return;
     if (isPlaying) {
-      a.play().then(() => {
-        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
-      }).catch(() => setIsPlaying(false));
+      const playPromise = a.play();
+      if (playPromise) {
+        playPromise.then(() => {
+          if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+        }).catch(() => {
+          setErrorMsg('Tap play to start');
+        });
+      }
     } else {
-      a.pause();
+      if (!a.paused) a.pause();
       if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
     }
   }, [isPlaying]);
@@ -193,6 +264,11 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
       const d = a.duration || 0;
       setCurTime(ct);
       setDur(d);
+      if ('mediaSession' in navigator && d > 0 && !isNaN(d)) {
+        try {
+          navigator.mediaSession.setPositionState({ duration: d, playbackRate: 1, position: ct });
+        } catch {}
+      }
       const now = performance.now();
       if (onProgressUpdate && now - lastProgressTick.current > 300) {
         lastProgressTick.current = now;
@@ -268,7 +344,16 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
           <div className="player-controls">
             <button className={`icon-btn ${shuffleOn ? 'ctrl-active' : ''}`} onClick={toggleShuffle} title={shuffleOn ? 'Shuffle On' : 'Shuffle Off'}>🔀</button>
             <button className="icon-btn" onClick={playPrev} title="Previous">⏮</button>
-            <button className="player-play-btn" onClick={() => setIsPlaying(!isPlaying)} disabled={loading}>
+            <button className="player-play-btn" onClick={() => {
+              const a = audioRef.current;
+              if (a && !a.paused) {
+                setIsPlaying(false);
+              } else if (a && a.src && a.paused && !a.ended) {
+                a.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(true));
+              } else {
+                setIsPlaying(!isPlaying);
+              }
+            }} disabled={loading}>
               {loading ? '⏳' : isPlaying ? '⏸' : '▶'}
             </button>
             <button className="icon-btn" onClick={playNext} title="Next">⏭</button>

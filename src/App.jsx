@@ -90,37 +90,31 @@ function AppContent() {
     const handler = (e) => { e.preventDefault(); setDeferredPrompt(e); };
     window.addEventListener('beforeinstallprompt', handler);
 
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        const a = document.getElementById('main-audio');
-        if (a && a.paused && a.src && !a.ended) {
-          a.play().then(() => setIsPlaying(true)).catch(() => {});
-        }
-      }
-    };
-    const handlePageShow = (e) => {
-      if (e.persisted) {
-        const a = document.getElementById('main-audio');
-        if (a && a.paused && a.src && !a.ended) {
-          a.play().then(() => setIsPlaying(true)).catch(() => {});
-        }
-      }
-    };
-    const handleFocus = () => {
+    const resumeAudio = () => {
       const a = document.getElementById('main-audio');
-      if (a && a.paused && a.src && !a.ended) {
+      if (a && a.paused && a.src && !a.ended && a.currentTime > 0) {
         a.play().then(() => setIsPlaying(true)).catch(() => {});
       }
     };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') resumeAudio();
+    };
+    const handlePageShow = (e) => {
+      if (e.persisted) resumeAudio();
+    };
+    const handleFocus = () => resumeAudio();
+    const handleFreeze = () => {};
     document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('pageshow', handlePageShow);
     window.addEventListener('focus', handleFocus);
+    document.addEventListener('freeze', handleFreeze);
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handler);
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('pageshow', handlePageShow);
       window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('freeze', handleFreeze);
     };
   }, []);
 
