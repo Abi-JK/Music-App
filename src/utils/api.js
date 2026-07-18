@@ -76,13 +76,13 @@ function normalizeSong(s) {
     const p = s.duration.split(':');
     dur = parseInt(p[0]) * 60 + parseInt(p[1] || 0);
   }
-  if (dur > 0 && dur < 30) return null;
   let artists = 'Unknown';
   if (s.artists?.primary?.length) artists = s.artists.primary.map(a => a.name).join(', ');
   else if (s.artists?.featured?.length) artists = s.artists.featured.map(a => a.name).join(', ');
   else if (s.primaryArtists) artists = s.primaryArtists;
   else if (s.singers) artists = s.singers;
   else if (typeof s.primary_artists === 'string') artists = s.primary_artists;
+  else if (s.more_info?.singers) artists = s.more_info.singers;
   const album = s.album?.name || s.album || '';
   const year = s.year || s.releaseDate || '';
   let coverUrl = null;
@@ -94,12 +94,12 @@ function normalizeSong(s) {
   const url320 = downloadUrls.find(u => u.quality === '320kbps')?.url || s.media_urls?.['320_KBPS'] || null;
   const url160 = downloadUrls.find(u => u.quality === '160kbps')?.url || s.media_url || null;
   const url96 = downloadUrls.find(u => u.quality === '96kbps')?.url || null;
-  const rawAudio = url320 || url160 || url96;
+  const rawAudio = url320 || url160 || url96 || s.more_info?.vlink || null;
   if (!rawAudio) return null;
   const rawId = extractId(s);
   return {
     id: `saavn-${rawId}`,
-    title: s.name || s.song || 'Unknown',
+    title: s.name || s.song || s.title || 'Unknown',
     artist: artists,
     album, year,
     duration: dur,
@@ -115,7 +115,7 @@ function normalizeSong(s) {
       ...(url160 ? [{ quality: '160kbps', url: url160 }] : []),
       ...(url96 ? [{ quality: '96kbps', url: url96 }] : []),
     ],
-    genre: s.language || '',
+    genre: s.language || s.more_info?.language || '',
     source: 'saavn',
     downloadable: true,
     _saavnId: rawId,
@@ -203,7 +203,7 @@ async function searchYouTube(query, limit = 10) {
 async function fetchSaavnSearch(query, limit) {
   try {
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 8000);
+    const t = setTimeout(() => ctrl.abort(), 10000);
     const res = await fetch(`${SAAVN_API}/search/songs?query=${encodeURIComponent(query)}&limit=${limit}`, { signal: ctrl.signal });
     clearTimeout(t);
     if (res.ok) {
@@ -214,12 +214,29 @@ async function fetchSaavnSearch(query, limit) {
   } catch {}
   try {
     const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 8000);
+    const t = setTimeout(() => ctrl.abort(), 10000);
     const res = await fetch(`${SAAVN_FB}/search?query=${encodeURIComponent(query)}&limit=${limit}`, { signal: ctrl.signal });
     clearTimeout(t);
     if (res.ok) {
       const data = await res.json();
-      return data?.results || [];
+      const results = data?.results || [];
+      if (results.length === 0) return [];
+      const ids = results.map(r => r.id).filter(Boolean);
+      if (ids.length > 0) {
+        const fullSongs = await fetchBatchByIds(ids);
+        if (fullSongs.length > 0) return fullSongs;
+      }
+      return results.map(r => ({
+        id: r.id,
+        name: r.title || r.name,
+        duration: 0,
+        image: r.images ? Object.entries(r.images).map(([quality, url]) => ({ quality: quality.replace('x', 'x'), url })) : (r.image ? [{ quality: '150x150', url: r.image }] : []),
+        downloadUrl: [],
+        artists: { primary: r.more_info?.singers ? r.more_info.singers.split(', ').map(name => ({ name, role: 'singer' })) : [] },
+        album: { name: r.album || '' },
+        language: r.more_info?.language || '',
+        name: r.title || r.name,
+      }));
     }
   } catch {}
   return [];
@@ -228,16 +245,15 @@ async function fetchSaavnSearch(query, limit) {
 async function searchAndResolve(query, limit = 30) {
   const searchResults = await fetchSaavnSearch(query, limit);
 
-  if (searchResults.length > 0) {
-    const normalized = searchResults.map(normalizeSong).filter(Boolean);
-    const withAudio = normalized.filter(s => s.audioUrl);
-    if (withAudio.length >= 3) return withAudio;
-  }
+  const normalized = searchResults.map(normalizeSong).filter(Boolean);
+  const withAudio = normalized.filter(s => s.audioUrl);
+
+  if (withAudio.length >= 3) return withAudio;
 
   const ytResults = await searchYouTube(query, Math.min(limit, 10));
   const seen = new Set();
   const allSongs = [];
-  for (const s of [...searchResults.map(normalizeSong).filter(Boolean).filter(s => s.audioUrl), ...ytResults]) {
+  for (const s of [...withAudio, ...normalized.filter(s => !s.audioUrl), ...ytResults]) {
     const key = `${(s.title || '').toLowerCase().trim()}|${(s.artist || '').toLowerCase().trim()}|${s.id || ''}`;
     if (!seen.has(key)) { seen.add(key); allSongs.push(s); }
   }
@@ -381,15 +397,16 @@ export async function fetchLyrics(songId, songTitle, artistName) {
 
   if (!songTitle) return null;
   const cleanArtist = artistName ? artistName.split(',')[0].split('&')[0].trim() : '';
-  const cleanTitle = songTitle.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').trim();
+  const cleanTitle = songTitle.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').replace(/feat\.?.*/i, '').replace(/ft\.?.*/i, '').replace(/-\s*(Remix|Version|Edited|Reprise|Unplugged|Live|Acoustic|Club|Extended|Remastered|Original).*/i, '').replace(/\d{4}/g, '').trim();
+
+  if (!cleanTitle) return null;
+
+  const directLrclib = await tryLrclib(cleanArtist, cleanTitle);
+  if (directLrclib) return directLrclib;
 
   const titleVariations = [cleanTitle];
-  const simpler = cleanTitle.replace(/feat\.?.*/i, '').replace(/ft\.?.*/i, '').trim();
+  const simpler = songTitle.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').trim();
   if (simpler && simpler !== cleanTitle) titleVariations.push(simpler);
-  const noYear = cleanTitle.replace(/\d{4}/g, '').trim();
-  if (noYear && noYear !== cleanTitle) titleVariations.push(noYear);
-  const noVer = cleanTitle.replace(/-\s*(Remix|Version|Edited|Reprise|Unplugged|Live|Acoustic|Club|Extended|Remastered|Original).*/i, '').trim();
-  if (noVer && noVer !== cleanTitle) titleVariations.push(noVer);
 
   for (const title of titleVariations) {
     const lyrics = await tryLrclib(cleanArtist, title);
