@@ -10,7 +10,22 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+dev-dist
 *.local
+
+# Unused / separate projects
+backend/
+native/
+scripts/
+assets/splash.png
+generate_icons.cjs
+implementation_plan.md
+Music-App.git/
+
+# Environment variables
+.env
+.env.*
+!.env.example
 
 # Editor directories and files
 .vscode/*

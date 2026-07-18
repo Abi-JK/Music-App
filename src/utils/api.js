@@ -166,7 +166,7 @@ async function searchYouTube(query, limit = 10) {
       query,
       params: 'EgIQAQ%3D%3D',
     };
-    const res = await fetchWithTimeout('https://music.youtube.com/youtubei/v1/search?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8', {
+    const res = await fetchWithTimeout(`https://music.youtube.com/youtubei/v1/search?key=${import.meta.env.VITE_YT_KEY || ''}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'User-Agent': 'com.google.android.apps.youtube.music/6.42.52' },
       body: JSON.stringify(body),
