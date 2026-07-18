@@ -64,10 +64,12 @@ function AppContent() {
   const shuffleRef = useRef(false);
   const autoPlayGenreRef = useRef(null);
   const wakeLockRef = useRef(null);
+  const isPlayingRef = useRef(false);
 
   const currentSong = playlist[currentIndex] || null;
 
   useEffect(() => { shuffleRef.current = shuffleOn; }, [shuffleOn]);
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
 
   const requestWakeLock = useCallback(async () => {
     if ('wakeLock' in navigator) {
@@ -527,6 +529,7 @@ function AppContent() {
         currentSong={currentSong}
         isPlaying={isPlaying}
         setIsPlaying={setIsPlaying}
+        onPlayPrev={playPrev}
         onPlayNext={playNext}
         curTime={audioState.curTime}
         dur={audioState.dur}

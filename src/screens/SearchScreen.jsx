@@ -24,6 +24,16 @@ export default function SearchScreen({ searchResults, searchLoading, searched, c
   const topArtist = searchResults.length > 0 ? searchResults[0].artist : null;
   const artistCount = searchResults.filter(s => s.artist === topArtist).length;
 
+  const playAll = () => {
+    if (searchResults.length > 0) playSong(searchResults[0], searchResults, 0);
+  };
+
+  const shufflePlay = () => {
+    if (searchResults.length === 0) return;
+    const shuffled = [...searchResults].sort(() => Math.random() - 0.5);
+    playSong(shuffled[0], shuffled, 0);
+  };
+
   return (
     <div className="search-screen">
       {topArtist && artistCount >= 1 && onOpenArtist && (
@@ -43,7 +53,19 @@ export default function SearchScreen({ searchResults, searchLoading, searched, c
           <span className="artist-card-arrow">→</span>
         </div>
       )}
-      <div className="search-count">{searchResults.length} songs found</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+        <span className="search-count" style={{ margin: 0 }}>{searchResults.length} songs found</span>
+        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+          <button className="icon-btn" onClick={playAll} title="Play All"
+            style={{ fontSize: 13, padding: '6px 14px', borderRadius: 20, background: 'var(--accent)', color: '#000', border: 'none', fontWeight: 700, cursor: 'pointer' }}>
+            ▶ Play All
+          </button>
+          <button className="icon-btn" onClick={shufflePlay} title="Shuffle Play"
+            style={{ fontSize: 13, padding: '6px 14px', borderRadius: 20, background: 'rgba(255,255,255,0.1)', color: 'var(--text)', border: 'none', fontWeight: 700, cursor: 'pointer' }}>
+            🔀 Shuffle
+          </button>
+        </div>
+      </div>
       <div className="song-table">
         <div className="table-head">
           <span>#</span><span>SONG</span><span>ALBUM</span><span>DURATION</span><span></span>
