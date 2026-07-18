@@ -1,6 +1,5 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { formatTime } from '../utils/helpers';
-import { fetchFreshUrls } from '../utils/api';
 
 export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNext, playPrev, liked, toggleLike, onProgressUpdate, onExpand, onShowLyrics, repeatMode, toggleRepeat, shuffleOn, toggleShuffle, onShowQueue, downloadSong, currentSongDownloaded }) {
   const audioRef = useRef(null);
@@ -18,9 +17,11 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
   const playNextRef = useRef(playNext);
   const playPrevRef = useRef(playPrev);
   const endedGuard = useRef(false);
+  const volRef = useRef(vol);
 
   useEffect(() => { playNextRef.current = playNext; }, [playNext]);
   useEffect(() => { playPrevRef.current = playPrev; }, [playPrev]);
+  useEffect(() => { volRef.current = vol; }, [vol]);
 
   useEffect(() => {
     if (!('mediaSession' in navigator)) return;
@@ -54,6 +55,56 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
       }
     };
   }, [setIsPlaying]);
+
+  useEffect(() => {
+    const a = audioRef.current;
+    if (!a) return;
+
+    const onError = () => {
+      const next = urlIndex.current + 1;
+      if (next < urlList.current.length) {
+        const candidate = urlList.current[next];
+        urlIndex.current = next;
+        a.src = candidate.url;
+        a.volume = volRef.current;
+        a.load();
+      } else {
+        setLoading(false);
+        setErrorMsg('Could not play. Trying next...');
+        setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 800);
+      }
+    };
+
+    const onCanPlay = () => {
+      setLoading(false); setErrorMsg('');
+      endedGuard.current = false;
+      const playPromise = a.play();
+      if (playPromise) {
+        playPromise.then(() => {
+          setIsPlaying(true);
+          if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+        }).catch(() => {
+          setIsPlaying(false);
+          setErrorMsg('Tap play to start');
+        });
+      }
+    };
+
+    const onEnded = () => {
+      if (endedGuard.current) return;
+      endedGuard.current = true;
+      if (playNextRef.current) playNextRef.current();
+    };
+
+    a.addEventListener('error', onError);
+    a.addEventListener('canplay', onCanPlay);
+    a.addEventListener('ended', onEnded);
+    return () => {
+      a.removeEventListener('error', onError);
+      a.removeEventListener('canplay', onCanPlay);
+      a.removeEventListener('ended', onEnded);
+    };
+  }, [currentSong?.id, setIsPlaying]);
 
   useEffect(() => {
     if (!currentSong) {
@@ -92,93 +143,35 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
       });
     }
 
-    const buildAndLoad = async () => {
-      const candidates = [];
-      if (currentSong.audioBlob) {
-        const blobUrl = URL.createObjectURL(currentSong.audioBlob);
-        candidates.push({ url: blobUrl, type: 'blob' });
-        blobUrls.current.push(blobUrl);
-      }
-      if (currentSong.audioUrl && !candidates.some(c => c.url === currentSong.audioUrl)) {
-        candidates.push({ url: currentSong.audioUrl, type: 'existing' });
-      }
-      if (currentSong.allAudioUrls) {
-        for (const entry of currentSong.allAudioUrls) {
-          if (entry.url && !candidates.some(c => c.url === entry.url)) {
-            candidates.push({ url: entry.url, type: 'existing-fallback' });
-          }
+    const candidates = [];
+    if (currentSong.audioBlob) {
+      const blobUrl = URL.createObjectURL(currentSong.audioBlob);
+      candidates.push({ url: blobUrl, type: 'blob' });
+      blobUrls.current.push(blobUrl);
+    }
+    if (currentSong.audioUrl) {
+      candidates.push({ url: currentSong.audioUrl, type: 'primary' });
+    }
+    if (currentSong.allAudioUrls) {
+      for (const entry of currentSong.allAudioUrls) {
+        if (entry.url && !candidates.some(c => c.url === entry.url)) {
+          candidates.push({ url: entry.url, type: entry.quality || 'fallback' });
         }
       }
-
-      urlList.current = candidates;
-      if (candidates.length > 0) {
-        loadUrl(0);
-      } else {
-        setLoading(false);
-        setErrorMsg('No playable URL found');
-      }
-    };
-    buildAndLoad();
-  }, [currentSong?.id]);
-
-  const loadUrl = useCallback((index) => {
-    const a = audioRef.current;
-    if (!a || index >= urlList.current.length) {
-      setLoading(false);
-      setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 500);
-      return;
     }
-    urlIndex.current = index;
-    const candidate = urlList.current[index];
-    a.src = candidate.url;
-    a.volume = vol;
-    a.load();
-  }, [vol, currentSong]);
 
-  useEffect(() => {
-    const a = audioRef.current;
-    if (!a) return;
-
-    const onError = () => {
-      const next = urlIndex.current + 1;
-      if (next < urlList.current.length) {
-        loadUrl(next);
-      } else {
-        setLoading(false);
-        setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 500);
-      }
-    };
-
-    const onCanPlay = () => {
-      setLoading(false); setErrorMsg('');
-      endedGuard.current = false;
-      const playPromise = a.play();
-      if (playPromise) {
-        playPromise.then(() => {
-          setIsPlaying(true);
-          if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
-        }).catch(() => {
-          setIsPlaying(false);
-          setErrorMsg('Tap play to start');
-        });
-      }
-    };
-
-    const onEnded = () => {
-      if (endedGuard.current) return;
-      endedGuard.current = true;
-      if (playNextRef.current) playNextRef.current();
-    };
-
-    a.addEventListener('error', onError);
-    a.addEventListener('canplay', onCanPlay);
-    a.addEventListener('ended', onEnded);
-    return () => {
-      a.removeEventListener('error', onError);
-      a.removeEventListener('canplay', onCanPlay);
-      a.removeEventListener('ended', onEnded);
-    };
-  }, [currentSong?.id, loadUrl, setIsPlaying]);
+    urlList.current = candidates;
+    if (candidates.length > 0) {
+      const candidate = candidates[0];
+      urlIndex.current = 0;
+      a.src = candidate.url;
+      a.volume = volRef.current;
+      a.load();
+    } else {
+      setLoading(false);
+      setErrorMsg('No playable URL found');
+    }
+  }, [currentSong?.id]);
 
   useEffect(() => {
     const a = audioRef.current;
