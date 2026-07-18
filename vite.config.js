@@ -98,7 +98,7 @@ export default defineConfig({
         },
         // JioSaavn CDN (cover art + audio) — stale-while-revalidate
         {
-          urlPattern: /^https:\/\/(.*\.saavncdn\.com|.*\.jiocdn\.in)/,
+          urlPattern: /^https:\/\/(.*\.saavncdn\.com|.*\.jiocdn\.in|.*\.saavn\.me)/,
           handler: 'StaleWhileRevalidate',
           options: {
             cacheName: 'jiosaavn-cdn-cache',
@@ -106,38 +106,16 @@ export default defineConfig({
             cacheableResponse: { statuses: [0, 200] },
           },
         },
-        // Audius discovery API (search, trending, playlists) — network-first
-          {
-            urlPattern: /^https:\/\/discoveryprovider[0-9]*\.audius\.co\/v1\/(tracks|playlists)/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'audius-api-cache',
-              networkTimeoutSeconds: 10,
-              expiration: { maxEntries: 50, maxAgeSeconds: 60 * 60 * 24 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
+        // Cover art / artwork — stale-while-revalidate
+        {
+          urlPattern: /^https:\/\/(.*\.googleapis\.com|.*\.gstatic\.com|.*\.saavncdn\.com|.*\.jiocdn\.in|.*yt3\.ggpht\.com|i\.ytimg\.com)/,
+          handler: 'StaleWhileRevalidate',
+          options: {
+            cacheName: 'image-cache',
+            expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 7 },
+            cacheableResponse: { statuses: [0, 200] },
           },
-          // Audius audio streams — network-first
-          {
-            urlPattern: /^https:\/\/discoveryprovider[0-9]*\.audius\.co\/v1\/tracks\/.*\/stream/,
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'audio-cache',
-              networkTimeoutSeconds: 10,
-              expiration: { maxEntries: 30, maxAgeSeconds: 60 * 60 * 24 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
-          // Cover art / artwork — stale-while-revalidate
-          {
-            urlPattern: /^https:\/\/(.*\.audius\.co|.*\.googleapis\.com|.*\.gstatic\.com|.*\.saavncdn\.com|.*\.jiocdn\.in)/,
-            handler: 'StaleWhileRevalidate',
-            options: {
-              cacheName: 'image-cache',
-              expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 7 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
+        },
           // Google Fonts
           {
             urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com/,
@@ -170,8 +148,6 @@ export default defineConfig({
   server: {
     port: 5173,
     open: true,
-    // No dev-server proxy needed — Audius's discovery API is public and
-    // CORS-enabled, so the app calls it directly from the browser.
   },
   build: {
     outDir: 'dist',

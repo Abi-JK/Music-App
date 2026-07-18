@@ -171,7 +171,7 @@ function AppContent() {
           setIsPlaying(true);
         }
       } else {
-        showToast('No more songs found in this genre.');
+        showToast('No more songs found.');
       }
     } catch {
       showToast('Could not load more songs.');
@@ -185,18 +185,22 @@ function AppContent() {
       if (audioEl) { audioEl.currentTime = 0; audioEl.play().catch(() => {}); }
       return;
     }
-    let next = (currentIndex + 1) % playlist.length;
-    if (next === 0 && repeatMode === 'off') {
-      if (autoPlayGenreRef.current) {
+    const nextIdx = currentIndex + 1;
+    if (nextIdx >= playlist.length) {
+      if (repeatMode === 'all') {
+        setCurrentIndex(0);
+        setIsPlaying(true);
+        if (playlist[0]) addRecent(playlist[0]);
+      } else if (autoPlayGenreRef.current) {
         autoPlayGenre(autoPlayGenreRef.current);
       } else {
         setIsPlaying(false);
       }
       return;
     }
-    setCurrentIndex(next);
+    setCurrentIndex(nextIdx);
     setIsPlaying(true);
-    if (playlist[next]) addRecent(playlist[next]);
+    if (playlist[nextIdx]) addRecent(playlist[nextIdx]);
   }, [playlist, currentIndex, addRecent, repeatMode, autoPlayGenre]);
 
   const playPrev = useCallback(() => {
@@ -266,24 +270,15 @@ function AppContent() {
       const langObj = LANG_QUERIES.find(l => l.label === activeLang);
       const term = langObj?.term && langObj.label !== 'All' ? `${q} ${langObj.term}` : q;
       const songs = await searchSongs(term, 50);
-      const indianSongs = songs.filter(s => {
-        if (s.genre && s.genre.toLowerCase().includes('english')) return false;
-        if (s.title && /^[a-zA-Z\s.'-]+$/.test(s.title) && !/[^\x00-\x7F]/.test(s.title)) {
-          const artistLower = (s.artist || '').toLowerCase();
-          const indianArtists = ['singh', 'sharma', 'patel', 'kumar', 'rao', 'reddy', 'iyer', 'nair', 'menon', 'gupta', 'joshi', 'singh', 'verma', 'khan', 'ali', 'ahmed', 'malik', 'nigam', 'mukesh', 'ghoshal', 'chopra', 'kapoor', 'bachchan'];
-          if (!indianArtists.some(a => artistLower.includes(a))) return false;
-        }
-        return true;
-      });
-      setSearchResults(indianSongs);
-      if (indianSongs.length) {
-        originalPlaylistRef.current = indianSongs;
+      setSearchResults(songs);
+      if (songs.length) {
+        originalPlaylistRef.current = songs;
         if (shuffleRef.current) {
-          const shuffled = shuffleArray(indianSongs);
+          const shuffled = shuffleArray(songs);
           setPlaylist(shuffled);
           setCurrentIndex(0);
         } else {
-          setPlaylist(indianSongs);
+          setPlaylist(songs);
           setCurrentIndex(0);
         }
       } else showToast('No results found.');
@@ -374,7 +369,7 @@ function AppContent() {
     try {
       await Storage.removeDownloadedSong(songId);
       setDownloadedSongs(prev => prev.filter(s => s.id !== songId));
-      showToast('🗑️ Song removed from offline downloads.');
+      showToast('Song removed from offline downloads.');
     } catch (err) {
       console.error(err);
       showToast('Failed to remove download.');

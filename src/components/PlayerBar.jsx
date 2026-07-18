@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { formatTime } from '../utils/helpers';
-import { retrySaavnSong } from '../utils/api';
+import { fetchFreshUrls } from '../utils/api';
 
 export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNext, playPrev, liked, toggleLike, onProgressUpdate, onExpand, onShowLyrics, repeatMode, toggleRepeat, shuffleOn, toggleShuffle, onShowQueue, downloadSong, currentSongDownloaded }) {
   const audioRef = useRef(null);
@@ -17,6 +17,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
   const blobUrls = useRef([]);
   const playNextRef = useRef(playNext);
   const playPrevRef = useRef(playPrev);
+  const endedGuard = useRef(false);
 
   useEffect(() => { playNextRef.current = playNext; }, [playNext]);
   useEffect(() => { playPrevRef.current = playPrev; }, [playPrev]);
@@ -74,25 +75,10 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     urlIndex.current = 0;
     blobUrls.current.forEach(u => URL.revokeObjectURL(u));
     blobUrls.current = [];
+    endedGuard.current = false;
 
-    const candidates = [];
-    if (currentSong.audioBlob) {
-      const blobUrl = URL.createObjectURL(currentSong.audioBlob);
-      candidates.push({ url: blobUrl, type: 'blob' });
-      blobUrls.current.push(blobUrl);
-    }
-    if (currentSong.audioUrl) candidates.push({ url: currentSong.audioUrl, type: 'primary' });
-    if (currentSong.allAudioUrls) {
-      for (const entry of currentSong.allAudioUrls) {
-        if (entry.url && !candidates.some(c => c.url === entry.url)) {
-          candidates.push({ url: entry.url, type: 'fallback' });
-        }
-      }
-    }
-    if (candidates.length === 0 && currentSong.id && !String(currentSong.id).startsWith('saavn-')) {
-      // No fallback needed - using JioSaavn only
-    }
-    urlList.current = candidates;
+    const a = audioRef.current;
+    if (a) { a.pause(); a.removeAttribute('src'); }
 
     if ('mediaSession' in navigator) {
       navigator.mediaSession.metadata = new MediaMetadata({
@@ -106,28 +92,62 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
       });
     }
 
-    loadUrl(0);
+    const buildAndLoad = async () => {
+      let freshUrls = null;
+      try { freshUrls = await fetchFreshUrls(currentSong); } catch {}
+
+      const candidates = [];
+      if (currentSong.audioBlob) {
+        const blobUrl = URL.createObjectURL(currentSong.audioBlob);
+        candidates.push({ url: blobUrl, type: 'blob' });
+        blobUrls.current.push(blobUrl);
+      }
+      if (freshUrls?.allAudioUrls) {
+        for (const entry of freshUrls.allAudioUrls) {
+          if (entry.url) candidates.push({ url: entry.url, type: 'fresh-' + entry.quality });
+        }
+      }
+      if (freshUrls?.audioUrl && !candidates.some(c => c.url === freshUrls.audioUrl)) {
+        candidates.unshift({ url: freshUrls.audioUrl, type: 'fresh-primary' });
+      }
+      if (currentSong.audioUrl && !candidates.some(c => c.url === currentSong.audioUrl)) {
+        candidates.push({ url: currentSong.audioUrl, type: 'existing' });
+      }
+      if (currentSong.allAudioUrls) {
+        for (const entry of currentSong.allAudioUrls) {
+          if (entry.url && !candidates.some(c => c.url === entry.url)) {
+            candidates.push({ url: entry.url, type: 'existing-fallback' });
+          }
+        }
+      }
+
+      urlList.current = candidates;
+      if (candidates.length > 0) {
+        loadUrl(0);
+      } else {
+        setLoading(false);
+        setErrorMsg('No playable URL found');
+      }
+    };
+    buildAndLoad();
   }, [currentSong?.id]);
 
   const loadUrl = useCallback((index) => {
     const a = audioRef.current;
     if (!a || index >= urlList.current.length) {
       setLoading(false);
-      // For saavn songs: try fallback API to get fresh CDN URL
       if (currentSong?.source === 'saavn' && currentSong?._saavnId && !currentSong._retried) {
-        console.log('[SoundAura] All CDN URLs failed, retrying via fallback API...');
         currentSong._retried = true;
-        retrySaavnSong(currentSong).then(fresh => {
+        fetchFreshUrls(currentSong).then(fresh => {
           if (fresh) {
-            console.log('[SoundAura] Got fresh URL from fallback API');
             const newCandidates = [];
             if (fresh.allAudioUrls) {
               for (const entry of fresh.allAudioUrls) {
-                if (entry.url) newCandidates.push({ url: entry.url, type: 'fallback-retry' });
+                if (entry.url) newCandidates.push({ url: entry.url, type: 'fresh-retry' });
               }
             }
             if (fresh.audioUrl && !newCandidates.some(c => c.url === fresh.audioUrl)) {
-              newCandidates.unshift({ url: fresh.audioUrl, type: 'fallback-primary' });
+              newCandidates.unshift({ url: fresh.audioUrl, type: 'fresh-primary-retry' });
             }
             if (newCandidates.length > 0) {
               urlList.current = newCandidates;
@@ -137,24 +157,21 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
               return;
             }
           }
-          console.log('[SoundAura] Fallback retry failed, auto-advancing...');
           setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 500);
         }).catch(() => {
           setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 500);
         });
         return;
       }
-      console.log('[SoundAura] All URLs exhausted, auto-advancing to next song...');
       setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 500);
       return;
     }
     urlIndex.current = index;
     const candidate = urlList.current[index];
-    console.log(`[SoundAura] Loading URL ${index + 1}/${urlList.current.length}: ${candidate.type}`);
     a.src = candidate.url;
     a.volume = vol;
     a.load();
-  }, [vol]);
+  }, [vol, currentSong]);
 
   useEffect(() => {
     const a = audioRef.current;
@@ -163,17 +180,16 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     const onError = () => {
       const next = urlIndex.current + 1;
       if (next < urlList.current.length) {
-        console.log(`[SoundAura] Audio error, trying next URL (${next + 1}/${urlList.current.length})...`);
         loadUrl(next);
       } else {
         setLoading(false);
-        console.log('[SoundAura] All URLs failed, auto-advancing...');
         setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 500);
       }
     };
 
     const onCanPlay = () => {
       setLoading(false); setErrorMsg('');
+      endedGuard.current = false;
       const playPromise = a.play();
       if (playPromise) {
         playPromise.then(() => {
@@ -187,7 +203,8 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     };
 
     const onEnded = () => {
-      console.log('[SoundAura] Song ended, calling playNext...');
+      if (endedGuard.current) return;
+      endedGuard.current = true;
       if (playNextRef.current) playNextRef.current();
     };
 

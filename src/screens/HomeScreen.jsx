@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { searchSongs, searchSaavn } from '../utils/api';
+import { searchSaavn } from '../utils/api';
 import { HOME_SECTIONS } from '../utils/constants';
 
 function SectionRow({ sec, currentSong, isPlaying, playSong, downloadSong, downloadedIds, downloadingIds }) {

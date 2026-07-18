@@ -292,12 +292,12 @@ export const Storage = {
       const request = store.put(song);
       
       request.onsuccess = () => {
-        // Backup metadata (without blob) to localStorage
         Storage.getDownloadedSongs().then(all => {
           const slim = all.map(s => ({
             id: s.id, title: s.title, artist: s.artist,
             album: s.album, duration: s.duration,
             coverUrl: s.coverUrl, audioUrl: s.audioUrl,
+            rawAudioUrls: s.rawAudioUrls,
           }));
           try { localStorage.setItem(LS_DOWNLOADS_KEY, JSON.stringify(slim)); } catch {}
         }).catch(() => {});
@@ -321,6 +321,7 @@ export const Storage = {
             id: s.id, title: s.title, artist: s.artist,
             album: s.album, duration: s.duration,
             coverUrl: s.coverUrl, audioUrl: s.audioUrl,
+            rawAudioUrls: s.rawAudioUrls || [],
           }));
           try { localStorage.setItem(LS_DOWNLOADS_KEY, JSON.stringify(slim)); } catch {}
         }).catch(() => {});
@@ -341,6 +342,7 @@ export const Storage = {
         id: s.id, title: s.title, artist: s.artist,
         album: s.album, duration: s.duration,
         coverUrl: s.coverUrl, audioUrl: s.audioUrl,
+        rawAudioUrls: s.rawAudioUrls,
       })),
       exportedAt: new Date().toISOString()
     };

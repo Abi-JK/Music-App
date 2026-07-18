@@ -5,6 +5,7 @@ import { searchSongs } from '../utils/api';
 export default function Topbar({ q, setQ, activeLang, setLang, onSearch }) {
   const [sugs, setSugs] = useState([]);
   const [showSugs, setShowSugs] = useState(false);
+  const [sugLoading, setSugLoading] = useState(false);
   const timerRef = useRef(null);
   const wrapRef = useRef(null);
   const inputRef = useRef(null);
@@ -19,9 +20,10 @@ export default function Topbar({ q, setQ, activeLang, setLang, onSearch }) {
     setQ(val);
     if (timerRef.current) clearTimeout(timerRef.current);
     if (!val.trim()) { setSugs([]); setShowSugs(false); return; }
+    setSugLoading(true);
     timerRef.current = setTimeout(() => {
-      searchSongs(val, 8).then(s => { setSugs(s); setShowSugs(true); }).catch(() => {});
-    }, 350);
+      searchSongs(val, 8).then(s => { setSugs(s); setShowSugs(true); setSugLoading(false); }).catch(() => setSugLoading(false));
+    }, 200);
   };
 
   const pickSugg = (s) => {
@@ -49,14 +51,15 @@ export default function Topbar({ q, setQ, activeLang, setLang, onSearch }) {
             value={q}
             onChange={e => onInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { handleSearch(); } }}
-            placeholder="Search songs, artists, genres..."
+            placeholder="Search songs, artists, movies..."
             onFocus={() => sugs.length && setShowSugs(true)}
+            autoComplete="off"
           />
           {q && <button className="clear-btn" onClick={() => { setQ(''); setSugs([]); setShowSugs(false); }}>✕</button>}
         </div>
-        {showSugs && sugs.length > 0 && (
+        {showSugs && (sugs.length > 0 || sugLoading) && (
           <div className="suggestions">
-            <div className="sugg-header">Suggestions</div>
+            <div className="sugg-header">{sugLoading ? 'Searching...' : 'Suggestions'}</div>
             {sugs.slice(0, 8).map(s => (
               <div key={s.id} className="suggestion-item" onClick={() => pickSugg(s)}>
                 {s.coverUrl ? <img src={s.coverUrl} alt="" /> : <div className="s-ph">🎵</div>}
@@ -66,6 +69,7 @@ export default function Topbar({ q, setQ, activeLang, setLang, onSearch }) {
                 </div>
               </div>
             ))}
+            {sugLoading && sugs.length === 0 && <div className="suggestion-item"><div className="s-info"><p>Searching...</p></div></div>}
           </div>
         )}
       </div>
