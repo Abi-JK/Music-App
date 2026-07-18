@@ -81,7 +81,7 @@ export default defineConfig({
         },
         // JioSaavn API — network-first
         {
-          urlPattern: /^https:\/\/(saavn\.sumit\.co|jiosaavn-api\.vercel\.app)/,
+          urlPattern: /^https:\/\/(saavn\.sumit\.co|api\.jiosaavn\.com|jiosaavn-api\.vercel\.app)/,
           handler: 'NetworkFirst',
           options: {
             cacheName: 'jiosaavn-api-cache',
@@ -122,7 +122,7 @@ export default defineConfig({
           },
           // Lyrics APIs — network-first with cache fallback
           {
-            urlPattern: /^https:\/\/(lrclib\.net|api\.lyrics\.ovh)/,
+            urlPattern: /^https:\/\/(lrclib\.net|api\.lyrics\.ovh|music\.163\.com)/,
             handler: 'NetworkFirst',
             options: {
               cacheName: 'lyrics-api-cache',

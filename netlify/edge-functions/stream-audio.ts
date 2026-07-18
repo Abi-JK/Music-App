@@ -1,5 +1,4 @@
 export default async (request: Request) => {
-  // Handle CORS preflight
   if (request.method === 'OPTIONS') {
     return new Response(null, {
       status: 204,
@@ -24,10 +23,11 @@ export default async (request: Request) => {
 
   const allowedDomains = [
     'saavncdn.com', 'jiocdn.in', 'saavn.me', 'jioinsights.mediacdn.com',
-    'aac.saavncdn.com', 'c.saavncdn.com',
+    'aac.saavncdn.com', 'c.saavncdn.com', 'hls.saavncdn.com',
     'youtube.com', 'yt3.ggpht.com', 'i.ytimg.com',
     'googlevideo.com', 'rr1---', 'rr2---', 'rr3---', 'rr4---', 'rr5---',
-    'manifest.googlevideo.com',
+    'manifest.googlevideo.com', 'videoplayback',
+    'soundcloud.com', 'sndcdn.com',
   ];
   const isAllowed = allowedDomains.some(d => audioUrl.includes(d));
   if (!isAllowed) {
@@ -46,7 +46,7 @@ export default async (request: Request) => {
   fetchHeaders['Accept-Encoding'] = 'identity';
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 25000);
+  const timeout = setTimeout(() => controller.abort(), 30000);
 
   try {
     const res = await fetch(audioUrl, {

@@ -9,6 +9,7 @@ export default function Topbar({ q, setQ, activeLang, setLang, onSearch }) {
   const timerRef = useRef(null);
   const wrapRef = useRef(null);
   const inputRef = useRef(null);
+  const searchActiveRef = useRef(false);
 
   useEffect(() => {
     const handler = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setShowSugs(false); };
@@ -19,24 +20,35 @@ export default function Topbar({ q, setQ, activeLang, setLang, onSearch }) {
   const onInput = (val) => {
     setQ(val);
     if (timerRef.current) clearTimeout(timerRef.current);
-    if (!val.trim()) { setSugs([]); setShowSugs(false); return; }
+    if (!val.trim()) { setSugs([]); setShowSugs(false); setSugLoading(false); return; }
+    if (searchActiveRef.current) return;
     setSugLoading(true);
     timerRef.current = setTimeout(() => {
-      searchSongs(val, 8).then(s => { setSugs(s); setShowSugs(true); setSugLoading(false); }).catch(() => setSugLoading(false));
-    }, 200);
+      if (searchActiveRef.current) return;
+      searchSongs(val, 8).then(s => {
+        if (!searchActiveRef.current) { setSugs(s); setShowSugs(true); }
+        setSugLoading(false);
+      }).catch(() => setSugLoading(false));
+    }, 300);
   };
 
   const pickSugg = (s) => {
+    searchActiveRef.current = true;
+    if (timerRef.current) clearTimeout(timerRef.current);
     setShowSugs(false);
     setSugs([]);
     setQ(s.title);
     onSearch(s.title);
+    setTimeout(() => { searchActiveRef.current = false; }, 500);
   };
 
   const handleSearch = () => {
+    searchActiveRef.current = true;
+    if (timerRef.current) clearTimeout(timerRef.current);
     setShowSugs(false);
     const val = inputRef.current ? inputRef.current.value : q;
     onSearch(val);
+    setTimeout(() => { searchActiveRef.current = false; }, 500);
   };
 
   return (
@@ -49,13 +61,13 @@ export default function Topbar({ q, setQ, activeLang, setLang, onSearch }) {
           <input
             ref={inputRef}
             value={q}
-            onChange={e => onInput(e.target.value)}
+            onChange={e => { searchActiveRef.current = false; onInput(e.target.value); }}
             onKeyDown={e => { if (e.key === 'Enter') { handleSearch(); } }}
-            placeholder="Search songs, artists, movies..."
-            onFocus={() => sugs.length && setShowSugs(true)}
+            placeholder="Search songs, artists, movies, albums..."
+            onFocus={() => { if (!searchActiveRef.current && sugs.length) setShowSugs(true); }}
             autoComplete="off"
           />
-          {q && <button className="clear-btn" onClick={() => { setQ(''); setSugs([]); setShowSugs(false); }}>✕</button>}
+          {q && <button className="clear-btn" onClick={() => { setQ(''); setSugs([]); setShowSugs(false); searchActiveRef.current = false; if (timerRef.current) clearTimeout(timerRef.current); }}>✕</button>}
         </div>
         {showSugs && (sugs.length > 0 || sugLoading) && (
           <div className="suggestions">

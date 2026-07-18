@@ -1,15 +1,14 @@
 // ---------------------------------------------------------------------------
-// SoundAura — JioSaavn primary + YouTube fallback for missing songs
+// SoundAura — JioSaavn primary + multiple API fallbacks
 // All audio proxied via Netlify Edge Function
 // ---------------------------------------------------------------------------
 
-const SAAVN_API = 'https://saavn.sumit.co/api';
-const SAAVN_FB = 'https://jiosaavn-api.vercel.app';
-const YT_PROXIES = [
-  'https://yt-dlp-api.onrender.com',
-  'https://yt-api.dnd.dev',
+const SAAVN_APIS = [
+  'https://saavn.sumit.co/api',
+  'https://api.jiosaavn.com',
 ];
-let activeYtProxy = 0;
+const SAAVN_FB = 'https://jiosaavn-api.vercel.app';
+const LRCLIB = 'https://lrclib.net';
 
 function streamProxy(cdnUrl) {
   if (!cdnUrl) return null;
@@ -22,26 +21,35 @@ function extractId(s) {
   return String(raw).replace(/^saavn-/, '');
 }
 
+async function fetchWithTimeout(url, opts = {}, timeoutMs = 8000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...opts, signal: ctrl.signal });
+    clearTimeout(t);
+    return res;
+  } catch {
+    clearTimeout(t);
+    return null;
+  }
+}
+
 async function fetchSongById(rawId) {
   if (!rawId) return null;
+  for (const api of SAAVN_APIS) {
+    try {
+      const res = await fetchWithTimeout(`${api}/songs/${rawId}`, {}, 6000);
+      if (res && res.ok) {
+        const data = await res.json();
+        const song = Array.isArray(data?.data) ? data.data[0] : data?.data;
+        if (song?.id) return song;
+        if (data?.data?.id) return data.data;
+      }
+    } catch {}
+  }
   try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 6000);
-    const res = await fetch(`${SAAVN_API}/songs/${rawId}`, { signal: ctrl.signal });
-    clearTimeout(t);
-    if (res.ok) {
-      const data = await res.json();
-      const song = Array.isArray(data?.data) ? data.data[0] : data?.data;
-      if (song?.id) return song;
-      if (data?.data?.id) return data.data;
-    }
-  } catch {}
-  try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 6000);
-    const res = await fetch(`${SAAVN_FB}/song?id=${rawId}`, { signal: ctrl.signal });
-    clearTimeout(t);
-    if (res.ok) {
+    const res = await fetchWithTimeout(`${SAAVN_FB}/song?id=${rawId}`, {}, 6000);
+    if (res && res.ok) {
       const d = await res.json();
       const song = Array.isArray(d?.songs) ? d.songs[0] : d;
       if (song?.id || song?.song) return song;
@@ -53,17 +61,16 @@ async function fetchSongById(rawId) {
 
 async function fetchBatchByIds(ids) {
   if (!ids.length) return [];
-  try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 10000);
-    const res = await fetch(`${SAAVN_API}/songs/${ids.join(',')}`, { signal: ctrl.signal });
-    clearTimeout(t);
-    if (res.ok) {
-      const data = await res.json();
-      const list = data?.data?.songs || (Array.isArray(data?.data) ? data.data : []);
-      if (list.length > 0) return list;
-    }
-  } catch {}
+  for (const api of SAAVN_APIS) {
+    try {
+      const res = await fetchWithTimeout(`${api}/songs/${ids.join(',')}`, {}, 10000);
+      if (res && res.ok) {
+        const data = await res.json();
+        const list = data?.data?.songs || (Array.isArray(data?.data) ? data.data : []);
+        if (list.length > 0) return list;
+      }
+    } catch {}
+  }
   const results = await Promise.allSettled(ids.map(id => fetchSongById(id)));
   return results.filter(r => r.status === 'fulfilled' && r.value).map(r => r.value);
 }
@@ -83,6 +90,7 @@ function normalizeSong(s) {
   else if (s.singers) artists = s.singers;
   else if (typeof s.primary_artists === 'string') artists = s.primary_artists;
   else if (s.more_info?.singers) artists = s.more_info.singers;
+  else if (s.artist) artists = s.artist;
   const album = s.album?.name || s.album || '';
   const year = s.year || s.releaseDate || '';
   let coverUrl = null;
@@ -95,15 +103,19 @@ function normalizeSong(s) {
   const url160 = downloadUrls.find(u => u.quality === '160kbps')?.url || s.media_url || null;
   const url96 = downloadUrls.find(u => u.quality === '96kbps')?.url || null;
   const rawAudio = url320 || url160 || url96 || s.more_info?.vlink || null;
-  if (!rawAudio) return null;
   const rawId = extractId(s);
+  if (!rawAudio) return {
+    id: `saavn-${rawId}`,
+    title: s.name || s.song || s.title || 'Unknown',
+    artist: artists, album, year, duration: dur, coverUrl,
+    audioUrl: null, allAudioUrls: [], rawAudioUrls: [],
+    genre: s.language || s.more_info?.language || '',
+    source: 'saavn', downloadable: false, _saavnId: rawId,
+  };
   return {
     id: `saavn-${rawId}`,
     title: s.name || s.song || s.title || 'Unknown',
-    artist: artists,
-    album, year,
-    duration: dur,
-    coverUrl,
+    artist: artists, album, year, duration: dur, coverUrl,
     audioUrl: streamProxy(rawAudio),
     allAudioUrls: [
       ...(url320 ? [{ quality: '320kbps', url: streamProxy(url320) }] : []),
@@ -116,9 +128,7 @@ function normalizeSong(s) {
       ...(url96 ? [{ quality: '96kbps', url: url96 }] : []),
     ],
     genre: s.language || s.more_info?.language || '',
-    source: 'saavn',
-    downloadable: true,
-    _saavnId: rawId,
+    source: 'saavn', downloadable: true, _saavnId: rawId,
   };
 }
 
@@ -156,16 +166,12 @@ async function searchYouTube(query, limit = 10) {
       query,
       params: 'EgIQAQ%3D%3D',
     };
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 10000);
-    const res = await fetch('https://music.youtube.com/youtubei/v1/search?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8', {
+    const res = await fetchWithTimeout('https://music.youtube.com/youtubei/v1/search?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'User-Agent': 'com.google.android.apps.youtube.music/6.42.52' },
       body: JSON.stringify(body),
-      signal: ctrl.signal,
-    });
-    clearTimeout(t);
-    if (!res.ok) return [];
+    }, 10000);
+    if (!res || !res.ok) return [];
     const data = await res.json();
     const str = JSON.stringify(data);
     const videoIds = [];
@@ -184,15 +190,10 @@ async function searchYouTube(query, limit = 10) {
     }
     const results = [];
     for (let i = 0; i < Math.min(videoIds.length, limit); i++) {
-      const vid = videoIds[i];
-      const title = titles[i] || 'Unknown';
       results.push({
-        id: vid,
-        title: title,
-        channel: '',
-        thumbnail: `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`,
-        duration: 0,
-        url: null,
+        id: videoIds[i], title: titles[i] || 'Unknown', channel: '',
+        thumbnail: `https://i.ytimg.com/vi/${videoIds[i]}/hqdefault.jpg`,
+        duration: 0, url: null,
       });
     }
     return results.map(normalizeYtResult).filter(Boolean).filter(s => s.duration > 10 || s.audioUrl);
@@ -200,24 +201,20 @@ async function searchYouTube(query, limit = 10) {
   return [];
 }
 
-async function fetchSaavnSearch(query, limit) {
+async function fetchSaavnSearchRaw(query, limit) {
+  for (const api of SAAVN_APIS) {
+    try {
+      const res = await fetchWithTimeout(`${api}/search/songs?query=${encodeURIComponent(query)}&limit=${limit}`, {}, 10000);
+      if (res && res.ok) {
+        const data = await res.json();
+        const results = data?.data?.results || [];
+        if (results.length > 0) return results;
+      }
+    } catch {}
+  }
   try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 10000);
-    const res = await fetch(`${SAAVN_API}/search/songs?query=${encodeURIComponent(query)}&limit=${limit}`, { signal: ctrl.signal });
-    clearTimeout(t);
-    if (res.ok) {
-      const data = await res.json();
-      const results = data?.data?.results || [];
-      if (results.length > 0) return results;
-    }
-  } catch {}
-  try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 10000);
-    const res = await fetch(`${SAAVN_FB}/search?query=${encodeURIComponent(query)}&limit=${limit}`, { signal: ctrl.signal });
-    clearTimeout(t);
-    if (res.ok) {
+    const res = await fetchWithTimeout(`${SAAVN_FB}/search?query=${encodeURIComponent(query)}&limit=${limit}`, {}, 10000);
+    if (res && res.ok) {
       const data = await res.json();
       const results = data?.results || [];
       if (results.length === 0) return [];
@@ -229,24 +226,94 @@ async function fetchSaavnSearch(query, limit) {
       return results.map(r => ({
         id: r.id,
         name: r.title || r.name,
-        duration: 0,
-        image: r.images ? Object.entries(r.images).map(([quality, url]) => ({ quality: quality.replace('x', 'x'), url })) : (r.image ? [{ quality: '150x150', url: r.image }] : []),
-        downloadUrl: [],
+        duration: r.duration || 0,
+        image: r.images ? Object.entries(r.images).map(([q, url]) => ({ quality: q.replace('x', 'x'), url })) : (r.image ? [{ quality: '150x150', url: r.image }] : []),
+        downloadUrl: r.download_url ? [{ quality: '320kbps', url: r.download_url }] : [],
         artists: { primary: r.more_info?.singers ? r.more_info.singers.split(', ').map(name => ({ name, role: 'singer' })) : [] },
         album: { name: r.album || '' },
         language: r.more_info?.language || '',
-        name: r.title || r.name,
       }));
     }
   } catch {}
   return [];
 }
 
-async function searchAndResolve(query, limit = 30) {
-  const searchResults = await fetchSaavnSearch(query, limit);
+async function fetchSaavnAlbums(query, limit) {
+  for (const api of SAAVN_APIS) {
+    try {
+      const res = await fetchWithTimeout(`${api}/search/albums?query=${encodeURIComponent(query)}&limit=${limit}`, {}, 10000);
+      if (res && res.ok) {
+        const data = await res.json();
+        const albums = data?.data?.results || [];
+        if (albums.length > 0) {
+          const albumIds = albums.map(a => a.id).filter(Boolean);
+          const allSongs = [];
+          for (const aid of albumIds.slice(0, 3)) {
+            for (const api2 of SAAVN_APIS) {
+              try {
+                const aRes = await fetchWithTimeout(`${api2}/albums/${aid}`, {}, 8000);
+                if (aRes && aRes.ok) {
+                  const aData = await aRes.json();
+                  const songs = aData?.data?.songs || [];
+                  if (songs.length > 0) { allSongs.push(...songs); break; }
+                }
+              } catch {}
+            }
+          }
+          return allSongs;
+        }
+      }
+    } catch {}
+  }
+  try {
+    const res = await fetchWithTimeout(`${SAAVN_FB}/album?id=${query}`, {}, 8000);
+    if (res && res.ok) {
+      const data = await res.json();
+      return data?.songs || [];
+    }
+  } catch {}
+  return [];
+}
 
+async function searchAndResolve(query, limit = 30) {
+  const searchResults = await fetchSaavnSearchRaw(query, limit);
   const normalized = searchResults.map(normalizeSong).filter(Boolean);
   const withAudio = normalized.filter(s => s.audioUrl);
+
+  if (withAudio.length >= 3) return withAudio;
+
+  const altQueries = [];
+  if (!query.toLowerCase().includes('songs')) altQueries.push(`${query} songs`);
+  if (!query.toLowerCase().includes('hits')) altQueries.push(`${query} hits`);
+  if (!query.toLowerCase().includes('album')) altQueries.push(`${query} album`);
+
+  for (const alt of altQueries) {
+    const altResults = await fetchSaavnSearchRaw(alt, Math.min(limit, 20));
+    const altNorm = altResults.map(normalizeSong).filter(Boolean).filter(s => s.audioUrl);
+    for (const s of altNorm) {
+      if (!withAudio.some(x => x.id === s.id)) withAudio.push(s);
+    }
+    if (withAudio.length >= limit) break;
+  }
+
+  if (withAudio.length < 3) {
+    const albumSongs = await fetchSaavnAlbums(query, 3);
+    for (const raw of albumSongs) {
+      const norm = normalizeSong(raw);
+      if (norm && norm.audioUrl && !withAudio.some(x => x.id === norm.id)) withAudio.push(norm);
+    }
+  }
+
+  if (withAudio.length < 3) {
+    const cleanQuery = query.replace(/songs|hits|album|classic/gi, '').trim();
+    if (cleanQuery && cleanQuery !== query) {
+      const extraResults = await fetchSaavnSearchRaw(cleanQuery, Math.min(limit, 20));
+      const extraNorm = extraResults.map(normalizeSong).filter(Boolean).filter(s => s.audioUrl);
+      for (const s of extraNorm) {
+        if (!withAudio.some(x => x.id === s.id)) withAudio.push(s);
+      }
+    }
+  }
 
   if (withAudio.length >= 3) return withAudio;
 
@@ -263,7 +330,7 @@ async function searchAndResolve(query, limit = 30) {
 export async function searchSongs(query, limit = 40) {
   const results = await Promise.race([
     searchAndResolve(query, Math.min(limit, 50)),
-    new Promise(resolve => setTimeout(() => resolve([]), 20000)),
+    new Promise(resolve => setTimeout(() => resolve([]), 25000)),
   ]);
   return dedupe(results || []);
 }
@@ -273,7 +340,7 @@ export async function searchSaavn(query, limit = 20) {
 }
 
 export async function searchArtistSongs(artistName, limit = 50) {
-  const queries = [`${artistName} songs`, `${artistName} hits`, `${artistName} album`];
+  const queries = [`${artistName} songs`, `${artistName} hits`, `${artistName} album`, artistName, `${artistName} tamil`, `${artistName} hindi`];
   const results = [];
   for (const q of queries) {
     const batch = await searchSongs(q, Math.ceil(limit / queries.length));
@@ -315,40 +382,27 @@ export async function retrySaavnSong(song) {
 export { fetchSongById };
 
 async function proxyLyrics(rawId) {
+  for (const api of SAAVN_APIS) {
+    try {
+      const res = await fetchWithTimeout(`${api}/songs/${rawId}/lyrics`, {}, 8000);
+      if (res && res.ok) {
+        const data = await res.json();
+        const lyrics = data?.data?.lyrics || data?.lyrics || null;
+        if (lyrics) {
+          const clean = lyrics.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '').trim();
+          if (clean.length > 10) return clean;
+        }
+      }
+    } catch {}
+  }
   try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 8000);
-    const res = await fetch(`${SAAVN_FB}/lyrics?id=${rawId}`, { signal: ctrl.signal });
-    clearTimeout(t);
-    if (res.ok) {
+    const res = await fetchWithTimeout(`${SAAVN_FB}/lyrics?id=${rawId}`, {}, 8000);
+    if (res && res.ok) {
       const data = await res.json();
       const lyrics = data?.lyrics || null;
-      if (lyrics) return lyrics.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '').trim();
-    }
-  } catch {}
-  try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 8000);
-    const res = await fetch(`${SAAVN_API}/songs/${rawId}/lyrics`, { signal: ctrl.signal });
-    clearTimeout(t);
-    if (res.ok) {
-      const data = await res.json();
-      const lyrics = data?.data?.lyrics || null;
-      if (lyrics) return lyrics.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '').trim();
-    }
-  } catch {}
-  try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 8000);
-    const res = await fetch(`${SAAVN_API}/songs/${rawId}`, { signal: ctrl.signal });
-    clearTimeout(t);
-    if (res.ok) {
-      const data = await res.json();
-      const song = Array.isArray(data?.data) ? data.data[0] : data?.data;
-      if (song?.name) {
-        const artist = song.artists?.primary?.[0]?.name || song.primaryArtists || '';
-        const lrclib = await tryLrclib(artist, song.name);
-        if (lrclib) return lrclib;
+      if (lyrics) {
+        const clean = lyrics.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]*>/g, '').trim();
+        if (clean.length > 10) return clean;
       }
     }
   } catch {}
@@ -359,11 +413,8 @@ const tryLrclib = async (artist, title) => {
   try {
     const params = new URLSearchParams({ track_name: title });
     if (artist) params.set('artist_name', artist);
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 8000);
-    const res = await fetch(`https://lrclib.net/api/search?${params.toString()}`, { signal: ctrl.signal });
-    clearTimeout(t);
-    if (res.ok) {
+    const res = await fetchWithTimeout(`${LRCLIB}/api/search?${params.toString()}`, {}, 8000);
+    if (res && res.ok) {
       const data = await res.json();
       if (Array.isArray(data) && data.length > 0) {
         const best = data.find(l => l.syncedLyrics) || data[0];
@@ -374,15 +425,47 @@ const tryLrclib = async (artist, title) => {
   return null;
 };
 
+const tryLrclibGet = async (artist, title) => {
+  try {
+    const params = new URLSearchParams({});
+    if (artist) params.set('artist_name', artist);
+    params.set('track_name', title);
+    const res = await fetchWithTimeout(`${LRCLIB}/api/get?${params.toString()}`, {}, 8000);
+    if (res && res.ok) {
+      const data = await res.json();
+      if (data) return data.syncedLyrics || data.plainLyrics || null;
+    }
+  } catch {}
+  return null;
+};
+
 const tryLyricsOvh = async (artist, title) => {
   try {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 6000);
-    const res = await fetch(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`, { signal: ctrl.signal });
-    clearTimeout(t);
-    if (res.ok) {
+    const res = await fetchWithTimeout(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`, {}, 6000);
+    if (res && res.ok) {
       const data = await res.json();
       return data?.lyrics || null;
+    }
+  } catch {}
+  return null;
+};
+
+const tryNetease = async (artist, title) => {
+  try {
+    const q = `${artist} ${title}`.trim();
+    const res = await fetchWithTimeout(`https://music.163.com/api/search/get/web?s=${encodeURIComponent(q)}&type=1&limit=3`, {}, 6000);
+    if (res && res.ok) {
+      const data = await res.json();
+      const songs = data?.result?.songs || [];
+      if (songs.length > 0) {
+        const songId = songs[0].id;
+        const lrcRes = await fetchWithTimeout(`https://music.163.com/api/song/lyric?id=${songId}&lv=1`, {}, 6000);
+        if (lrcRes && lrcRes.ok) {
+          const lrcData = await lrcRes.json();
+          const lrc = lrcData?.lrc?.lyric;
+          if (lrc && lrc.length > 10) return lrc;
+        }
+      }
     }
   } catch {}
   return null;
@@ -396,30 +479,42 @@ export async function fetchLyrics(songId, songTitle, artistName) {
   }
 
   if (!songTitle) return null;
+
   const cleanArtist = artistName ? artistName.split(',')[0].split('&')[0].trim() : '';
-  const cleanTitle = songTitle.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').replace(/feat\.?.*/i, '').replace(/ft\.?.*/i, '').replace(/-\s*(Remix|Version|Edited|Reprise|Unplugged|Live|Acoustic|Club|Extended|Remastered|Original).*/i, '').replace(/\d{4}/g, '').trim();
+  const cleanTitle = songTitle
+    .replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '')
+    .replace(/feat\.?.*/i, '').replace(/ft\.?.*/i, '')
+    .replace(/-\s*(Remix|Version|Edited|Reprise|Unplugged|Live|Acoustic|Club|Extended|Remastered|Original).*/i, '')
+    .replace(/\d{4}/g, '').trim();
 
   if (!cleanTitle) return null;
 
-  const directLrclib = await tryLrclib(cleanArtist, cleanTitle);
-  if (directLrclib) return directLrclib;
+  const simpler = songTitle.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').replace(/feat\.?.*/i, '').replace(/ft\.?.*/i, '').trim();
 
   const titleVariations = [cleanTitle];
-  const simpler = songTitle.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').trim();
   if (simpler && simpler !== cleanTitle) titleVariations.push(simpler);
+  if (songTitle !== cleanTitle && songTitle !== simpler) titleVariations.push(songTitle);
 
   for (const title of titleVariations) {
-    const lyrics = await tryLrclib(cleanArtist, title);
-    if (lyrics) return lyrics;
+    const lrclib = await tryLrclib(cleanArtist, title);
+    if (lrclib) return lrclib;
+  }
+  for (const title of titleVariations) {
+    const lrclibGet = await tryLrclibGet(cleanArtist, title);
+    if (lrclibGet) return lrclibGet;
   }
   for (const title of titleVariations) {
     if (!cleanArtist) continue;
-    const lyrics = await tryLyricsOvh(cleanArtist, title);
-    if (lyrics) return lyrics;
+    const ovh = await tryLyricsOvh(cleanArtist, title);
+    if (ovh) return ovh;
   }
   for (const title of titleVariations) {
-    const lyrics = await tryLrclib('', title);
-    if (lyrics) return lyrics;
+    const netease = await tryNetease(cleanArtist, title);
+    if (netease) return netease;
+  }
+  for (const title of titleVariations) {
+    const lrclib = await tryLrclib('', title);
+    if (lrclib) return lrclib;
   }
   return null;
 }

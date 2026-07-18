@@ -3,34 +3,39 @@ import { formatTime } from '../utils/helpers';
 
 export default function SearchScreen({ searchResults, searchLoading, searched, currentSong, isPlaying, playSong, toggleLike, liked, downloadSong, downloadedIds, downloadingIds, onOpenArtist }) {
   if (searchLoading) return (
-    <div className="spinner-wrap"><div className="spinner" /><p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Searching...</p></div>
+    <div className="spinner-wrap"><div className="spinner" /><p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Searching all languages...</p></div>
   );
 
   if (!searched) return (
     <div className="empty">
       <div style={{ fontSize: 48 }}>🔍</div>
-      <h3>Search songs, movies, artists</h3>
-      <p>Type anything to find music in all languages</p>
+      <h3>Search songs, movies, artists, albums</h3>
+      <p>Type anything to find music in all Indian languages</p>
     </div>
   );
 
   if (!searchResults.length) return (
     <div className="empty">
       <h3>No results found</h3>
-      <p>Try a different query</p>
+      <p>Try a different query or check your connection</p>
     </div>
   );
 
   const topArtist = searchResults.length > 0 ? searchResults[0].artist : null;
-  const artistCount = searchResults.filter(s => s.artist === topArtist).length;
+  const artistCount = topArtist ? searchResults.filter(s => s.artist === topArtist).length : 0;
+
+  const playable = searchResults.filter(s => s.audioUrl);
+  const nonPlayable = searchResults.filter(s => !s.audioUrl);
 
   const playAll = () => {
-    if (searchResults.length > 0) playSong(searchResults[0], searchResults, 0);
+    const list = playable.length > 0 ? playable : searchResults;
+    if (list.length > 0) playSong(list[0], list, 0);
   };
 
   const shufflePlay = () => {
-    if (searchResults.length === 0) return;
-    const shuffled = [...searchResults].sort(() => Math.random() - 0.5);
+    const list = playable.length > 0 ? playable : searchResults;
+    if (list.length === 0) return;
+    const shuffled = [...list].sort(() => Math.random() - 0.5);
     playSong(shuffled[0], shuffled, 0);
   };
 
@@ -75,10 +80,11 @@ export default function SearchScreen({ searchResults, searchLoading, searched, c
           const isLiked = liked ? liked(song.id) : false;
           const isDownloaded = downloadedIds ? downloadedIds.includes(song.id) : false;
           const isDownloading = downloadingIds ? downloadingIds.includes(song.id) : false;
+          const noAudio = !song.audioUrl;
           return (
-            <div key={song.id} className={`song-row ${isActive ? 'now-playing' : ''}`}
-              onClick={() => playSong(song, searchResults, i)}
-              title={`${song.title} — ${song.artist}`}>
+            <div key={song.id} className={`song-row ${isActive ? 'now-playing' : ''} ${noAudio ? 'song-row-disabled' : ''}`}
+              onClick={() => { if (!noAudio) playSong(song, searchResults, i); }}
+              title={`${song.title} — ${song.artist}${noAudio ? ' (audio unavailable)' : ''}`}>
               <span className="row-num">
                 {isActive && isPlaying ? <div className="eq"><span /><span /><span /></div> : i + 1}
               </span>
@@ -90,7 +96,7 @@ export default function SearchScreen({ searchResults, searchLoading, searched, c
                 </div>
               </div>
               <span className="row-album" title={song.album || ''}>{song.album || '—'}</span>
-              <span className="row-dur">{formatTime(song.duration)}</span>
+              <span className="row-dur">{song.duration ? formatTime(song.duration) : '—'}</span>
               <div className="row-acts">
                 {toggleLike && (
                   <button className="icon-btn" onClick={(e) => { e.stopPropagation(); toggleLike(song); }}
@@ -98,7 +104,7 @@ export default function SearchScreen({ searchResults, searchLoading, searched, c
                     {isLiked ? '❤️' : '🤍'}
                   </button>
                 )}
-                {downloadSong && (
+                {downloadSong && song.audioUrl && (
                   <button
                     className="icon-btn"
                     onClick={(e) => { e.stopPropagation(); if (!isDownloaded && !isDownloading) downloadSong(song); }}
