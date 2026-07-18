@@ -143,21 +143,60 @@ function normalizeYtResult(item) {
 }
 
 async function searchYouTube(query, limit = 10) {
-  for (let attempt = 0; attempt < YT_PROXIES.length; attempt++) {
-    const proxy = YT_PROXIES[(activeYtProxy + attempt) % YT_PROXIES.length];
-    try {
-      const ctrl = new AbortController();
-      const t = setTimeout(() => ctrl.abort(), 10000);
-      const res = await fetch(`${proxy}/api/search?q=${encodeURIComponent(query)}&type=video&count=${limit}`, { signal: ctrl.signal });
-      clearTimeout(t);
-      if (res.ok) {
-        const data = await res.json();
-        const items = data?.videos || data?.results || data?.items || [];
-        const mapped = items.map(normalizeYtResult).filter(Boolean).filter(s => s.audioUrl && s.duration > 30);
-        if (mapped.length > 0) { activeYtProxy = (activeYtProxy + attempt) % YT_PROXIES.length; return mapped; }
+  try {
+    const body = {
+      context: {
+        client: {
+          clientName: 'ANDROID_MUSIC',
+          clientVersion: '6.42.52',
+          hl: 'en', gl: 'IN',
+          androidSdkVersion: 30,
+        }
+      },
+      query,
+      params: 'EgIQAQ%3D%3D',
+    };
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 10000);
+    const res = await fetch('https://music.youtube.com/youtubei/v1/search?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'User-Agent': 'com.google.android.apps.youtube.music/6.42.52' },
+      body: JSON.stringify(body),
+      signal: ctrl.signal,
+    });
+    clearTimeout(t);
+    if (!res.ok) return [];
+    const data = await res.json();
+    const str = JSON.stringify(data);
+    const videoIds = [];
+    const re = /"videoId":"([A-Za-z0-9_-]{11})"/g;
+    let m;
+    while ((m = re.exec(str)) !== null) {
+      if (!videoIds.includes(m[1])) videoIds.push(m[1]);
+    }
+    if (videoIds.length === 0) return [];
+    const titles = [];
+    const titleRe = /"text":"([^"]{5,100})"/g;
+    while ((m = titleRe.exec(str)) !== null) {
+      if (!titles.includes(m[1]) && !m[1].includes('http') && !m[1].includes('Music')) {
+        titles.push(m[1]);
       }
-    } catch {}
-  }
+    }
+    const results = [];
+    for (let i = 0; i < Math.min(videoIds.length, limit); i++) {
+      const vid = videoIds[i];
+      const title = titles[i] || 'Unknown';
+      results.push({
+        id: vid,
+        title: title,
+        channel: '',
+        thumbnail: `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`,
+        duration: 0,
+        url: null,
+      });
+    }
+    return results.map(normalizeYtResult).filter(Boolean).filter(s => s.duration > 10 || s.audioUrl);
+  } catch {}
   return [];
 }
 

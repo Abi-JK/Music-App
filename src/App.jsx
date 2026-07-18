@@ -98,11 +98,29 @@ function AppContent() {
         }
       }
     };
+    const handlePageShow = (e) => {
+      if (e.persisted) {
+        const a = document.getElementById('main-audio');
+        if (a && a.paused && a.src && !a.ended) {
+          a.play().then(() => setIsPlaying(true)).catch(() => {});
+        }
+      }
+    };
+    const handleFocus = () => {
+      const a = document.getElementById('main-audio');
+      if (a && a.paused && a.src && !a.ended) {
+        a.play().then(() => setIsPlaying(true)).catch(() => {});
+      }
+    };
     document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('pageshow', handlePageShow);
+    window.addEventListener('focus', handleFocus);
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handler);
       document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('pageshow', handlePageShow);
+      window.removeEventListener('focus', handleFocus);
     };
   }, []);
 

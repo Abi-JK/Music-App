@@ -10,9 +10,31 @@ export default function DownloadsScreen({ downloadedSongs, currentSong, isPlayin
     </div>
   );
 
+  const playAll = () => {
+    if (downloadedSongs.length > 0) playSong(downloadedSongs[0], downloadedSongs, 0);
+  };
+
+  const shufflePlay = () => {
+    if (downloadedSongs.length === 0) return;
+    const shuffled = [...downloadedSongs].sort(() => Math.random() - 0.5);
+    playSong(shuffled[0], shuffled, 0);
+  };
+
   return (
     <div className="downloads-screen">
-      <h3 className="sec-title" style={{ marginBottom: 16 }}>📥 Downloaded Songs ({downloadedSongs.length})</h3>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+        <h3 className="sec-title" style={{ margin: 0 }}>📥 Downloaded ({downloadedSongs.length})</h3>
+        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+          <button className="icon-btn" onClick={playAll} title="Play All"
+            style={{ fontSize: 13, padding: '6px 14px', borderRadius: 20, background: 'var(--accent)', color: '#000', border: 'none', fontWeight: 700, cursor: 'pointer' }}>
+            ▶ Play All
+          </button>
+          <button className="icon-btn" onClick={shufflePlay} title="Shuffle Play"
+            style={{ fontSize: 13, padding: '6px 14px', borderRadius: 20, background: 'rgba(255,255,255,0.1)', color: 'var(--text)', border: 'none', fontWeight: 700, cursor: 'pointer' }}>
+            🔀 Shuffle
+          </button>
+        </div>
+      </div>
       <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 16 }}>
         These songs are saved on your device and work offline.
       </p>

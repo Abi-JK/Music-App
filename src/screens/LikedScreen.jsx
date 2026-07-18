@@ -10,9 +10,31 @@ export default function LikedScreen({ likedSongs, currentSong, isPlaying, playSo
     </div>
   );
 
+  const playAll = () => {
+    if (likedSongs.length > 0) playSong(likedSongs[0], likedSongs, 0);
+  };
+
+  const shufflePlay = () => {
+    if (likedSongs.length === 0) return;
+    const shuffled = [...likedSongs].sort(() => Math.random() - 0.5);
+    playSong(shuffled[0], shuffled, 0);
+  };
+
   return (
     <div className="liked-screen">
-      <h3 className="sec-title" style={{ marginBottom: 16 }}>❤️ Liked Songs ({likedSongs.length})</h3>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+        <h3 className="sec-title" style={{ margin: 0 }}>❤️ Liked Songs ({likedSongs.length})</h3>
+        <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+          <button className="icon-btn" onClick={playAll} title="Play All"
+            style={{ fontSize: 13, padding: '6px 14px', borderRadius: 20, background: 'var(--accent)', color: '#000', border: 'none', fontWeight: 700, cursor: 'pointer' }}>
+            ▶ Play All
+          </button>
+          <button className="icon-btn" onClick={shufflePlay} title="Shuffle Play"
+            style={{ fontSize: 13, padding: '6px 14px', borderRadius: 20, background: 'rgba(255,255,255,0.1)', color: 'var(--text)', border: 'none', fontWeight: 700, cursor: 'pointer' }}>
+            🔀 Shuffle
+          </button>
+        </div>
+      </div>
       <div className="song-table">
         <div className="table-head">
           <span>#</span><span>SONG</span><span>ALBUM</span><span>DURATION</span><span></span>

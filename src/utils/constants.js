@@ -49,4 +49,7 @@ export const HOME_SECTIONS = [
   { key: 'shankar',     label: 'Shankar-Ehsaan-Loy',      query: 'Shankar Ehsaan Loy' },
   { key: 'sadha',       label: 'Old Hindi Classics',      query: 'old hindi songs golden era' },
   { key: 'tamilold',    label: 'Tamil Old Hits',          query: 'tamil old song hits' },
+  { key: 'sanjith',     label: 'Sanjith Hegde',           query: 'Sanjith Hegde' },
+  { key: 'shreya_gh',   label: 'Shreya Ghoshal',          query: 'Shreya Ghoshal kannada' },
+  { key: 'sonu_kan',    label: 'Sonu Nigam Kannada',      query: 'Sonu Nigam kannada' },
 ];
