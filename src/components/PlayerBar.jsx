@@ -93,22 +93,11 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     }
 
     const buildAndLoad = async () => {
-      let freshUrls = null;
-      try { freshUrls = await fetchFreshUrls(currentSong); } catch {}
-
       const candidates = [];
       if (currentSong.audioBlob) {
         const blobUrl = URL.createObjectURL(currentSong.audioBlob);
         candidates.push({ url: blobUrl, type: 'blob' });
         blobUrls.current.push(blobUrl);
-      }
-      if (freshUrls?.allAudioUrls) {
-        for (const entry of freshUrls.allAudioUrls) {
-          if (entry.url) candidates.push({ url: entry.url, type: 'fresh-' + entry.quality });
-        }
-      }
-      if (freshUrls?.audioUrl && !candidates.some(c => c.url === freshUrls.audioUrl)) {
-        candidates.unshift({ url: freshUrls.audioUrl, type: 'fresh-primary' });
       }
       if (currentSong.audioUrl && !candidates.some(c => c.url === currentSong.audioUrl)) {
         candidates.push({ url: currentSong.audioUrl, type: 'existing' });
@@ -136,33 +125,6 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     const a = audioRef.current;
     if (!a || index >= urlList.current.length) {
       setLoading(false);
-      if (currentSong?.source === 'saavn' && currentSong?._saavnId && !currentSong._retried) {
-        currentSong._retried = true;
-        fetchFreshUrls(currentSong).then(fresh => {
-          if (fresh) {
-            const newCandidates = [];
-            if (fresh.allAudioUrls) {
-              for (const entry of fresh.allAudioUrls) {
-                if (entry.url) newCandidates.push({ url: entry.url, type: 'fresh-retry' });
-              }
-            }
-            if (fresh.audioUrl && !newCandidates.some(c => c.url === fresh.audioUrl)) {
-              newCandidates.unshift({ url: fresh.audioUrl, type: 'fresh-primary-retry' });
-            }
-            if (newCandidates.length > 0) {
-              urlList.current = newCandidates;
-              urlIndex.current = 0;
-              setLoading(true);
-              loadUrl(0);
-              return;
-            }
-          }
-          setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 500);
-        }).catch(() => {
-          setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 500);
-        });
-        return;
-      }
       setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 500);
       return;
     }
