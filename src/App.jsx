@@ -63,10 +63,29 @@ function AppContent() {
   const originalPlaylistRef = useRef([]);
   const shuffleRef = useRef(false);
   const autoPlayGenreRef = useRef(null);
+  const wakeLockRef = useRef(null);
 
   const currentSong = playlist[currentIndex] || null;
 
   useEffect(() => { shuffleRef.current = shuffleOn; }, [shuffleOn]);
+
+  const requestWakeLock = useCallback(async () => {
+    if ('wakeLock' in navigator) {
+      try {
+        wakeLockRef.current = await navigator.wakeLock.request('screen');
+        wakeLockRef.current.addEventListener('release', () => { wakeLockRef.current = null; });
+      } catch {}
+    }
+  }, []);
+
+  const reacquireWakeLock = useCallback(async () => {
+    if (wakeLockRef.current === null && 'wakeLock' in navigator) {
+      try {
+        wakeLockRef.current = await navigator.wakeLock.request('screen');
+        wakeLockRef.current.addEventListener('release', () => { wakeLockRef.current = null; });
+      } catch {}
+    }
+  }, []);
 
   useEffect(() => {
     Storage.requestPersistence().catch(console.error);
@@ -95,28 +114,34 @@ function AppContent() {
       if (a && a.paused && a.src && !a.ended && a.currentTime > 0) {
         a.play().then(() => setIsPlaying(true)).catch(() => {});
       }
+      reacquireWakeLock();
     };
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') resumeAudio();
     };
-    const handlePageShow = (e) => {
-      if (e.persisted) resumeAudio();
-    };
+    const handlePageShow = (e) => { if (e.persisted) resumeAudio(); };
     const handleFocus = () => resumeAudio();
-    const handleFreeze = () => {};
     document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('pageshow', handlePageShow);
     window.addEventListener('focus', handleFocus);
-    document.addEventListener('freeze', handleFreeze);
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handler);
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('pageshow', handlePageShow);
       window.removeEventListener('focus', handleFocus);
-      document.removeEventListener('freeze', handleFreeze);
+      if (wakeLockRef.current) wakeLockRef.current.release().catch(() => {});
     };
-  }, []);
+  }, [reacquireWakeLock]);
+
+  useEffect(() => {
+    if (isPlaying) {
+      requestWakeLock();
+    } else if (wakeLockRef.current) {
+      wakeLockRef.current.release().catch(() => {});
+      wakeLockRef.current = null;
+    }
+  }, [isPlaying, requestWakeLock]);
 
   const handleInstallApp = async () => {
     if (deferredPrompt) {
@@ -124,7 +149,7 @@ function AppContent() {
       const { outcome } = await deferredPrompt.userChoice;
       if (outcome === 'accepted') setDeferredPrompt(null);
     } else {
-      showToast('App is already installed or install is not supported on this browser. On iOS, tap Share > Add to Home Screen.');
+      showToast('To install: Open browser menu (⋮) → "Install app" or "Add to Home screen". This gives background playback + keeps your data safe.');
     }
   };
 
