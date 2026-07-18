@@ -125,7 +125,16 @@ function AppContent() {
     window.addEventListener('pageshow', handlePageShow);
     window.addEventListener('focus', handleFocus);
 
+    const heartbeat = setInterval(() => {
+      const a = document.getElementById('main-audio');
+      if (a && a.paused && a.src && !a.ended && a.currentTime > 0 && isPlayingRef.current) {
+        a.play().then(() => setIsPlaying(true)).catch(() => {});
+      }
+      reacquireWakeLock();
+    }, 15000);
+
     return () => {
+      clearInterval(heartbeat);
       window.removeEventListener('beforeinstallprompt', handler);
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('pageshow', handlePageShow);

@@ -50,6 +50,7 @@ export const HOME_SECTIONS = [
   { key: 'sadha',       label: 'Old Hindi Classics',      query: 'old hindi songs golden era' },
   { key: 'tamilold',    label: 'Tamil Old Hits',          query: 'tamil old song hits' },
   { key: 'sanjith',     label: 'Sanjith Hegde',           query: 'Sanjith Hegde' },
-  { key: 'shreya_gh',   label: 'Shreya Ghoshal',          query: 'Shreya Ghoshal kannada' },
+  { key: 'shreya_gh',   label: 'Shreya Ghoshal Kannada',  query: 'Shreya Ghoshal kannada' },
   { key: 'sonu_kan',    label: 'Sonu Nigam Kannada',      query: 'Sonu Nigam kannada' },
+  { key: 'mayavi',      label: 'Mayavi Kannada',          query: 'Maayavi Maayavi kannada' },
 ];
