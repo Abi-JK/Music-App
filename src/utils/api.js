@@ -276,11 +276,23 @@ async function fetchSaavnAlbums(query, limit) {
 }
 
 async function searchAndResolve(query, limit = 30) {
-  const searchResults = await fetchSaavnSearchRaw(query, limit);
+  const [searchResults, ytResults] = await Promise.all([
+    fetchSaavnSearchRaw(query, limit).catch(() => []),
+    searchYouTube(query, Math.min(limit, 15)).catch(() => []),
+  ]);
   const normalized = searchResults.map(normalizeSong).filter(Boolean);
   const withAudio = normalized.filter(s => s.audioUrl);
 
-  if (withAudio.length >= 3) return withAudio;
+  const ytSeen = new Set();
+  for (const s of ytResults) {
+    const key = `${(s.title || '').toLowerCase().trim()}|${(s.artist || '').toLowerCase().trim()}`;
+    if (!ytSeen.has(key) && !withAudio.some(x =>
+      (x.title || '').toLowerCase().trim() === (s.title || '').toLowerCase().trim()
+    )) {
+      ytSeen.add(key);
+      withAudio.push(s);
+    }
+  }
 
   const altQueries = [];
   if (!query.toLowerCase().includes('songs')) altQueries.push(`${query} songs`);
@@ -288,43 +300,58 @@ async function searchAndResolve(query, limit = 30) {
   if (!query.toLowerCase().includes('album')) altQueries.push(`${query} album`);
 
   for (const alt of altQueries) {
-    const altResults = await fetchSaavnSearchRaw(alt, Math.min(limit, 20));
+    const [altResults, altYt] = await Promise.all([
+      fetchSaavnSearchRaw(alt, Math.min(limit, 20)).catch(() => []),
+      searchYouTube(alt, Math.min(limit, 8)).catch(() => []),
+    ]);
     const altNorm = altResults.map(normalizeSong).filter(Boolean).filter(s => s.audioUrl);
     for (const s of altNorm) {
       if (!withAudio.some(x => x.id === s.id)) withAudio.push(s);
     }
+    for (const s of altYt) {
+      const key = `${(s.title || '').toLowerCase().trim()}|${(s.artist || '').toLowerCase().trim()}`;
+      if (!ytSeen.has(key) && !withAudio.some(x =>
+        (x.title || '').toLowerCase().trim() === (s.title || '').toLowerCase().trim()
+      )) {
+        ytSeen.add(key);
+        withAudio.push(s);
+      }
+    }
     if (withAudio.length >= limit) break;
   }
 
-  if (withAudio.length < 3) {
-    const albumSongs = await fetchSaavnAlbums(query, 3);
+  if (withAudio.length < 5) {
+    const albumSongs = await fetchSaavnAlbums(query, 3).catch(() => []);
     for (const raw of albumSongs) {
       const norm = normalizeSong(raw);
       if (norm && norm.audioUrl && !withAudio.some(x => x.id === norm.id)) withAudio.push(norm);
     }
   }
 
-  if (withAudio.length < 3) {
+  if (withAudio.length < 5) {
     const cleanQuery = query.replace(/songs|hits|album|classic/gi, '').trim();
     if (cleanQuery && cleanQuery !== query) {
-      const extraResults = await fetchSaavnSearchRaw(cleanQuery, Math.min(limit, 20));
+      const [extraResults, extraYt] = await Promise.all([
+        fetchSaavnSearchRaw(cleanQuery, Math.min(limit, 20)).catch(() => []),
+        searchYouTube(cleanQuery, Math.min(limit, 8)).catch(() => []),
+      ]);
       const extraNorm = extraResults.map(normalizeSong).filter(Boolean).filter(s => s.audioUrl);
       for (const s of extraNorm) {
         if (!withAudio.some(x => x.id === s.id)) withAudio.push(s);
       }
+      for (const s of extraYt) {
+        const key = `${(s.title || '').toLowerCase().trim()}|${(s.artist || '').toLowerCase().trim()}`;
+        if (!ytSeen.has(key) && !withAudio.some(x =>
+          (x.title || '').toLowerCase().trim() === (s.title || '').toLowerCase().trim()
+        )) {
+          ytSeen.add(key);
+          withAudio.push(s);
+        }
+      }
     }
   }
 
-  if (withAudio.length >= 3) return withAudio;
-
-  const ytResults = await searchYouTube(query, Math.min(limit, 10));
-  const seen = new Set();
-  const allSongs = [];
-  for (const s of [...withAudio, ...normalized.filter(s => !s.audioUrl), ...ytResults]) {
-    const key = `${(s.title || '').toLowerCase().trim()}|${(s.artist || '').toLowerCase().trim()}|${s.id || ''}`;
-    if (!seen.has(key)) { seen.add(key); allSongs.push(s); }
-  }
-  return allSongs;
+  return withAudio;
 }
 
 export async function searchSongs(query, limit = 40) {
@@ -339,8 +366,18 @@ export async function searchSaavn(query, limit = 20) {
   return searchSongs(query, limit);
 }
 
+export async function searchSaavnWithYoutube(query, limit = 20) {
+  return searchSongs(query, limit);
+}
+
 export async function searchArtistSongs(artistName, limit = 50) {
-  const queries = [`${artistName} songs`, `${artistName} hits`, `${artistName} album`, artistName, `${artistName} tamil`, `${artistName} hindi`];
+  const queries = [
+    `${artistName} songs`, `${artistName} hits`, `${artistName} album`,
+    artistName,
+    `${artistName} tamil`, `${artistName} hindi`, `${artistName} kannada`,
+    `${artistName} telugu`, `${artistName} malayalam`, `${artistName} bengali`,
+    `${artistName} punjabi`, `${artistName} marathi`,
+  ];
   const results = [];
   for (const q of queries) {
     const batch = await searchSongs(q, Math.ceil(limit / queries.length));
@@ -348,6 +385,11 @@ export async function searchArtistSongs(artistName, limit = 50) {
     if (results.length >= limit) break;
   }
   return dedupe(results).slice(0, limit);
+}
+
+export async function searchYouTubeAlbums(albumName, artistName = '', limit = 15) {
+  const query = artistName ? `${albumName} ${artistName} album` : `${albumName} album songs`;
+  return searchYouTube(query, limit);
 }
 
 export async function fetchFreshUrls(song) {

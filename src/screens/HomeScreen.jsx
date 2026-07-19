@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { searchSaavn } from '../utils/api';
 import { HOME_SECTIONS } from '../utils/constants';
 
@@ -38,6 +38,9 @@ function SectionRow({ sec, currentSong, isPlaying, playSong, downloadSong, downl
   );
 }
 
+const INITIAL_BATCH = 12;
+const LOAD_MORE_BATCH = 8;
+
 async function loadSaavnSection(sec) {
   try {
     const songs = await searchSaavn(sec.query, 10);
@@ -50,12 +53,16 @@ async function loadSaavnSection(sec) {
 export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyPlayed, downloadSong, downloadedIds, downloadingIds }) {
   const [sections, setSections] = useState({});
   const [loading, setLoading] = useState(true);
+  const [loadCount, setLoadCount] = useState(INITIAL_BATCH);
+  const scrollRef = useRef(null);
+  const loadingMoreRef = useRef(false);
 
-useEffect(() => {
+  useEffect(() => {
     let cancelled = false;
 
     (async () => {
-      const results = await Promise.all(HOME_SECTIONS.map(loadSaavnSection));
+      const initialSections = HOME_SECTIONS.slice(0, INITIAL_BATCH);
+      const results = await Promise.all(initialSections.map(loadSaavnSection));
 
       if (cancelled) return;
       const data = {};
@@ -67,10 +74,43 @@ useEffect(() => {
     return () => { cancelled = true; };
   }, []);
 
+  const loadMoreSections = useCallback(async () => {
+    if (loadingMoreRef.current) return;
+    if (loadCount >= HOME_SECTIONS.length) return;
+
+    loadingMoreRef.current = true;
+    const nextBatch = HOME_SECTIONS.slice(loadCount, loadCount + LOAD_MORE_BATCH);
+    const results = await Promise.all(nextBatch.map(loadSaavnSection));
+
+    setSections(prev => {
+      const data = { ...prev };
+      results.forEach(r => { data[r.key] = r; });
+      return data;
+    });
+    setLoadCount(prev => prev + LOAD_MORE_BATCH);
+    loadingMoreRef.current = false;
+  }, [loadCount]);
+
+  useEffect(() => {
+    const scrollEl = scrollRef.current?.closest('.main-scroll');
+    if (!scrollEl) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = scrollEl;
+      if (scrollHeight - scrollTop - clientHeight < 400) {
+        loadMoreSections();
+      }
+    };
+
+    scrollEl.addEventListener('scroll', handleScroll, { passive: true });
+    return () => scrollEl.removeEventListener('scroll', handleScroll);
+  }, [loadMoreSections]);
+
   const allSections = Object.values(sections).filter(s => s.songs && s.songs.length > 0);
+  const moreAvailable = loadCount < HOME_SECTIONS.length;
 
   return (
-    <div className="home-screen">
+    <div className="home-screen" ref={scrollRef}>
       <div className="home-hero">
         <h1 className="home-title">SoundAura</h1>
         <p className="home-subtitle">All Indian languages · Full songs · 100% free, no login</p>
@@ -94,10 +134,18 @@ useEffect(() => {
       {loading ? (
         <div className="spinner-wrap"><div className="spinner" /><p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Loading full songs...</p></div>
       ) : (
-        allSections.map(sec => (
-          <SectionRow key={sec.key} sec={sec} currentSong={currentSong} isPlaying={isPlaying} playSong={playSong}
-            downloadSong={downloadSong} downloadedIds={downloadedIds} downloadingIds={downloadingIds} />
-        ))
+        <>
+          {allSections.map(sec => (
+            <SectionRow key={sec.key} sec={sec} currentSong={currentSong} isPlaying={isPlaying} playSong={playSong}
+              downloadSong={downloadSong} downloadedIds={downloadedIds} downloadingIds={downloadingIds} />
+          ))}
+          {moreAvailable && (
+            <div className="spinner-wrap" style={{ padding: '20px 0' }}>
+              <div className="spinner" />
+              <p style={{ color: 'var(--text-muted)', fontSize: 12 }}>Loading more categories...</p>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

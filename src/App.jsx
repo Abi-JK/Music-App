@@ -433,7 +433,7 @@ function AppContent() {
 
   return (
     <div className="app">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} onSearch={searchByQuery} onInstall={handleInstallApp} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} onSearch={searchByQuery} onInstall={handleInstallApp} showToast={showToast} />
       <div className="body">
         <Topbar
           q={searchQ} setQ={setSearchQ}
