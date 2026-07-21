@@ -1,11 +1,6 @@
 import React, { useCallback } from 'react';
-import { formatTime } from '../utils/helpers';
 
 export default function MiniPlayer({ currentSong, isPlaying, setIsPlaying, onPlayPrev, onPlayNext, curTime, dur, onExpand, onShowLyrics, downloadSong, currentSongDownloaded }) {
-  if (!currentSong) return null;
-
-  const prog = dur ? (curTime / dur) * 100 : 0;
-
   const onSeek = useCallback((e) => {
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
@@ -13,6 +8,10 @@ export default function MiniPlayer({ currentSong, isPlaying, setIsPlaying, onPla
     const audioEl = document.getElementById('main-audio');
     if (audioEl && dur) audioEl.currentTime = pct * dur;
   }, [dur]);
+
+  if (!currentSong) return null;
+
+  const prog = dur ? (curTime / dur) * 100 : 0;
 
   return (
     <div className="mini-player">

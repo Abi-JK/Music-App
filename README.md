@@ -1,16 +1,63 @@
-# React + Vite
+# SoundAura
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Spotify-like PWA music app with parallel JioSaavn + YouTube search, offline downloads, background playback, lyrics, and full Indian language support.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Parallel Search**: JioSaavn + YouTube search simultaneously via `searchAndResolve()`
+- **Background Playback**: Wake Lock + visibility auto-resume, MediaSession integration
+- **Offline Downloads**: OPFS primary storage with IndexedDB fallback
+- **Lyrics**: 5-source lyrics fetcher (JioSaavn, LRCLIB, Lyrics.ovh, NetEase)
+- **Auto-play**: Spotify-like genre-based auto-play when playlist ends
+- **Indian Languages**: 15 languages — Tamil, Hindi, Telugu, Malayalam, Kannada, Bengali, Punjabi, Marathi, Gujarati, Bhojpuri, Odia, Assamese, Sanskrit, Urdu, Rajasthani
+- **Artist Pages**: Full discography with language filters (100+ songs per artist)
+- **Album/Movie Pages**: All songs from a movie displayed together
+- **Data Export/Import**: Backup and restore via OPFS, IndexedDB, or file export
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React 19 + Vite 8
+- VitePWA (service worker, offline support)
+- Netlify Edge Functions (audio proxy)
+- No backend — all client-side
 
-## Expanding the Oxlint configuration
+## Setup
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+```bash
+npm install
+cp .env.example .env
+# Add your JioSaavn/YouTube API keys to .env
+npm run dev
+```
+
+## Build
+
+```bash
+npm run build
+```
+
+## Deploy
+
+```bash
+npx netlify deploy --prod --dir=dist
+```
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `VITE_YT_KEY` | YouTube/YouTube Music API key |
+| `VITE_SAAVN_API` | JioSaavn API base URL |
+
+## Project Structure
+
+```
+src/
+  components/     # UI components (PlayerBar, MiniPlayer, Sidebar, etc.)
+  screens/        # Page components (Home, Search, Liked, Downloads, ArtistPage, AlbumPage)
+  utils/          # API, storage, constants, helpers
+netlify/
+  edge-functions/ # Audio proxy (stream-audio.ts)
+  functions/      # Serverless functions (jiosaavn.js)
+public/           # Static assets, icons, manifest
+```

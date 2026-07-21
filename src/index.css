@@ -311,6 +311,8 @@ img { display: block; max-width: 100%; }
 .song-row:hover .row-text h4 { color: var(--accent); }
 .row-text p { font-size: 11px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .row-album { font-size: 12px; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row-album-clickable { cursor: pointer; color: var(--accent); }
+.row-album-clickable:hover { text-decoration: underline; }
 .row-dur { font-size: 12px; color: var(--text-secondary); text-align: right; font-variant-numeric: tabular-nums; }
 .row-acts { display: flex; align-items: center; justify-content: flex-end; gap: 2px; }
 .icon-btn {

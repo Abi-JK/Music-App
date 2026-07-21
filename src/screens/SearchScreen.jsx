@@ -1,7 +1,7 @@
 import React from 'react';
 import { formatTime } from '../utils/helpers';
 
-export default function SearchScreen({ searchResults, searchLoading, searched, currentSong, isPlaying, playSong, toggleLike, liked, downloadSong, downloadedIds, downloadingIds, onOpenArtist }) {
+export default function SearchScreen({ searchResults, searchLoading, searched, currentSong, isPlaying, playSong, toggleLike, liked, downloadSong, downloadedIds, downloadingIds, onOpenArtist, onOpenAlbum }) {
   if (searchLoading) return (
     <div className="spinner-wrap"><div className="spinner" /><p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Searching all languages...</p></div>
   );
@@ -25,7 +25,6 @@ export default function SearchScreen({ searchResults, searchLoading, searched, c
   const artistCount = topArtist ? searchResults.filter(s => s.artist === topArtist).length : 0;
 
   const playable = searchResults.filter(s => s.audioUrl);
-  const nonPlayable = searchResults.filter(s => !s.audioUrl);
 
   const playAll = () => {
     const list = playable.length > 0 ? playable : searchResults;
@@ -95,7 +94,7 @@ export default function SearchScreen({ searchResults, searchLoading, searched, c
                   <p title={song.artist}>{song.artist}</p>
                 </div>
               </div>
-              <span className="row-album" title={song.album || ''}>{song.album || '—'}</span>
+              <span className="row-album row-album-clickable" title={song.album || ''} onClick={(e) => { e.stopPropagation(); if (onOpenAlbum && song.album) onOpenAlbum(song.album); }}>{song.album || '—'}</span>
               <span className="row-dur">{song.duration ? formatTime(song.duration) : '—'}</span>
               <div className="row-acts">
                 {toggleLike && (

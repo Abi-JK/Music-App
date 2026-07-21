@@ -23,6 +23,11 @@ export const HOME_SECTIONS = [
   { key: 'romantic',      label: 'Romantic Hits',              query: 'romantic songs' },
   { key: 'dance',         label: 'Party & Dance Hits',         query: 'bollywood dance hits' },
   { key: 'sad',           label: 'Sad Songs',                  query: 'hindi sad songs' },
+  { key: 'indiepop',      label: 'Indian Pop (I-Pop)',         query: 'indian pop songs 2025' },
+  { key: 'indie2025',     label: 'New Releases 2025',         query: 'new bollywood songs 2025' },
+  { key: 'topAlbums',     label: 'Top Albums 2025',           query: 'bollywood albums 2025' },
+  { key: 'topPunjabi',    label: 'Top Punjabi 2025',          query: 'punjabi hits 2025' },
+  { key: 'topIndie',      label: 'Indian Indie',              query: 'indian independent music' },
 
   // ── Language Hits ──
   { key: 'hindi',         label: 'Bollywood Hits',             query: 'bollywood hindi songs' },
@@ -72,9 +77,12 @@ export const HOME_SECTIONS = [
 
   // ── Composer-Specific ──
   { key: 'arrijit',       label: 'Arijit Singh',               query: 'Arijit Singh songs' },
+  { key: 'pritam',        label: 'Pritam',                     query: 'Pritam songs' },
   { key: 'arrahman',      label: 'A.R. Rahman',                query: 'A.R. Rahman songs' },
   { key: 'anirudh',       label: 'Anirudh Ravichander',        query: 'Anirudh songs' },
   { key: 'shreya',        label: 'Shreya Ghoshal',             query: 'Shreya Ghoshal songs' },
+  { key: 'sachinjigar',   label: 'Sachin-Jigar',               query: 'Sachin-Jigar songs' },
+  { key: 'tanishk',       label: 'Tanishk Bagchi',             query: 'Tanishk Bagchi songs' },
   { key: 'ilayaraja',     label: 'Ilaiyaraaja',                query: 'Ilaiyaraaja songs' },
   { key: 'dsp',           label: 'Devi Sri Prasad',            query: 'Devi Sri Prasad songs' },
   { key: 'yuvan',         label: 'Yuvan Shankar Raja',         query: 'Yuvan Shankar Raja songs' },
@@ -82,6 +90,16 @@ export const HOME_SECTIONS = [
   { key: 'ss_thaman',     label: 'S.S. Thaman',                query: 'S.S. Thaman songs' },
   { key: 'harish',        label: 'Haricharan',                 query: 'Haricharan songs' },
   { key: 'sid',           label: 'Sid Sriram',                 query: 'Sid Sriram songs' },
+  { key: 'vishalM',       label: 'Vishal Mishra',              query: 'Vishal Mishra songs' },
+  { key: 'himesh',        label: 'Himesh Reshammiya',          query: 'Himesh Reshammiya songs' },
+  { key: 'jubin',         label: 'Jubin Nautiyal',             query: 'Jubin Nautiyal songs' },
+  { key: 'neha',          label: 'Neha Kakkar',                query: 'Neha Kakkar songs' },
+  { key: 'sachet',        label: 'Sachet-Parampara',           query: 'Sachet Parampara songs' },
+  { key: 'anuv',          label: 'Anuv Jain',                  query: 'Anuv Jain songs' },
+  { key: 'kushagra',      label: 'Kushagra',                   query: 'Kushagra songs' },
+  { key: 'faheem',        label: 'Faheem Abdullah',            query: 'Faheem Abdullah songs' },
+  { key: 'aditya',        label: 'Aditya Rikhari',             query: 'Aditya Rikhari songs' },
+  { key: 'hanumankind',   label: 'Hanumankind',                query: 'Hanumankind songs' },
   { key: 'vishal',        label: 'Vishal-Shekhar',             query: 'Vishal Shekhar songs' },
   { key: 'salim',         label: 'Salim-Sulaiman',             query: 'Salim Sulaiman songs' },
   { key: 'emiway',        label: 'Emiway Bantai',              query: 'Emiway Bantai songs' },
@@ -96,6 +114,8 @@ export const HOME_SECTIONS = [
   { key: 'asha',          label: 'Asha Bhosle',                query: 'Asha Bhosle songs' },
   { key: 'sonu',          label: 'Sonu Nigam',                 query: 'Sonu Nigam songs' },
   { key: 'udit',          label: 'Udit Narayan',               query: 'Udit Narayan songs' },
+  { key: 'alka',          label: 'Alka Yagnik',                query: 'Alka Yagnik songs' },
+  { key: 'kumarSanu',     label: 'Kumar Sanu',                 query: 'Kumar Sanu songs' },
   { key: 'sunidhi',       label: 'Sunidhi Chauhan',            query: 'Sunidhi Chauhan songs' },
   { key: 'shankar',       label: 'Shankar Mahadevan',          query: 'Shankar Mahadevan songs' },
   { key: 'kannadasan',    label: 'Kannadasan',                 query: 'Kannadasan songs' },
@@ -151,6 +171,25 @@ export const INDIAN_ARTISTS = [
   { name: 'Salim-Sulaiman',         lang: 'Hindi' },
   { name: 'Badshah',                lang: 'Hindi' },
   { name: 'Honey Singh',            lang: 'Hindi' },
+  { name: 'Atif Aslam',             lang: 'Hindi' },
+  { name: 'KK',                     lang: 'Hindi' },
+  { name: 'Amit Trivedi',           lang: 'Hindi' },
+  { name: 'Pritam',                 lang: 'Hindi' },
+  { name: 'Sachin-Jigar',           lang: 'Hindi' },
+  { name: 'Tanishk Bagchi',         lang: 'Hindi' },
+  { name: 'Himesh Reshammiya',      lang: 'Hindi' },
+  { name: 'Alka Yagnik',            lang: 'Hindi' },
+  { name: 'Kumar Sanu',             lang: 'Hindi' },
+  { name: 'Anuv Jain',              lang: 'Hindi' },
+  { name: 'Kushagra',               lang: 'Hindi' },
+  { name: 'Faheem Abdullah',        lang: 'Hindi' },
+  { name: 'Aditya Rikhari',         lang: 'Hindi' },
+  { name: 'Hanumankind',            lang: 'Hindi' },
+  { name: 'Jubin Nautiyal',         lang: 'Hindi' },
+  { name: 'Neha Kakkar',            lang: 'Hindi' },
+  { name: 'Vishal Mishra',          lang: 'Hindi' },
+  { name: 'Sachet-Parampara',       lang: 'Hindi' },
+  { name: 'Karan Aujla',            lang: 'Punjabi' },
 
   // ── Tamil ──
   { name: 'Anirudh Ravichander',    lang: 'Tamil' },
@@ -164,6 +203,13 @@ export const INDIAN_ARTISTS = [
   { name: 'Sid Sriram',             lang: 'Multi' },
   { name: 'Haricharan',             lang: 'Multi' },
   { name: 'Chinmayi',               lang: 'Multi' },
+  { name: 'D. Imman',               lang: 'Tamil' },
+  { name: 'G.V. Prakash Kumar',     lang: 'Tamil' },
+  { name: 'Santhosh Narayanan',     lang: 'Tamil' },
+  { name: 'Thaman S',               lang: 'Multi' },
+  { name: 'Tippu',                  lang: 'Tamil' },
+  { name: 'Unni Menon',             lang: 'Tamil' },
+  { name: 'S.P.B. Charan',          lang: 'Tamil' },
 
   // ── Kannada ──
   { name: 'Sonu Nigam Kannada',     lang: 'Kannada' },
@@ -171,16 +217,27 @@ export const INDIAN_ARTISTS = [
   { name: 'Rajesh Krishnan',        lang: 'Kannada' },
   { name: 'Raghu Dixit',            lang: 'Kannada' },
   { name: 'Chandan Shetty',         lang: 'Kannada' },
+  { name: 'V. Harikrishna',         lang: 'Kannada' },
+  { name: 'Hamsalekha',             lang: 'Kannada' },
+  { name: 'Guru Kiran',             lang: 'Kannada' },
+  { name: 'Arjun Janya',            lang: 'Kannada' },
+  { name: 'Anuradha Bhat',          lang: 'Kannada' },
 
   // ── Telugu ──
   { name: 'Devi Sri Prasad',        lang: 'Telugu' },
   { name: 'S.S. Thaman',            lang: 'Telugu' },
   { name: 'Keeravani',              lang: 'Telugu' },
+  { name: 'MM Keeravani',           lang: 'Telugu' },
+  { name: 'DSP',                    lang: 'Telugu' },
   { name: 'Thaman S',               lang: 'Telugu' },
+  { name: 'Sid Sriram Telugu',      lang: 'Telugu' },
+  { name: 'Shreya Ghoshal Telugu',  lang: 'Telugu' },
 
   // ── Malayalam ──
   { name: 'Vidyadharan Master',     lang: 'Malayalam' },
   { name: 'Shreya Ghoshal Malayalam', lang: 'Malayalam' },
+  { name: 'Vineeth Sreenivasan',    lang: 'Malayalam' },
+  { name: 'K.J. Yesudas Malayalam', lang: 'Malayalam' },
 
   // ── Punjabi ──
   { name: 'Diljit Dosanjh',         lang: 'Punjabi' },
@@ -189,4 +246,14 @@ export const INDIAN_ARTISTS = [
   { name: 'AP Dhillon',             lang: 'Punjabi' },
   { name: 'Amrinder Gill',          lang: 'Punjabi' },
   { name: 'Gurdas Maan',            lang: 'Punjabi' },
+  { name: 'Jass Manak',             lang: 'Punjabi' },
+  { name: 'Karan Aujla',            lang: 'Punjabi' },
+
+  // ── Marathi ──
+  { name: 'Ajay-Atul',              lang: 'Marathi' },
+  { name: 'Avadhoot Gupte',         lang: 'Marathi' },
+
+  // ── Bengali ──
+  { name: 'Jeet Gannguli',          lang: 'Bengali' },
+  { name: 'Anupam Roy',             lang: 'Bengali' },
 ];

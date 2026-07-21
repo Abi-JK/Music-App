@@ -18,6 +18,7 @@ import SearchScreen from './screens/SearchScreen';
 import LikedScreen from './screens/LikedScreen';
 import DownloadsScreen from './screens/DownloadsScreen';
 import ArtistPage from './screens/ArtistPage';
+import AlbumPage from './screens/AlbumPage';
 
 import { searchSongs, downloadAudioBlob, searchSaavn } from './utils/api';
 import { Storage } from './utils/storage';
@@ -57,6 +58,7 @@ function AppContent() {
   const [showQueue, setShowQueue] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [artistQuery, setArtistQuery] = useState(null);
+  const [albumQuery, setAlbumQuery] = useState(null);
 
   const [repeatMode, setRepeatMode] = useState('off');
   const [shuffleOn, setShuffleOn] = useState(false);
@@ -113,19 +115,55 @@ function AppContent() {
 
     const resumeAudio = () => {
       const a = document.getElementById('main-audio');
-      if (a && a.paused && a.src && !a.ended && a.currentTime > 0) {
+      if (a && a.paused && a.src && !a.ended && a.currentTime > 0 && isPlayingRef.current) {
         a.play().then(() => setIsPlaying(true)).catch(() => {});
       }
       reacquireWakeLock();
     };
+    let focusPauseTimeout = null;
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible') resumeAudio();
+      if (document.visibilityState === 'visible') {
+        clearTimeout(focusPauseTimeout);
+        resumeAudio();
+        setTimeout(resumeAudio, 500);
+        setTimeout(resumeAudio, 2000);
+      } else {
+        const a = document.getElementById('main-audio');
+        if (a && !a.paused && isPlayingRef.current) {
+          focusPauseTimeout = setTimeout(() => {
+            const a2 = document.getElementById('main-audio');
+            if (a2 && !a2.paused && isPlayingRef.current) {
+              a2.pause();
+            }
+          }, 30000);
+        }
+      }
     };
-    const handlePageShow = (e) => { if (e.persisted) resumeAudio(); };
-    const handleFocus = () => resumeAudio();
+    const handlePageShow = (e) => {
+      if (e.persisted) {
+        resumeAudio();
+        setTimeout(resumeAudio, 500);
+      }
+    };
+    const handleFocus = () => {
+      clearTimeout(focusPauseTimeout);
+      resumeAudio();
+      setTimeout(resumeAudio, 500);
+    };
     document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('pageshow', handlePageShow);
     window.addEventListener('focus', handleFocus);
+
+    if ('mediaSession' in navigator) {
+      navigator.mediaSession.setActionHandler('play', () => {
+        const a = document.getElementById('main-audio');
+        if (a && a.src) { a.play().then(() => setIsPlaying(true)).catch(() => {}); }
+      });
+      navigator.mediaSession.setActionHandler('pause', () => {
+        const a = document.getElementById('main-audio');
+        if (a && !a.paused) { a.pause(); setIsPlaying(false); }
+      });
+    }
 
     const heartbeat = setInterval(() => {
       const a = document.getElementById('main-audio');
@@ -133,10 +171,17 @@ function AppContent() {
         a.play().then(() => setIsPlaying(true)).catch(() => {});
       }
       reacquireWakeLock();
-    }, 15000);
+      if ('mediaSession' in navigator && navigator.mediaSession.playbackState !== 'playing' && isPlayingRef.current) {
+        const a2 = document.getElementById('main-audio');
+        if (a2 && a2.src && !a2.ended) {
+          a2.play().then(() => setIsPlaying(true)).catch(() => {});
+        }
+      }
+    }, 8000);
 
     return () => {
       clearInterval(heartbeat);
+      clearTimeout(focusPauseTimeout);
       window.removeEventListener('beforeinstallprompt', handler);
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('pageshow', handlePageShow);
@@ -201,25 +246,35 @@ function AppContent() {
   const autoPlayGenre = useCallback(async (genre) => {
     if (!genre) return;
     try {
-      showToast(`Playing more ${genre} songs...`);
-      const moreSongs = await searchSaavn(genre, 20);
+      const searchTerms = [
+        genre,
+        `${genre} songs`,
+        `${genre} hits`,
+        `${genre} album`,
+      ];
+      const allResults = await Promise.all(searchTerms.map(t => searchSaavn(t, 15).catch(() => [])));
+      let moreSongs = allResults.flat();
+      moreSongs = [...new Map(moreSongs.map(s => [s.id, s])).values()];
       if (moreSongs.length > 0) {
         const filtered = moreSongs.filter(s => !playlist.some(p => p.id === s.id));
-        if (filtered.length > 0) {
-          const newPlaylist = [...playlist, ...filtered];
-          originalPlaylistRef.current = newPlaylist;
-          setPlaylist(newPlaylist);
-          setCurrentIndex(playlist.length);
-          setIsPlaying(true);
-        } else {
-          const allNew = moreSongs;
-          originalPlaylistRef.current = allNew;
-          setPlaylist(allNew);
+        const toUse = filtered.length > 0 ? filtered : moreSongs;
+        const shuffled = shuffleArray(toUse);
+        originalPlaylistRef.current = shuffled;
+        setPlaylist(shuffled);
+        setCurrentIndex(0);
+        setIsPlaying(true);
+        showToast(`Playing more ${genre} songs...`);
+      } else {
+        const fallback = await searchSaavn('trending india 2025', 15).catch(() => []);
+        if (fallback.length > 0) {
+          originalPlaylistRef.current = fallback;
+          setPlaylist(fallback);
           setCurrentIndex(0);
           setIsPlaying(true);
+          showToast('Playing trending songs...');
+        } else {
+          showToast('No more songs found.');
         }
-      } else {
-        showToast('No more songs found.');
       }
     } catch {
       showToast('Could not load more songs.');
@@ -239,10 +294,8 @@ function AppContent() {
         setCurrentIndex(0);
         setIsPlaying(true);
         if (playlist[0]) addRecent(playlist[0]);
-      } else if (autoPlayGenreRef.current) {
-        autoPlayGenre(autoPlayGenreRef.current);
       } else {
-        setIsPlaying(false);
+        autoPlayGenre(autoPlayGenreRef.current || 'trending india');
       }
       return;
     }
@@ -426,8 +479,10 @@ function AppContent() {
 
   const openFullScreen = useCallback(() => { if (currentSong) setShowFullScreen(true); }, [currentSong]);
   const closeFullScreen = useCallback(() => setShowFullScreen(false), []);
-  const openArtistPage = useCallback((name) => { setArtistQuery(name); }, []);
+  const openArtistPage = useCallback((name) => { setArtistQuery(name); setAlbumQuery(null); }, []);
   const closeArtistPage = useCallback(() => { setArtistQuery(null); }, []);
+  const openAlbumPage = useCallback((title) => { setAlbumQuery(title); setArtistQuery(null); }, []);
+  const closeAlbumPage = useCallback(() => { setAlbumQuery(null); }, []);
 
   const downloadedIds = downloadedSongs.map(s => s.id);
 
@@ -465,6 +520,19 @@ function AppContent() {
                 downloadSong={downloadSong}
                 downloadedIds={downloadedIds}
                 downloadingIds={downloadingIds}
+                onOpenAlbum={openAlbumPage}
+              />
+            ) : albumQuery ? (
+              <AlbumPage
+                albumQuery={albumQuery}
+                playSong={playSong}
+                currentSong={currentSong}
+                isPlaying={isPlaying}
+                onBack={closeAlbumPage}
+                showToast={showToast}
+                downloadSong={downloadSong}
+                downloadedIds={downloadedIds}
+                downloadingIds={downloadingIds}
               />
             ) : (
               <SearchScreen
@@ -480,6 +548,7 @@ function AppContent() {
                 downloadedIds={downloadedIds}
                 downloadingIds={downloadingIds}
                 onOpenArtist={openArtistPage}
+                onOpenAlbum={openAlbumPage}
               />
             )
           )}

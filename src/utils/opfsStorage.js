@@ -64,7 +64,7 @@ export const OpfsStorage = {
     } catch {
       try {
         const root = await getRoot();
-        const test = await root.getDirectoryHandle('__test_opfs__', { create: true });
+        await root.getDirectoryHandle('__test_opfs__', { create: true });
         await root.removeEntry('__test_opfs__');
         return true;
       } catch {

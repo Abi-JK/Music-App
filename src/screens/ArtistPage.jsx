@@ -1,21 +1,35 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { searchArtistSongs, groupTracksByAlbum } from '../utils/api';
 import { formatTime } from '../utils/helpers';
 
-export default function ArtistPage({ query, playSong, currentSong, isPlaying, onBack, showToast, downloadSong, downloadedIds, downloadingIds }) {
-  const [albums, setAlbums] = useState([]);
+const LANG_FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'Tamil', label: 'Tamil' },
+  { key: 'Hindi', label: 'Hindi' },
+  { key: 'Kannada', label: 'Kannada' },
+  { key: 'Telugu', label: 'Telugu' },
+  { key: 'Malayalam', label: 'Malayalam' },
+  { key: 'Bengali', label: 'Bengali' },
+  { key: 'Punjabi', label: 'Punjabi' },
+  { key: 'Marathi', label: 'Marathi' },
+];
+
+export default function ArtistPage({ query, playSong, currentSong, isPlaying, onBack, showToast, downloadSong, downloadedIds, downloadingIds, onOpenAlbum }) {
   const [allTracks, setAllTracks] = useState([]);
+  const [albums, setAlbums] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeFilter, setActiveFilter] = useState('all');
+  const [langFilter, setLangFilter] = useState('all');
   const [selectedAlbum, setSelectedAlbum] = useState(null);
+  const [sortBy, setSortBy] = useState('default');
 
   useEffect(() => {
     if (!query) return;
     let cancelled = false;
     setLoading(true);
     setSelectedAlbum(null);
+    setLangFilter('all');
 
-    searchArtistSongs(query, 50).then(tracks => {
+    searchArtistSongs(query, 100).then(tracks => {
       if (cancelled) return;
       setAllTracks(tracks);
       setAlbums(groupTracksByAlbum(tracks));
@@ -26,6 +40,15 @@ export default function ArtistPage({ query, playSong, currentSong, isPlaying, on
 
     return () => { cancelled = true; };
   }, [query]);
+
+  const getLangCounts = useCallback(() => {
+    const counts = { all: allTracks.length };
+    for (const track of allTracks) {
+      const lang = track.genre || 'Unknown';
+      counts[lang] = (counts[lang] || 0) + 1;
+    }
+    return counts;
+  }, [allTracks]);
 
   if (loading) return (
     <div className="spinner-wrap">
@@ -39,28 +62,33 @@ export default function ArtistPage({ query, playSong, currentSong, isPlaying, on
       <p style={{ fontSize: 36 }}>🎤</p>
       <h3>No songs found for "{query}"</h3>
       <p>Try searching for a different artist name</p>
-      <button className="fs-ringtone-btn" onClick={onBack} style={{ marginTop: 12 }}>Back to Search</button>
+      <button className="fs-ringtone-btn" onClick={onBack} style={{ marginTop: 12 }}>Back</button>
     </div>
   );
 
-  const filters = [
-    { key: 'all', label: 'All' },
-    { key: 'singles', label: 'Singles' },
-    { key: 'albums', label: 'Albums' },
-  ];
+  const langCounts = getLangCounts();
+  const availableLangs = LANG_FILTERS.filter(f => f.key === 'all' || langCounts[f.key]);
 
-  const filteredAlbums = activeFilter === 'all' ? albums
-    : activeFilter === 'singles' ? albums.filter(a => a.tracks.length <= 3)
-    : albums.filter(a => a.tracks.length > 3);
+  const filteredByLang = langFilter === 'all'
+    ? allTracks
+    : allTracks.filter(t => (t.genre || 'Unknown') === langFilter);
+
+  const sortedTracks = [...filteredByLang];
+  if (sortBy === 'az') sortedTracks.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+  else if (sortBy === 'duration') sortedTracks.sort((a, b) => (b.duration || 0) - (a.duration || 0));
+
+  const filteredAlbums = langFilter === 'all'
+    ? albums
+    : albums.filter(a => a.tracks.some(t => (t.genre || 'Unknown') === langFilter));
 
   const displayTracks = selectedAlbum
-    ? albums.find(a => a.id === selectedAlbum)?.tracks || []
-    : allTracks;
+    ? (filteredAlbums.find(a => a.id === selectedAlbum)?.tracks || [])
+    : sortedTracks;
 
   return (
     <div className="artist-page">
       <div className="artist-header">
-        <button className="icon-btn" onClick={onBack} style={{ fontSize: 18, marginBottom: 12 }}>Back</button>
+        <button className="icon-btn" onClick={onBack} style={{ fontSize: 18, marginBottom: 12 }}>← Back</button>
         <div className="artist-avatar-row">
           {allTracks[0]?.coverUrl ? (
             <img src={allTracks[0].coverUrl} alt="" className="artist-avatar" />
@@ -70,31 +98,42 @@ export default function ArtistPage({ query, playSong, currentSong, isPlaying, on
           <div className="artist-meta">
             <span className="artist-badge">Artist</span>
             <h1 className="artist-name">{query}</h1>
-            <p className="artist-stats">{allTracks.length} songs · {albums.length} albums</p>
+            <p className="artist-stats">
+              {allTracks.length} songs · {filteredAlbums.length} albums
+              {langFilter !== 'all' && ` · ${langFilter}: ${filteredByLang.length}`}
+            </p>
           </div>
         </div>
       </div>
 
       <div className="artist-controls">
         <button className="player-play-btn" style={{ width: 48, height: 48, fontSize: 20 }}
-          onClick={() => { if (allTracks.length > 0) playSong(allTracks[0], allTracks, 0); }}>
+          onClick={() => { if (displayTracks.length > 0) playSong(displayTracks[0], displayTracks, 0); }}>
           ▶
         </button>
+        <div style={{ display: 'flex', gap: 6, marginLeft: 12 }}>
+          <button className={`sort-btn ${sortBy === 'default' ? 'active' : ''}`} onClick={() => setSortBy('default')}>Default</button>
+          <button className={`sort-btn ${sortBy === 'az' ? 'active' : ''}`} onClick={() => setSortBy('az')}>A-Z</button>
+          <button className={`sort-btn ${sortBy === 'duration' ? 'active' : ''}`} onClick={() => setSortBy('duration')}>Duration</button>
+        </div>
       </div>
 
-      {albums.length > 1 && (
+      {availableLangs.length > 2 && (
+        <div className="filter-chips" style={{ padding: '0 16px', flexWrap: 'wrap' }}>
+          {availableLangs.map(f => (
+            <button key={f.key}
+              className={`filter-chip ${langFilter === f.key ? 'active' : ''}`}
+              onClick={() => { setLangFilter(f.key); setSelectedAlbum(null); }}>
+              {f.label} {langCounts[f.key] ? `(${langCounts[f.key]})` : ''}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {filteredAlbums.length > 1 && (
         <div className="discography-section">
           <div className="discography-header">
-            <h2 className="sec-title" style={{ marginBottom: 0 }}>Discography</h2>
-          </div>
-          <div className="filter-chips">
-            {filters.map(f => (
-              <button key={f.key}
-                className={`filter-chip ${activeFilter === f.key ? 'active' : ''}`}
-                onClick={() => { setActiveFilter(f.key); setSelectedAlbum(null); }}>
-                {f.label}
-              </button>
-            ))}
+            <h2 className="sec-title" style={{ marginBottom: 0 }}>Discography ({filteredAlbums.length} albums)</h2>
           </div>
           <div className="album-scroll">
             {filteredAlbums.map(album => (
@@ -116,11 +155,13 @@ export default function ArtistPage({ query, playSong, currentSong, isPlaying, on
 
       <div className="artist-tracks-section">
         <h3 className="sec-title">
-          {selectedAlbum ? `${albums.find(a => a.id === selectedAlbum)?.title || 'Tracks'}` : `All Songs (${allTracks.length})`}
+          {selectedAlbum
+            ? `${filteredAlbums.find(a => a.id === selectedAlbum)?.title || 'Tracks'}`
+            : `All Songs (${displayTracks.length})`}
         </h3>
         <div className="song-table">
           <div className="table-head">
-            <span>#</span><span>SONG</span><span>ALBUM</span><span>DURATION</span><span></span>
+            <span>#</span><span>SONG</span><span>ALBUM</span><span>LANG</span><span>DURATION</span><span></span>
           </div>
           {displayTracks.map((song, i) => {
             const isActive = currentSong?.id === song.id;
@@ -142,16 +183,16 @@ export default function ArtistPage({ query, playSong, currentSong, isPlaying, on
                   </div>
                 </div>
                 <span className="row-album" title={song.album || ''}>{song.album || '—'}</span>
+                <span className="row-lang">{song.genre || '—'}</span>
                 <span className="row-dur">{formatTime(song.duration)}</span>
                 <div className="row-acts">
                   {downloadSong && (
                     <button
                       className="icon-btn"
                       onClick={(e) => { e.stopPropagation(); if (!isDownloaded && !isDownloading) downloadSong(song); }}
-                      title={isDownloaded ? 'Downloaded' : isDownloading ? 'Downloading...' : 'Download for offline'}
+                      title={isDownloaded ? 'Downloaded' : isDownloading ? 'Downloading...' : 'Download'}
                       disabled={isDownloaded || isDownloading}
-                      style={{ opacity: isDownloaded ? 0.5 : 1 }}
-                    >
+                      style={{ opacity: isDownloaded ? 0.5 : 1 }}>
                       {isDownloaded ? '✅' : isDownloading ? '⏳' : '📥'}
                     </button>
                   )}
