@@ -51,8 +51,10 @@ export const HOME_SECTIONS = [
 
   // ── Tamil Albums & Themes ──
   { key: 'mayavi',        label: 'Mayavi (Lifeu Ishtene)',     query: 'Lifeu Ishtene kannada songs' },
-  { key: 'mgr',           label: 'MGR Hits',                   query: 'Annakili songs' },
-  { key: 'sivaji',        label: 'Sivaji Ganesan Classics',    query: 'Thiruvilaiyadal songs' },
+  { key: 'mgr',           label: 'MGR Hits',                   query: 'MGR tamil songs' },
+  { key: 'mgrclassics',   label: 'MGR Classics',               query: 'M.G. Ramachandran songs' },
+  { key: 'sivaji',        label: 'Sivaji Ganesan Classics',    query: 'Sivaji Ganesan songs' },
+  { key: 'sivaji2',       label: 'Sivaji Ganesan Hits',        query: 'Sivaji Ganesan tamil songs' },
   { key: 'msv',           label: 'M.S. Viswanathan',           query: 'M.S. Viswanathan Tamil' },
   { key: 'tamildevotional', label: 'Tamil Devotional',         query: 'tamil devotional songs' },
   { key: 'tamilindie',    label: 'Tamil Album Songs',          query: 'tamil album songs' },
@@ -60,6 +62,30 @@ export const HOME_SECTIONS = [
   { key: 'kamal',         label: 'Kamal Haasan Hits',          query: 'kamal haasan songs' },
   { key: 'vijay',         label: 'Vijay Hits',                 query: 'vijay actor songs' },
   { key: 'ajith',         label: 'Ajith Hits',                 query: 'ajith kumar songs' },
+
+  // ── MGR Movie Songs ──
+  { key: 'mgr_annakili',  label: 'MGR - Annakili',             query: 'Annakili 1966 tamil songs' },
+  { key: 'mgr_aayirathil', label: 'MGR - Aayirathil Oruvan',   query: 'Aayirathil Oruvan 1965 tamil songs' },
+  { key: 'mgr_thiruda',   label: 'MGR - Thiruda Thiruda',      query: 'Thiruda Thiruda MGR songs' },
+  { key: 'mgr_padagotti', label: 'MGR - Padagotti',            query: 'Padagotti 1964 tamil songs' },
+  { key: 'mgr_kumara',    label: 'MGR - Kumara Raja',          query: 'Kumara Raja MGR songs' },
+  { key: 'mgr_gulebakavali', label: 'MGR - Gulebakavali',      query: 'Gulebakavali 1955 tamil songs' },
+  { key: 'mgr_madapaiyada', label: 'MGR - Madapaiyada',        query: 'Madapaiyada 1960 tamil songs' },
+  { key: 'mgr_king',      label: 'MGR - The King',             query: 'The King 1995 MGR tamil' },
+  { key: 'mgr_nadodi',    label: 'MGR - Nadodi Mannan',        query: 'Nadodi Mannan 1958 tamil songs' },
+  { key: 'mgr_uyaranala', label: 'MGR - Uyaranala Manithan',    query: 'Uyaranala Manithan MGR' },
+
+  // ── Sivaji Ganesan Movie Songs ──
+  { key: 'sivaji_parasakthi', label: 'Sivaji - Parasakthi',    query: 'Parasakthi 1952 tamil songs' },
+  { key: 'sivaji_thiruvilaiyadal', label: 'Sivaji - Thiruvilaiyadal', query: 'Thiruvilaiyadal 1965 tamil songs' },
+  { key: 'sivaji_kappalottiya', label: 'Sivaji - Kappalottiya', query: 'Kappalottiya Thamizhan songs' },
+  { key: 'sivaji_veerapandiya', label: 'Sivaji - Veerapandiya', query: 'Veerapandiya Kattabomman songs' },
+  { key: 'sivaji_ennamo', label: 'Sivaji - Ennamo Nadakuthu',   query: 'Ennamo Nadakuthu Sivaji songs' },
+  { key: 'sivaji_kalangalil', label: 'Sivaji - Kalangalil',     query: 'Kalangalil Inbam vendum songs' },
+  { key: 'sivaji_paasam', label: 'Sivaji - Paasam',             query: 'Paasam 1962 tamil songs' },
+  { key: 'sivaji_merku',  label: 'Sivaji - Merku Thodarchi',    query: 'Merku Thodarchi Malai Sivaji' },
+  { key: 'sivaji_server', label: 'Sivaji - Server Sundaram',    query: 'Server Sundaram 1966 songs' },
+  { key: 'sivaji_irumudi', label: 'Sivaji - Irumudi',           query: 'Irumudi 1950 tamil songs' },
 
   // ── Kannada Albums & Themes ──
   { key: 'kannadaindie',  label: 'Kannada Album Songs',        query: 'kannada album songs' },
@@ -210,6 +236,12 @@ export const INDIAN_ARTISTS = [
   { name: 'Tippu',                  lang: 'Tamil' },
   { name: 'Unni Menon',             lang: 'Tamil' },
   { name: 'S.P.B. Charan',          lang: 'Tamil' },
+  { name: 'M.G. Ramachandran',      lang: 'Tamil' },
+  { name: 'MGR',                    lang: 'Tamil' },
+  { name: 'Sivaji Ganesan',         lang: 'Tamil' },
+  { name: 'Gemini Ganesan',         lang: 'Tamil' },
+  { name: 'Nagesh',                 lang: 'Tamil' },
+  { name: 'Cho Ramaswamy',          lang: 'Tamil' },
 
   // ── Kannada ──
   { name: 'Sonu Nigam Kannada',     lang: 'Kannada' },

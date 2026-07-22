@@ -275,10 +275,10 @@ async function fetchSaavnAlbums(query, limit) {
   return [];
 }
 
-async function searchAndResolve(query, limit = 30) {
+async function searchAndResolve(query, limit = 50) {
   const [searchResults, ytResults] = await Promise.all([
-    fetchSaavnSearchRaw(query, limit).catch(() => []),
-    searchYouTube(query, 10).catch(() => []),
+    fetchSaavnSearchRaw(query, Math.min(limit, 100)).catch(() => []),
+    searchYouTube(query, 15).catch(() => []),
   ]);
   const normalized = searchResults.map(normalizeSong).filter(Boolean);
   const withAudio = normalized.filter(s => s.audioUrl);
@@ -300,8 +300,8 @@ async function searchAndResolve(query, limit = 30) {
   if (withAudio.length < limit) {
     const altQuery = !query.toLowerCase().includes('songs') ? `${query} songs` : `${query} album`;
     const [altResults, altYt] = await Promise.all([
-      fetchSaavnSearchRaw(altQuery, Math.min(limit, 15)).catch(() => []),
-      searchYouTube(altQuery, 6).catch(() => []),
+      fetchSaavnSearchRaw(altQuery, Math.min(limit, 30)).catch(() => []),
+      searchYouTube(altQuery, 10).catch(() => []),
     ]);
     for (const s of altResults.map(normalizeSong).filter(Boolean).filter(s => s.audioUrl)) {
       if (!withAudio.some(x => x.id === s.id)) withAudio.push(s);
@@ -309,25 +309,45 @@ async function searchAndResolve(query, limit = 30) {
     addYt(altYt);
   }
 
-  if (withAudio.length < 5) {
-    const albumSongs = await fetchSaavnAlbums(query, 2).catch(() => []);
+  if (withAudio.length < 20) {
+    const hitsQuery = `${query} hits`;
+    const [hitsResults, hitsYt] = await Promise.all([
+      fetchSaavnSearchRaw(hitsQuery, 20).catch(() => []),
+      searchYouTube(hitsQuery, 8).catch(() => []),
+    ]);
+    for (const s of hitsResults.map(normalizeSong).filter(Boolean).filter(s => s.audioUrl)) {
+      if (!withAudio.some(x => x.id === s.id)) withAudio.push(s);
+    }
+    addYt(hitsYt);
+  }
+
+  if (withAudio.length < 10) {
+    const albumSongs = await fetchSaavnAlbums(query, 5).catch(() => []);
     for (const raw of albumSongs) {
       const norm = normalizeSong(raw);
       if (norm && norm.audioUrl && !withAudio.some(x => x.id === norm.id)) withAudio.push(norm);
     }
   }
 
-  if (withAudio.length < 5) {
+  if (withAudio.length < 15) {
     const cleanQuery = query.replace(/songs|hits|album|classic/gi, '').trim();
     if (cleanQuery && cleanQuery !== query) {
       const [extraResults, extraYt] = await Promise.all([
-        fetchSaavnSearchRaw(cleanQuery, 15).catch(() => []),
-        searchYouTube(cleanQuery, 6).catch(() => []),
+        fetchSaavnSearchRaw(cleanQuery, 25).catch(() => []),
+        searchYouTube(cleanQuery, 10).catch(() => []),
       ]);
       for (const s of extraResults.map(normalizeSong).filter(Boolean).filter(s => s.audioUrl)) {
         if (!withAudio.some(x => x.id === s.id)) withAudio.push(s);
       }
       addYt(extraYt);
+    }
+  }
+
+  if (withAudio.length < 8) {
+    const topQuery = `${query} top`;
+    const topResults = await fetchSaavnSearchRaw(topQuery, 15).catch(() => []);
+    for (const s of topResults.map(normalizeSong).filter(Boolean).filter(s => s.audioUrl)) {
+      if (!withAudio.some(x => x.id === s.id)) withAudio.push(s);
     }
   }
 
@@ -352,21 +372,21 @@ function setCache(key, data) {
   searchCache.set(key, { data, ts: Date.now() });
 }
 
-export async function searchSongs(query, limit = 40) {
+export async function searchSongs(query, limit = 50) {
   const cacheKey = `songs:${query}:${limit}`;
   const cached = getCached(cacheKey);
   if (cached) return cached;
 
   const results = await Promise.race([
-    searchAndResolve(query, Math.min(limit, 50)),
-    new Promise(resolve => setTimeout(() => resolve([]), 12000)),
+    searchAndResolve(query, Math.min(limit, 100)),
+    new Promise(resolve => setTimeout(() => resolve([]), 25000)),
   ]);
   const deduped = dedupe(results || []);
   setCache(cacheKey, deduped);
   return deduped;
 }
 
-export async function searchSaavn(query, limit = 20) {
+export async function searchSaavn(query, limit = 30) {
   return searchSongs(query, limit);
 }
 
@@ -374,21 +394,45 @@ export async function searchSaavnWithYoutube(query, limit = 20) {
   return searchSongs(query, limit);
 }
 
-export async function searchArtistSongs(artistName, limit = 50) {
+export async function searchArtistSongs(artistName, limit = 500) {
   const queries = [
     `${artistName} songs`, `${artistName} hits`, `${artistName} album`,
-    artistName,
     `${artistName} tamil`, `${artistName} hindi`, `${artistName} kannada`,
     `${artistName} telugu`, `${artistName} malayalam`, `${artistName} bengali`,
-    `${artistName} punjabi`, `${artistName} marathi`,
+    `${artistName} punjabi`, `${artistName} marathi`, `${artistName} gujarati`,
+    `${artistName} old songs`, `${artistName} classic`, `${artistName} vintage`,
+    `${artistName} duet`, `${artistName} sad`, `${artistName} romantic`,
+    `${artistName} devotional`, `${artistName} folk`,
   ];
-  const results = [];
-  for (const q of queries) {
-    const batch = await searchSongs(q, Math.ceil(limit / queries.length));
-    results.push(...batch);
-    if (results.length >= limit) break;
+  
+  if (artistName.includes('MGR') || artistName.includes('Ramachandran')) {
+    queries.push(
+      'M.G. Ramachandran songs', 'MGR tamil songs', 'MGR hit songs',
+      'MGR old songs', 'MGR classic songs', 'MGR romantic songs',
+      'MGR folk songs', 'MGR devotional songs'
+    );
   }
-  return dedupe(results).slice(0, limit);
+  if (artistName.includes('Sivaji') || artistName.includes('Ganesan')) {
+    queries.push(
+      'Sivaji Ganesan songs', 'Sivaji tamil songs', 'Sivaji hit songs',
+      'Sivaji old songs', 'Sivaji classic songs', 'Sivaji romantic songs'
+    );
+  }
+  
+  const results = [];
+  const seenIds = new Set();
+  const batchSize = 40;
+  
+  for (const q of queries) {
+    const batch = await searchSongs(q, batchSize);
+    for (const s of batch) {
+      if (!seenIds.has(s.id)) {
+        seenIds.add(s.id);
+        results.push(s);
+      }
+    }
+  }
+  return dedupe(results);
 }
 
 export async function searchYouTubeAlbums(albumName, artistName = '', limit = 15) {
@@ -517,6 +561,21 @@ const tryNetease = async (artist, title) => {
   return null;
 };
 
+const tryHindiLyrics = async (title) => {
+  try {
+    const q = title.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').trim();
+    const res = await fetchWithTimeout(`https://lrclib.net/api/search?track_name=${encodeURIComponent(q)}`, {}, 6000);
+    if (res && res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        const hindi = data.find(l => l.language === 'Hindi') || data[0];
+        return hindi.syncedLyrics || hindi.plainLyrics || null;
+      }
+    }
+  } catch {}
+  return null;
+};
+
 export async function fetchLyrics(songId, songTitle, artistName) {
   if (String(songId).startsWith('saavn-')) {
     const rawId = String(songId).replace('saavn-', '');
@@ -530,15 +589,17 @@ export async function fetchLyrics(songId, songTitle, artistName) {
   const cleanTitle = songTitle
     .replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '')
     .replace(/feat\.?.*/i, '').replace(/ft\.?.*/i, '')
-    .replace(/-\s*(Remix|Version|Edited|Reprise|Unplugged|Live|Acoustic|Club|Extended|Remastered|Original).*/i, '')
+    .replace(/-\s*(Remix|Version|Edited|Reprise|Unplugged|Live|Acoustic|Club|Extended|Remastered|Original|From).*/i, '')
     .replace(/\d{4}/g, '').trim();
 
   if (!cleanTitle) return null;
 
   const simpler = songTitle.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '').replace(/feat\.?.*/i, '').replace(/ft\.?.*/i, '').trim();
+  const noYear = cleanTitle.replace(/\d{4}/g, '').trim();
 
   const titleVariations = [cleanTitle];
   if (simpler && simpler !== cleanTitle) titleVariations.push(simpler);
+  if (noYear && noYear !== cleanTitle) titleVariations.push(noYear);
   if (songTitle !== cleanTitle && songTitle !== simpler) titleVariations.push(songTitle);
 
   for (const title of titleVariations) {
@@ -557,6 +618,10 @@ export async function fetchLyrics(songId, songTitle, artistName) {
   for (const title of titleVariations) {
     const netease = await tryNetease(cleanArtist, title);
     if (netease) return netease;
+  }
+  for (const title of titleVariations) {
+    const hindiLyrics = await tryHindiLyrics(title);
+    if (hindiLyrics) return hindiLyrics;
   }
   for (const title of titleVariations) {
     const lrclib = await tryLrclib('', title);

@@ -98,7 +98,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
           a.load();
         } else {
           errorRetryCount.current++;
-          if (errorRetryCount.current < 3) {
+          if (errorRetryCount.current < 5) {
             setLoading(true);
             setErrorMsg('Refreshing URL...');
             refreshSongUrl(currentSong).then(fresh => {
@@ -122,16 +122,16 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
                 }
               }
               setLoading(false);
-              setErrorMsg('Could not play. Retrying in 5s...');
-              retryTimerRef.current = setTimeout(() => { errorRetryCount.current = 0; tryNextUrl(); }, 5000);
+              setErrorMsg(`Retry ${errorRetryCount.current}/5...`);
+              retryTimerRef.current = setTimeout(() => tryNextUrl(), 3000);
             }).catch(() => {
               setLoading(false);
-              setErrorMsg('Could not play. Retrying in 5s...');
-              retryTimerRef.current = setTimeout(() => { errorRetryCount.current = 0; tryNextUrl(); }, 5000);
+              setErrorMsg(`Retry ${errorRetryCount.current}/5...`);
+              retryTimerRef.current = setTimeout(() => tryNextUrl(), 3000);
             });
           } else {
             setLoading(false);
-            setErrorMsg('Could not play. Next song...');
+            setErrorMsg('Moving to next song...');
             errorRetryCount.current = 0;
             setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 1500);
           }
@@ -209,10 +209,11 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
       navigator.mediaSession.metadata = new MediaMetadata({
         title: currentSong.title || 'Unknown',
         artist: currentSong.artist || 'Unknown Artist',
-        album: currentSong.album || 'SoundAura',
+        album: 'SoundAura',
         artwork: currentSong.coverUrl ? [
           { src: currentSong.coverUrl, sizes: '512x512', type: 'image/jpeg' },
           { src: currentSong.coverUrl, sizes: '256x256', type: 'image/jpeg' },
+          { src: currentSong.coverUrl, sizes: '128x128', type: 'image/jpeg' },
         ] : [],
       });
     }

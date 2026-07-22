@@ -29,7 +29,7 @@ export default function ArtistPage({ query, playSong, currentSong, isPlaying, on
     setSelectedAlbum(null);
     setLangFilter('all');
 
-    searchArtistSongs(query, 100).then(tracks => {
+    searchArtistSongs(query, 500).then(tracks => {
       if (cancelled) return;
       setAllTracks(tracks);
       setAlbums(groupTracksByAlbum(tracks));

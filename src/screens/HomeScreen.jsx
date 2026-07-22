@@ -43,7 +43,7 @@ const LOAD_MORE_BATCH = 8;
 
 async function loadSaavnSection(sec) {
   try {
-    const songs = await searchSaavn(sec.query, 10);
+    const songs = await searchSaavn(sec.query, 20);
     return { key: sec.key, label: sec.label, songs };
   } catch {
     return { key: sec.key, label: sec.label, songs: [] };

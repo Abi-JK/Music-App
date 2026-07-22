@@ -116,39 +116,32 @@ function AppContent() {
     const resumeAudio = () => {
       const a = document.getElementById('main-audio');
       if (a && a.paused && a.src && !a.ended && a.currentTime > 0 && isPlayingRef.current) {
-        a.play().then(() => setIsPlaying(true)).catch(() => {});
+        a.play().then(() => {
+          setIsPlaying(true);
+          if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+        }).catch(() => {});
       }
       reacquireWakeLock();
     };
-    let focusPauseTimeout = null;
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
-        clearTimeout(focusPauseTimeout);
         resumeAudio();
-        setTimeout(resumeAudio, 500);
-        setTimeout(resumeAudio, 2000);
-      } else {
-        const a = document.getElementById('main-audio');
-        if (a && !a.paused && isPlayingRef.current) {
-          focusPauseTimeout = setTimeout(() => {
-            const a2 = document.getElementById('main-audio');
-            if (a2 && !a2.paused && isPlayingRef.current) {
-              a2.pause();
-            }
-          }, 30000);
-        }
+        setTimeout(resumeAudio, 300);
+        setTimeout(resumeAudio, 1000);
+        setTimeout(resumeAudio, 3000);
       }
     };
     const handlePageShow = (e) => {
       if (e.persisted) {
         resumeAudio();
-        setTimeout(resumeAudio, 500);
+        setTimeout(resumeAudio, 300);
+        setTimeout(resumeAudio, 1000);
       }
     };
     const handleFocus = () => {
-      clearTimeout(focusPauseTimeout);
       resumeAudio();
-      setTimeout(resumeAudio, 500);
+      setTimeout(resumeAudio, 300);
+      setTimeout(resumeAudio, 1000);
     };
     document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('pageshow', handlePageShow);
@@ -157,31 +150,45 @@ function AppContent() {
     if ('mediaSession' in navigator) {
       navigator.mediaSession.setActionHandler('play', () => {
         const a = document.getElementById('main-audio');
-        if (a && a.src) { a.play().then(() => setIsPlaying(true)).catch(() => {}); }
+        if (a && a.src) {
+          a.play().then(() => {
+            setIsPlaying(true);
+            navigator.mediaSession.playbackState = 'playing';
+          }).catch(() => {});
+        }
       });
       navigator.mediaSession.setActionHandler('pause', () => {
         const a = document.getElementById('main-audio');
-        if (a && !a.paused) { a.pause(); setIsPlaying(false); }
+        if (a && !a.paused) {
+          a.pause();
+          setIsPlaying(false);
+          navigator.mediaSession.playbackState = 'paused';
+        }
+      });
+      navigator.mediaSession.setActionHandler('stop', () => {
+        const a = document.getElementById('main-audio');
+        if (a) {
+          a.pause();
+          a.currentTime = 0;
+          setIsPlaying(false);
+          navigator.mediaSession.playbackState = 'none';
+        }
       });
     }
 
     const heartbeat = setInterval(() => {
       const a = document.getElementById('main-audio');
       if (a && a.paused && a.src && !a.ended && a.currentTime > 0 && isPlayingRef.current) {
-        a.play().then(() => setIsPlaying(true)).catch(() => {});
+        a.play().then(() => {
+          setIsPlaying(true);
+          if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+        }).catch(() => {});
       }
       reacquireWakeLock();
-      if ('mediaSession' in navigator && navigator.mediaSession.playbackState !== 'playing' && isPlayingRef.current) {
-        const a2 = document.getElementById('main-audio');
-        if (a2 && a2.src && !a2.ended) {
-          a2.play().then(() => setIsPlaying(true)).catch(() => {});
-        }
-      }
-    }, 8000);
+    }, 5000);
 
     return () => {
       clearInterval(heartbeat);
-      clearTimeout(focusPauseTimeout);
       window.removeEventListener('beforeinstallprompt', handler);
       document.removeEventListener('visibilitychange', handleVisibility);
       window.removeEventListener('pageshow', handlePageShow);
