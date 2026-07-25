@@ -23,6 +23,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
   const errorRetryCount = useRef(0);
   const retryTimerRef = useRef(null);
   const loadingUrlRef = useRef(false);
+  const autoPlayOnReady = useRef(false);
 
   useEffect(() => { playNextRef.current = playNext; }, [playNext]);
   useEffect(() => { playPrevRef.current = playPrev; }, [playPrev]);
@@ -34,6 +35,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     navigator.mediaSession.setActionHandler('play', () => {
       const a = audioRef.current;
       if (a && a.src && a.paused && !a.ended) {
+        autoPlayOnReady.current = true;
         a.play().then(() => setIsPlaying(true)).catch(() => {});
       } else {
         setIsPlaying(true);
@@ -75,6 +77,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
 
     const onPlay = () => {
       if (!isPlayingRef.current) setIsPlaying(true);
+      autoPlayOnReady.current = false;
       if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
       errorRetryCount.current = 0;
       setLoading(false);
@@ -152,14 +155,17 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
       endedGuard.current = false;
       if (retryTimerRef.current) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
       errorRetryCount.current = 0;
-      const playPromise = a.play();
-      if (playPromise) {
-        playPromise.then(() => {
-          setIsPlaying(true);
-          if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
-        }).catch(() => {
-          setErrorMsg('Tap play to start');
-        });
+      if (autoPlayOnReady.current || isPlayingRef.current) {
+        autoPlayOnReady.current = false;
+        const playPromise = a.play();
+        if (playPromise) {
+          playPromise.then(() => {
+            setIsPlaying(true);
+            if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+          }).catch(() => {
+            setErrorMsg('Tap play ▶ to start');
+          });
+        }
       }
     };
 
@@ -208,6 +214,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     endedGuard.current = false;
     errorRetryCount.current = 0;
     loadingUrlRef.current = false;
+    autoPlayOnReady.current = true;
     if (retryTimerRef.current) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
 
     const a = audioRef.current;
@@ -266,17 +273,19 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
 
   useEffect(() => {
     const a = audioRef.current;
-    if (!a) return;
+    if (!a || !a.src) return;
     if (isPlaying) {
+      autoPlayOnReady.current = true;
       const playPromise = a.play();
       if (playPromise) {
         playPromise.then(() => {
           if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
         }).catch(() => {
-          setErrorMsg('Tap play to start');
+          autoPlayOnReady.current = true;
         });
       }
     } else {
+      autoPlayOnReady.current = false;
       if (!a.paused) a.pause();
       if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused';
     }
@@ -374,8 +383,15 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
               if (a && !a.paused) {
                 setIsPlaying(false);
               } else if (a && a.src && a.paused && !a.ended) {
-                a.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(true));
+                autoPlayOnReady.current = true;
+                a.play().then(() => {
+                  setIsPlaying(true);
+                  autoPlayOnReady.current = false;
+                }).catch(() => {
+                  autoPlayOnReady.current = true;
+                });
               } else {
+                autoPlayOnReady.current = true;
                 setIsPlaying(!isPlaying);
               }
             }} disabled={loading}>
