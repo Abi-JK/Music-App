@@ -28,6 +28,7 @@ export default async (request: Request) => {
     'googlevideo.com', 'rr1---', 'rr2---', 'rr3---', 'rr4---', 'rr5---',
     'manifest.googlevideo.com', 'videoplayback',
     'soundcloud.com', 'sndcdn.com',
+    'commondatastorage.googleapis.com',
   ];
   const isAllowed = allowedDomains.some(d => audioUrl.includes(d));
   if (!isAllowed) {

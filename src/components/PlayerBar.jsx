@@ -24,6 +24,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
   const retryTimerRef = useRef(null);
   const loadingUrlRef = useRef(false);
   const autoPlayOnReady = useRef(false);
+  const songLoadId = useRef(0);
 
   useEffect(() => { playNextRef.current = playNext; }, [playNext]);
   useEffect(() => { playPrevRef.current = playPrev; }, [playPrev]);
@@ -91,11 +92,11 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     };
 
     const onError = () => {
-      if (loadingUrlRef.current) return;
+      const myLoadId = songLoadId.current;
       if (retryTimerRef.current) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
 
       const tryNextUrl = () => {
-        if (loadingUrlRef.current) return;
+        if (songLoadId.current !== myLoadId) return;
         const next = urlIndex.current + 1;
         if (next < urlList.current.length) {
           const candidate = urlList.current[next];
@@ -110,6 +111,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
             setLoading(true);
             setErrorMsg(`Refreshing URL (${errorRetryCount.current}/5)...`);
             refreshSongUrl(currentSong).then(fresh => {
+              if (songLoadId.current !== myLoadId) return;
               if (fresh && fresh.audioUrl) {
                 const newCandidates = [];
                 if (fresh.audioUrl) newCandidates.push({ url: fresh.audioUrl, type: 'refreshed' });
@@ -134,6 +136,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
               setErrorMsg(`Retry ${errorRetryCount.current}/5...`);
               retryTimerRef.current = setTimeout(() => tryNextUrl(), 5000);
             }).catch(() => {
+              if (songLoadId.current !== myLoadId) return;
               setLoading(false);
               setErrorMsg(`Retry ${errorRetryCount.current}/5...`);
               retryTimerRef.current = setTimeout(() => tryNextUrl(), 5000);
@@ -215,6 +218,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     errorRetryCount.current = 0;
     loadingUrlRef.current = false;
     autoPlayOnReady.current = true;
+    songLoadId.current++;
     if (retryTimerRef.current) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
 
     const a = audioRef.current;
@@ -249,14 +253,6 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
         }
       }
     }
-    if (currentSong.rawAudioUrls) {
-      for (const entry of currentSong.rawAudioUrls) {
-        if (entry.url && !candidates.some(c => c.url === entry.url)) {
-          candidates.push({ url: entry.url, type: 'raw' });
-        }
-      }
-    }
-
     urlList.current = candidates;
     if (candidates.length > 0) {
       const candidate = candidates[0];
