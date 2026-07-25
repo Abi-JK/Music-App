@@ -22,6 +22,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
   const isPlayingRef = useRef(isPlaying);
   const errorRetryCount = useRef(0);
   const retryTimerRef = useRef(null);
+  const loadingUrlRef = useRef(false);
 
   useEffect(() => { playNextRef.current = playNext; }, [playNext]);
   useEffect(() => { playPrevRef.current = playPrev; }, [playPrev]);
@@ -78,6 +79,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
       errorRetryCount.current = 0;
       setLoading(false);
       setErrorMsg('');
+      loadingUrlRef.current = false;
       if (retryTimerRef.current) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
     };
 
@@ -86,13 +88,16 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     };
 
     const onError = () => {
+      if (loadingUrlRef.current) return;
       if (retryTimerRef.current) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
 
       const tryNextUrl = () => {
+        if (loadingUrlRef.current) return;
         const next = urlIndex.current + 1;
         if (next < urlList.current.length) {
           const candidate = urlList.current[next];
           urlIndex.current = next;
+          loadingUrlRef.current = true;
           a.src = candidate.url;
           a.volume = volRef.current;
           a.load();
@@ -100,7 +105,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
           errorRetryCount.current++;
           if (errorRetryCount.current < 5) {
             setLoading(true);
-            setErrorMsg('Refreshing URL...');
+            setErrorMsg(`Refreshing URL (${errorRetryCount.current}/5)...`);
             refreshSongUrl(currentSong).then(fresh => {
               if (fresh && fresh.audioUrl) {
                 const newCandidates = [];
@@ -115,6 +120,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
                 urlList.current = newCandidates;
                 urlIndex.current = 0;
                 if (newCandidates.length > 0) {
+                  loadingUrlRef.current = true;
                   a.src = newCandidates[0].url;
                   a.volume = volRef.current;
                   a.load();
@@ -123,17 +129,17 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
               }
               setLoading(false);
               setErrorMsg(`Retry ${errorRetryCount.current}/5...`);
-              retryTimerRef.current = setTimeout(() => tryNextUrl(), 3000);
+              retryTimerRef.current = setTimeout(() => tryNextUrl(), 5000);
             }).catch(() => {
               setLoading(false);
               setErrorMsg(`Retry ${errorRetryCount.current}/5...`);
-              retryTimerRef.current = setTimeout(() => tryNextUrl(), 3000);
+              retryTimerRef.current = setTimeout(() => tryNextUrl(), 5000);
             });
           } else {
             setLoading(false);
-            setErrorMsg('Moving to next song...');
+            setErrorMsg('Trying next song...');
             errorRetryCount.current = 0;
-            setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 1500);
+            setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 2000);
           }
         }
       };
@@ -141,6 +147,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     };
 
     const onCanPlay = () => {
+      loadingUrlRef.current = false;
       setLoading(false); setErrorMsg('');
       endedGuard.current = false;
       if (retryTimerRef.current) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
@@ -160,7 +167,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
       if (endedGuard.current) return;
       endedGuard.current = true;
       if (retryTimerRef.current) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
-      if (playNextRef.current) playNextRef.current();
+      setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 300);
     };
 
     a.addEventListener('play', onPlay);
@@ -200,6 +207,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     blobUrls.current = [];
     endedGuard.current = false;
     errorRetryCount.current = 0;
+    loadingUrlRef.current = false;
     if (retryTimerRef.current) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
 
     const a = audioRef.current;
@@ -234,11 +242,19 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
         }
       }
     }
+    if (currentSong.rawAudioUrls) {
+      for (const entry of currentSong.rawAudioUrls) {
+        if (entry.url && !candidates.some(c => c.url === entry.url)) {
+          candidates.push({ url: entry.url, type: 'raw' });
+        }
+      }
+    }
 
     urlList.current = candidates;
     if (candidates.length > 0) {
       const candidate = candidates[0];
       urlIndex.current = 0;
+      loadingUrlRef.current = true;
       a.src = candidate.url;
       a.volume = volRef.current;
       a.load();

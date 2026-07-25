@@ -184,8 +184,11 @@ function AppContent() {
           if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
         }).catch(() => {});
       }
+      if (a && !a.paused && isPlayingRef.current) {
+        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+      }
       reacquireWakeLock();
-    }, 5000);
+    }, 3000);
 
     return () => {
       clearInterval(heartbeat);
@@ -244,7 +247,8 @@ function AppContent() {
       setCurrentIndex(idx >= 0 ? idx : 0);
     } else {
       setPlaylist(ctx);
-      setCurrentIndex(contextIdx != null ? contextIdx : 0);
+      const idx = contextIdx != null ? contextIdx : ctx.findIndex(s => s.id === song.id);
+      setCurrentIndex(idx >= 0 ? idx : 0);
     }
     setIsPlaying(true);
     addRecent(song);
