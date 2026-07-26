@@ -1,13 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { formatTime } from '../utils/helpers';
-import { fetchLyrics, downloadAudioBlob } from '../utils/api';
+import { fetchLyrics } from '../utils/api';
 import { cutAudio } from '../utils/audio';
-import { Storage } from '../utils/storage';
-import { addSharedSong } from '../utils/api';
-
-function generateId() {
-  return `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
 
 export default function FullScreenPlayer({
   currentSong, isPlaying, setIsPlaying, playNext, playPrev,
@@ -29,40 +23,8 @@ export default function FullScreenPlayer({
       return;
     }
     setSavingToMySongs(true);
-    showToast('Saving to My Songs...');
-    try {
-      let blob = currentSong.audioBlob || null;
-      if (!blob) {
-        blob = await downloadAudioBlob(currentSong.audioUrl, currentSong.rawAudioUrls || []);
-      }
-      if (!blob) throw new Error('Could not download audio');
-      const song = {
-        id: generateId(),
-        title: currentSong.title,
-        artist: currentSong.artist,
-        album: currentSong.album || 'My Songs',
-        year: currentSong.year || '',
-        duration: currentSong.duration || dur || 0,
-        coverUrl: currentSong.coverUrl,
-        audioUrl: null,
-        allAudioUrls: [],
-        rawAudioUrls: [],
-        genre: currentSong.genre || '',
-        source: 'custom',
-        downloadable: true,
-        _customFile: true,
-        addedAt: new Date().toISOString(),
-      };
-      await Storage.addCustomSong(song, blob);
-      addSharedSong(song).catch(() => {});
-      if (onSaveToMySongs) onSaveToMySongs(song);
-      showToast(`"${song.title}" saved to My Songs — shared with community!`);
-    } catch (err) {
-      console.error(err);
-      showToast('Failed to save song');
-    } finally {
-      setSavingToMySongs(false);
-    }
+    if (onSaveToMySongs) await onSaveToMySongs(currentSong);
+    setSavingToMySongs(false);
   };
 
   useEffect(() => {

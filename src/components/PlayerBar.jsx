@@ -226,21 +226,29 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     if (a) { a.pause(); a.removeAttribute('src'); }
 
     if ('mediaSession' in navigator) {
+      const artworkItems = [];
+      if (currentSong.coverUrl) {
+        artworkItems.push(
+          { src: currentSong.coverUrl, sizes: '512x512', type: 'image/jpeg' },
+          { src: currentSong.coverUrl, sizes: '256x256', type: 'image/jpeg' },
+        );
+      }
+      artworkItems.push(
+        { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+        { src: '/icons/icon-128.png', sizes: '128x128', type: 'image/png' },
+        { src: '/icons/icon-96.png', sizes: '96x96', type: 'image/png' },
+      );
       navigator.mediaSession.metadata = new MediaMetadata({
         title: currentSong.title || 'Unknown',
         artist: currentSong.artist || 'Unknown Artist',
-        album: currentSong.source === 'custom' ? 'My Songs' : 'SoundAura',
-        artwork: currentSong.coverUrl ? [
-          { src: currentSong.coverUrl, sizes: '512x512', type: 'image/jpeg' },
-          { src: currentSong.coverUrl, sizes: '256x256', type: 'image/jpeg' },
-          { src: currentSong.coverUrl, sizes: '128x128', type: 'image/jpeg' },
-        ] : [],
+        album: currentSong.source === 'custom' ? 'My Songs · SoundAura' : 'SoundAura',
+        artwork: artworkItems,
       });
     }
 
     const candidates = [];
 
-    if (currentSong.source === 'custom' || currentSong._customFile) {
+    if (currentSong.source === 'custom' && currentSong._customFile && !currentSong.audioUrl) {
       const loadCustomAudio = async () => {
         try {
           const blob = await Storage.loadCustomSongBlob(currentSong.id);

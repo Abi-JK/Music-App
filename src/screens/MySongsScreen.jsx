@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback } from 'react';
 import { Storage } from '../utils/storage';
+import { addSharedSong } from '../utils/api';
 
 function generateId() {
   return `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -76,6 +77,7 @@ export default function MySongsScreen({ customSongs, setCustomSongs, playSong, c
           addedAt: new Date().toISOString(),
         };
         await Storage.addCustomSong(song, blob);
+        addSharedSong(song).catch(() => {});
         setCustomSongs(prev => [...prev, { ...song }]);
         added++;
       } catch (err) {
@@ -172,6 +174,7 @@ export default function MySongsScreen({ customSongs, setCustomSongs, playSong, c
         addedAt: new Date().toISOString(),
       };
       await Storage.addCustomSong(song, blob);
+      addSharedSong(song).catch(() => {});
       setCustomSongs(prev => [...prev, { ...song }]);
       showToast(`Added "${song.title}" to My Songs`);
     } catch (err) {

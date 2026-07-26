@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { searchSaavn } from '../utils/api';
+import { searchSaavn, searchArtistSongs } from '../utils/api';
 import { HOME_SECTIONS } from '../utils/constants';
 
 function SectionRow({ sec, currentSong, isPlaying, playSong, downloadSong, downloadedIds, downloadingIds }) {
@@ -41,9 +41,111 @@ function SectionRow({ sec, currentSong, isPlaying, playSong, downloadSong, downl
 const INITIAL_BATCH = 12;
 const LOAD_MORE_BATCH = 8;
 
+const ARTIST_SECTION_MAP = {
+  mgr: 'M.G. Ramachandran',
+  mgr_all: 'M.G. Ramachandran',
+  mgr_old: 'M.G. Ramachandran',
+  mgrclassics: 'M.G. Ramachandran',
+  mgr_devotional: 'M.G. Ramachandran',
+  mgr_action: 'M.G. Ramachandran',
+  mgr_annakili: 'M.G. Ramachandran',
+  mgr_aayirathil: 'M.G. Ramachandran',
+  mgr_nadodi: 'M.G. Ramachandran',
+  mgr_padagotti: 'M.G. Ramachandran',
+  mgr_kumara: 'M.G. Ramachandran',
+  mgr_gulebakavali: 'M.G. Ramachandran',
+  mgr_king: 'M.G. Ramachandran',
+  sivaji: 'Sivaji Ganesan',
+  sivaji2: 'Sivaji Ganesan',
+  sivaji_all: 'Sivaji Ganesan',
+  sivaji_old: 'Sivaji Ganesan',
+  sivaji_parasakthi: 'Sivaji Ganesan',
+  sivaji_thiruvilaiyadal: 'Sivaji Ganesan',
+  sivaji_kappalottiya: 'Sivaji Ganesan',
+  sivaji_veerapandiya: 'Sivaji Ganesan',
+  sivaji_paasam: 'Sivaji Ganesan',
+  sivaji_server: 'Sivaji Ganesan',
+  gemini: 'Gemini Ganesan',
+  jaiShankar: 'Jaishankar',
+  tamil_old_heroes: 'Gemini Ganesan',
+  rajinikanth: 'Rajinikanth',
+  kamal: 'Kamal Haasan',
+  vijay: 'Vijay',
+  ajith: 'Ajith Kumar',
+  arrijit: 'Arijit Singh',
+  pritam: 'Pritam',
+  arrahman: 'A.R. Rahman',
+  anirudh: 'Anirudh Ravichander',
+  shreya: 'Shreya Ghoshal',
+  ilayaraja: 'Ilaiyaraaja',
+  dsp: 'Devi Sri Prasad',
+  yuvan: 'Yuvan Shankar Raja',
+  harris: 'Harris Jayaraj',
+  ss_thaman: 'S.S. Thaman',
+  harish: 'Haricharan',
+  sid: 'Sid Sriram',
+  vishalM: 'Vishal Mishra',
+  himesh: 'Himesh Reshammiya',
+  jubin: 'Jubin Nautiyal',
+  neha: 'Neha Kakkar',
+  anuv: 'Anuv Jain',
+  hanumankind: 'Hanumankind',
+  vishal: 'Vishal Shekhar',
+  salim: 'Salim Sulaiman',
+  yesudas: 'K.J. Yesudas',
+  spb: 'S.P. Balasubrahmanyam',
+  lata: 'Lata Mangeshkar',
+  kishore: 'Kishore Kumar',
+  mukesh: 'Mukesh',
+  rafi: 'Mohammed Rafi',
+  asha: 'Asha Bhosle',
+  sonu: 'Sonu Nigam',
+  udit: 'Udit Narayan',
+  alka: 'Alka Yagnik',
+  kumarSanu: 'Kumar Sanu',
+  sunidhi: 'Sunidhi Chauhan',
+  shankar: 'Shankar Mahadevan',
+  kannadasan: 'Kannadasan',
+  msv2: 'M.S. Viswanathan',
+  msv: 'M.S. Viswanathan',
+  diljit: 'Diljit Dosanjh',
+  badshah: 'Badshah',
+  honey: 'Honey Singh',
+  guru: 'Guru Randhawa',
+  karun: 'Karun Aujla',
+  ap: 'AP Dhillon',
+  emiway: 'Emiway Bantai',
+  puneeth: 'Puneeth Rajkumar',
+  darshan: 'Darshan',
+  upendra: 'Upendra',
+  drrajkumar: 'Dr. Rajkumar',
+  mammootty: 'Mammootty',
+  mohanlal: 'Mohanlal',
+  prithviraj: 'Prithviraj',
+  mahesh: 'Mahesh Babu',
+  prabhas: 'Prabhas',
+  allu: 'Allu Arjun',
+  ram: 'Ram Charan',
+  ntr: 'Jr NTR',
+  zubeen: 'Zubeen Garg',
+  bhupen: 'Bhupen Hazarika',
+  mayavi: 'Sonu Nigam',
+  kvmdclassic: 'K.V. Mahadevan',
+  gprclassic: 'G. Ramanathan',
+  msvklassic: 'M.S. Viswanathan',
+  kishore: 'Kishore Kumar',
+  mukesh: 'Mukesh',
+  rafi: 'Mohammed Rafi',
+};
+
 async function loadSaavnSection(sec) {
   try {
-    const songs = await searchSaavn(sec.query, 40);
+    const artistName = ARTIST_SECTION_MAP[sec.key];
+    if (artistName) {
+      const songs = await searchArtistSongs(artistName, 500);
+      return { key: sec.key, label: sec.label, songs: songs.slice(0, 100) };
+    }
+    const songs = await searchSaavn(sec.query, 50);
     return { key: sec.key, label: sec.label, songs };
   } catch {
     return { key: sec.key, label: sec.label, songs: [] };

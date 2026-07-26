@@ -78,6 +78,7 @@ function AppContent() {
   const currentSong = playlist[currentIndex] || null;
 
   const playNextRef = useRef(null);
+  const playPrevRef = useRef(null);
   const playSongRef = useRef(null);
   const autoPlayGenreFuncRef = useRef(null);
 
@@ -125,8 +126,16 @@ function AppContent() {
         setCustomSongs(custom);
 
         fetchSharedSongs(200).then(songs => {
-          if (songs.length > 0) setSharedSongs(songs);
-        }).catch(() => {});
+          if (songs.length > 0) {
+            setSharedSongs(songs);
+            try { localStorage.setItem('soundaura_shared_backup', JSON.stringify(songs.slice(0, 500))); } catch {}
+          }
+        }).catch(() => {
+          try {
+            const cached = JSON.parse(localStorage.getItem('soundaura_shared_backup') || '[]');
+            if (cached.length > 0) setSharedSongs(cached);
+          } catch {}
+        });
       } catch (error) {
         console.error('Failed to load data from IndexedDB:', error);
       }
@@ -209,6 +218,12 @@ function AppContent() {
           navigator.mediaSession.playbackState = 'none';
         }
       });
+      try {
+        navigator.mediaSession.setActionHandler('previoustrack', () => { if (playPrevRef.current) playPrevRef.current(); });
+      } catch {}
+      try {
+        navigator.mediaSession.setActionHandler('nexttrack', () => { if (playNextRef.current) playNextRef.current(); });
+      } catch {}
     }
 
     let heartbeatRetries = 0;
@@ -432,6 +447,8 @@ function AppContent() {
     if (playlist[prev]) addRecent(playlist[prev]);
   }, [playlist, currentIndex, addRecent, audioState.curTime]);
 
+  useEffect(() => { playPrevRef.current = playPrev; }, [playPrev]);
+
   const toggleShuffle = useCallback(() => {
     if (playlist.length === 0) return;
     setShuffleOn(prev => {
@@ -487,12 +504,38 @@ function AppContent() {
       const langObj = LANG_QUERIES.find(l => l.label === activeLang);
       const term = langObj?.term && langObj.label !== 'All' ? `${q} ${langObj.term}` : q;
       const songs = await searchSongs(term, 50);
-      setSearchResults(songs);
+
+      const lq = q.toLowerCase();
+      const localMatches = customSongs.filter(s =>
+        (s.title || '').toLowerCase().includes(lq) ||
+        (s.artist || '').toLowerCase().includes(lq) ||
+        (s.album || '').toLowerCase().includes(lq)
+      );
+      const sharedMatches = sharedSongs.filter(s =>
+        (s.title || '').toLowerCase().includes(lq) ||
+        (s.artist || '').toLowerCase().includes(lq) ||
+        (s.album || '').toLowerCase().includes(lq)
+      ).map(s => ({
+        id: `shared-${s.title}-${s.artist}`,
+        title: s.title,
+        artist: s.artist,
+        album: s.album || '',
+        genre: s.genre || '',
+        coverUrl: s.coverUrl || null,
+        audioUrl: null,
+        allAudioUrls: [],
+        rawAudioUrls: [],
+        source: 'shared',
+        _sharedQuery: `${s.title} ${s.artist} ${s.album || ''}`,
+      }));
+      const merged = [...localMatches, ...sharedMatches.filter(sh => !localMatches.some(l => l.title === sh.title && l.artist === sh.artist)), ...songs];
+      const unique = [...new Map(merged.map(s => [s.id, s])).values()];
+      setSearchResults(unique);
     } catch {
       showToast('Search failed. Check your connection.');
     }
     setSearchLoading(false);
-  }, [searchQ, activeLang, showToast]);
+  }, [searchQ, activeLang, showToast, customSongs, sharedSongs]);
 
   const handleLangChip = useCallback((lang) => {
     setActiveLang(lang);
@@ -514,12 +557,27 @@ function AppContent() {
     };
     runBatches()
       .then(results => {
-        const unique = [...new Map(results.map(s => [s.id, s])).values()];
+        const langLower = lang.toLowerCase();
+        const localMatches = customSongs.filter(s =>
+          (s.genre || '').toLowerCase().includes(langLower) ||
+          (s.album || '').toLowerCase().includes(langLower)
+        );
+        const sharedMatches = sharedSongs.filter(s =>
+          (s.genre || '').toLowerCase().includes(langLower)
+        ).map(s => ({
+          id: `shared-${s.title}-${s.artist}`,
+          title: s.title, artist: s.artist, album: s.album || '',
+          genre: s.genre || '', coverUrl: s.coverUrl || null,
+          audioUrl: null, allAudioUrls: [], rawAudioUrls: [],
+          source: 'shared', _sharedQuery: `${s.title} ${s.artist} ${s.album || ''}`,
+        }));
+        const merged = [...localMatches, ...sharedMatches, ...results.flat()];
+        const unique = [...new Map(merged.map(s => [s.id, s])).values()];
         setSearchResults(unique);
       })
       .catch(() => showToast('Could not load.'))
       .finally(() => setSearchLoading(false));
-  }, [showToast]);
+  }, [showToast, customSongs, sharedSongs]);
 
   const searchByQuery = useCallback(async (term) => {
     const q = (typeof term === 'string' ? term : '').trim();
@@ -531,14 +589,38 @@ function AppContent() {
     setActiveLang('All');
     try {
       const songs = await searchSongs(q, 80);
-      setSearchResults(songs);
-      // Do NOT update playlist — only update on explicit song click
-      if (!songs.length) showToast('No results found.');
+      const lq = q.toLowerCase();
+      const localMatches = customSongs.filter(s =>
+        (s.title || '').toLowerCase().includes(lq) ||
+        (s.artist || '').toLowerCase().includes(lq) ||
+        (s.album || '').toLowerCase().includes(lq)
+      );
+      const sharedMatches = sharedSongs.filter(s =>
+        (s.title || '').toLowerCase().includes(lq) ||
+        (s.artist || '').toLowerCase().includes(lq) ||
+        (s.album || '').toLowerCase().includes(lq)
+      ).map(s => ({
+        id: `shared-${s.title}-${s.artist}`,
+        title: s.title,
+        artist: s.artist,
+        album: s.album || '',
+        genre: s.genre || '',
+        coverUrl: s.coverUrl || null,
+        audioUrl: null,
+        allAudioUrls: [],
+        rawAudioUrls: [],
+        source: 'shared',
+        _sharedQuery: `${s.title} ${s.artist} ${s.album || ''}`,
+      }));
+      const merged = [...localMatches, ...sharedMatches.filter(sh => !localMatches.some(l => l.title === sh.title && l.artist === sh.artist)), ...songs];
+      const unique = [...new Map(merged.map(s => [s.id, s])).values()];
+      setSearchResults(unique);
+      if (!unique.length) showToast('No results found.');
     } catch {
       showToast('Search failed. Check your connection.');
     }
     setSearchLoading(false);
-  }, [showToast]);
+  }, [showToast, customSongs, sharedSongs]);
 
   const downloadSong = useCallback(async (song) => {
     if (downloadedSongs.some(s => s.id === song.id)) {
@@ -571,10 +653,9 @@ function AppContent() {
     showToast(`Saving "${song.title}" to My Songs...`);
     try {
       let blob = song.audioBlob || null;
-      if (!blob) {
+      if (!blob && song.audioUrl) {
         blob = await downloadAudioBlob(song.audioUrl, song.rawAudioUrls || []);
       }
-      if (!blob) throw new Error('Could not download audio');
       const customSong = {
         id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         title: song.title,
@@ -583,13 +664,13 @@ function AppContent() {
         year: song.year || '',
         duration: song.duration || 0,
         coverUrl: song.coverUrl,
-        audioUrl: null,
-        allAudioUrls: [],
-        rawAudioUrls: [],
+        audioUrl: blob ? null : (song.audioUrl || null),
+        allAudioUrls: blob ? [] : (song.allAudioUrls || []),
+        rawAudioUrls: blob ? [] : (song.rawAudioUrls || []),
         genre: song.genre || '',
         source: 'custom',
         downloadable: true,
-        _customFile: true,
+        _customFile: !!blob,
         addedAt: new Date().toISOString(),
       };
       await Storage.addCustomSong(customSong, blob);
