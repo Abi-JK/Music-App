@@ -246,6 +246,13 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     if (currentSong.audioUrl) {
       candidates.push({ url: currentSong.audioUrl, type: 'primary' });
     }
+    if (currentSong.rawAudioUrls) {
+      for (const entry of currentSong.rawAudioUrls) {
+        if (entry.url && !candidates.some(c => c.url === entry.url)) {
+          candidates.push({ url: entry.url, type: 'raw' });
+        }
+      }
+    }
     if (currentSong.allAudioUrls) {
       for (const entry of currentSong.allAudioUrls) {
         if (entry.url && !candidates.some(c => c.url === entry.url)) {
@@ -328,7 +335,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
 
   if (!currentSong) return (
     <div className="player">
-      <audio ref={audioRef} referrerpolicy="no-referrer" />
+      <audio ref={audioRef} referrerPolicy="no-referrer" />
       <div className="player-empty">🎵 Select any song to play — 100% free, no login required</div>
     </div>
   );
@@ -338,7 +345,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
 
   return (
     <div className="player">
-      <audio id="main-audio" ref={audioRef} onTimeUpdate={onTimeUpdate} preload="auto" referrerpolicy="no-referrer" />
+      <audio id="main-audio" ref={audioRef} onTimeUpdate={onTimeUpdate} preload="auto" referrerPolicy="no-referrer" />
       <div className="player-inner">
         <div className="player-song">
           {currentSong.coverUrl ? <img src={currentSong.coverUrl} alt="" className="player-cover" onClick={onExpand} style={{ cursor: 'pointer' }} /> : <div className="player-cover player-ph" onClick={onExpand} style={{ cursor: 'pointer' }}>🎵</div>}

@@ -29,7 +29,7 @@ export default function Topbar({ q, setQ, activeLang, setLang, onSearch }) {
         if (!searchActiveRef.current) { setSugs(s); setShowSugs(true); }
         setSugLoading(false);
       }).catch(() => setSugLoading(false));
-    }, 300);
+    }, 150);
   };
 
   const pickSugg = (s) => {

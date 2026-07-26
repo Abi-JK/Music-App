@@ -40,8 +40,10 @@ export default function FullScreenPlayer({
     setDownloadingRingtone(true);
     showToast('Cutting ringtone...');
     try {
-      let blob = null;
-      blob = await downloadAudioBlob(currentSong.audioUrl, currentSong.rawAudioUrls || []);
+      let blob = currentSong.audioBlob || null;
+      if (!blob) {
+        blob = await downloadAudioBlob(currentSong.audioUrl, currentSong.rawAudioUrls || []);
+      }
       if (!blob) throw new Error('Download failed');
       const end = Math.min(dur, ringtoneStart + 30);
       const cutBlob = await cutAudio(blob, ringtoneStart, end);

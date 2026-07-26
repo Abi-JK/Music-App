@@ -14,31 +14,30 @@ export default function AlbumPage({ albumQuery, playSong, currentSong, isPlaying
 
     (async () => {
       try {
-        const searchResults = await searchSaavn(`${albumQuery} songs`, 50);
+        const [res1, res2] = await Promise.all([
+          searchSaavn(`${albumQuery} songs`, 60).catch(() => []),
+          searchSaavn(`${albumQuery} movie album`, 40).catch(() => [])
+        ]);
         if (cancelled) return;
 
-        if (searchResults.length > 0) {
-          const filtered = searchResults.filter(s => {
-            const albumName = (s.album || '').toLowerCase();
-            const queryLower = albumQuery.toLowerCase();
-            return albumName.includes(queryLower) || queryLower.includes(albumName) || s.title.toLowerCase().includes(queryLower);
-          });
-          const finalSongs = filtered.length > 2 ? filtered : searchResults;
+        const combined = [...res1, ...res2];
+        const deduped = [...new Map(combined.map(s => [s.id, s])).values()];
 
+        if (deduped.length > 0) {
           setAlbumInfo({
-            title: finalSongs[0]?.album || albumQuery,
-            coverUrl: finalSongs[0]?.coverUrl,
-            year: finalSongs[0]?.year,
-            artist: finalSongs[0]?.artist,
+            title: deduped[0]?.album || albumQuery,
+            coverUrl: deduped[0]?.coverUrl,
+            year: deduped[0]?.year,
+            artist: deduped[0]?.artist,
           });
-          setSongs(finalSongs);
+          setSongs(deduped);
         } else {
           setAlbumInfo({ title: albumQuery });
           setSongs([]);
         }
       } catch {
         if (!cancelled) {
-          const fallback = await searchSaavn(albumQuery, 20).catch(() => []);
+          const fallback = await searchSaavn(albumQuery, 30).catch(() => []);
           setSongs(fallback);
           setAlbumInfo({ title: albumQuery });
         }

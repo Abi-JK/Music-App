@@ -56,6 +56,8 @@ function AppContent() {
   const [showFullScreen, setShowFullScreen] = useState(false);
   const [showLyrics, setShowLyrics] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
+  // Ref to store a timer for auto‑play when the app loses focus
+  const autoPlayTimerRef = useRef(null);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [artistQuery, setArtistQuery] = useState(null);
   const [albumQuery, setAlbumQuery] = useState(null);
@@ -70,8 +72,17 @@ function AppContent() {
 
   const currentSong = playlist[currentIndex] || null;
 
+  const playNextRef = useRef(null);
+  const autoPlayGenreFuncRef = useRef(null);
+
   useEffect(() => { shuffleRef.current = shuffleOn; }, [shuffleOn]);
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
+  useEffect(() => {
+    if (!isPlaying && autoPlayTimerRef.current) {
+      clearTimeout(autoPlayTimerRef.current);
+      autoPlayTimerRef.current = null;
+    }
+  }, [isPlaying]);
 
   const requestWakeLock = useCallback(async () => {
     if ('wakeLock' in navigator) {
@@ -132,16 +143,28 @@ function AppContent() {
       }
     };
     const handlePageShow = (e) => {
-      if (e.persisted) {
-        resumeAudio();
-        setTimeout(resumeAudio, 300);
-        setTimeout(resumeAudio, 1000);
-      }
-    };
+    // Keep existing logic for restoring playback on page show
+    if (e.persisted) {
+      resumeAudio();
+      setTimeout(resumeAudio, 300);
+      setTimeout(resumeAudio, 1000);
+    }
+    // Cancel any pending auto‑play since user returned
+    if (autoPlayTimerRef.current) {
+      clearTimeout(autoPlayTimerRef.current);
+      autoPlayTimerRef.current = null;
+    }
+  };
+  
     const handleFocus = () => {
       resumeAudio();
       setTimeout(resumeAudio, 300);
       setTimeout(resumeAudio, 1000);
+      // Cancel pending auto‑play on focus
+      if (autoPlayTimerRef.current) {
+        clearTimeout(autoPlayTimerRef.current);
+        autoPlayTimerRef.current = null;
+      }
     };
     document.addEventListener('visibilitychange', handleVisibility);
     window.addEventListener('pageshow', handlePageShow);
@@ -239,7 +262,7 @@ function AppContent() {
     if (!song) return;
     const ctx = context || [song];
     originalPlaylistRef.current = ctx;
-    autoPlayGenreRef.current = song.genre || song.language || null;
+    autoPlayGenreRef.current = song.genre || song.language || (song.artist ? `${song.artist}` : 'trending india');
     if (shuffleRef.current) {
       const shuffled = shuffleArray(ctx);
       const idx = shuffled.findIndex(s => s.id === song.id);
@@ -292,6 +315,8 @@ function AppContent() {
     }
   }, [playlist, showToast]);
 
+  useEffect(() => { autoPlayGenreFuncRef.current = autoPlayGenre; }, [autoPlayGenre]);
+
   const playNext = useCallback(() => {
     if (!playlist.length) return;
     if (repeatMode === 'one') {
@@ -314,6 +339,8 @@ function AppContent() {
     setIsPlaying(true);
     if (playlist[nextIdx]) addRecent(playlist[nextIdx]);
   }, [playlist, currentIndex, addRecent, repeatMode, autoPlayGenre]);
+
+  useEffect(() => { playNextRef.current = playNext; }, [playNext]);
 
   const playPrev = useCallback(() => {
     if (!playlist.length) return;
@@ -383,17 +410,7 @@ function AppContent() {
       const term = langObj?.term && langObj.label !== 'All' ? `${q} ${langObj.term}` : q;
       const songs = await searchSongs(term, 50);
       setSearchResults(songs);
-      if (songs.length) {
-        originalPlaylistRef.current = songs;
-        if (shuffleRef.current) {
-          const shuffled = shuffleArray(songs);
-          setPlaylist(shuffled);
-          setCurrentIndex(0);
-        } else {
-          setPlaylist(songs);
-          setCurrentIndex(0);
-        }
-      } else showToast('No results found.');
+      // NOTE: Do NOT update playlist here — only update playlist when user explicitly clicks a song
     } catch {
       showToast('Search failed. Check your connection.');
     }
@@ -411,17 +428,7 @@ function AppContent() {
     searchSongs(langObj.term, 80)
       .then(songs => {
         setSearchResults(songs);
-        if (songs.length) {
-          originalPlaylistRef.current = songs;
-          if (shuffleRef.current) {
-            const shuffled = shuffleArray(songs);
-            setPlaylist(shuffled);
-            setCurrentIndex(0);
-          } else {
-            setPlaylist(songs);
-            setCurrentIndex(0);
-          }
-        }
+        // Do NOT update playlist — only update on explicit song click
       })
       .catch(() => showToast('Could not load.'))
       .finally(() => setSearchLoading(false));
@@ -438,17 +445,8 @@ function AppContent() {
     try {
       const songs = await searchSongs(q, 80);
       setSearchResults(songs);
-      if (songs.length) {
-        originalPlaylistRef.current = songs;
-        if (shuffleRef.current) {
-          const shuffled = shuffleArray(songs);
-          setPlaylist(shuffled);
-          setCurrentIndex(0);
-        } else {
-          setPlaylist(songs);
-          setCurrentIndex(0);
-        }
-      } else showToast('No results found.');
+      // Do NOT update playlist — only update on explicit song click
+      if (!songs.length) showToast('No results found.');
     } catch {
       showToast('Search failed. Check your connection.');
     }
@@ -490,9 +488,9 @@ function AppContent() {
 
   const openFullScreen = useCallback(() => { if (currentSong) setShowFullScreen(true); }, [currentSong]);
   const closeFullScreen = useCallback(() => setShowFullScreen(false), []);
-  const openArtistPage = useCallback((name) => { setArtistQuery(name); setAlbumQuery(null); }, []);
+  const openArtistPage = useCallback((name) => { setArtistQuery(name); setAlbumQuery(null); setActiveTab('search'); }, []);
   const closeArtistPage = useCallback(() => { setArtistQuery(null); }, []);
-  const openAlbumPage = useCallback((title) => { setAlbumQuery(title); setArtistQuery(null); }, []);
+  const openAlbumPage = useCallback((title) => { setAlbumQuery(title); setArtistQuery(null); setActiveTab('search'); }, []);
   const closeAlbumPage = useCallback(() => { setAlbumQuery(null); }, []);
 
   const downloadedIds = downloadedSongs.map(s => s.id);
@@ -517,6 +515,8 @@ function AppContent() {
               downloadSong={downloadSong}
               downloadedIds={downloadedIds}
               downloadingIds={downloadingIds}
+              onOpenArtist={openArtistPage}
+              onOpenAlbum={openAlbumPage}
             />
           )}
           {activeTab === 'search' && (

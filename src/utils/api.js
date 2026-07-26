@@ -12,7 +12,7 @@ const LRCLIB = 'https://lrclib.net';
 
 function streamProxy(cdnUrl) {
   if (!cdnUrl) return null;
-  return `/api/stream-audio?url=${encodeURIComponent(cdnUrl)}`;
+  return cdnUrl;
 }
 
 function extractId(s) {
@@ -248,7 +248,7 @@ async function fetchSaavnAlbums(query, limit) {
         if (albums.length > 0) {
           const albumIds = albums.map(a => a.id).filter(Boolean);
           const allSongs = [];
-          for (const aid of albumIds.slice(0, 3)) {
+          for (const aid of albumIds.slice(0, 5)) {
             for (const api2 of SAAVN_APIS) {
               try {
                 const aRes = await fetchWithTimeout(`${api2}/albums/${aid}`, {}, 6000);
@@ -275,6 +275,96 @@ async function fetchSaavnAlbums(query, limit) {
   return [];
 }
 
+// --- JioSaavn Artist API (paginated, gives 400-500+ songs) ---
+async function fetchArtistsByQuery(query, limit = 5) {
+  for (const api of SAAVN_APIS) {
+    try {
+      const res = await fetchWithTimeout(
+        `${api}/search/artists?query=${encodeURIComponent(query)}&limit=${limit}`, {}, 6000
+      );
+      if (res && res.ok) {
+        const data = await res.json();
+        const artists = data?.data?.results || [];
+        if (artists.length > 0) return artists;
+      }
+    } catch {}
+  }
+  return [];
+}
+
+async function fetchArtistSongsByIdPaged(artistId, maxPages = 20) {
+  const allSongs = [];
+  for (let page = 0; page < maxPages; page++) {
+    let gotSongs = false;
+    for (const api of SAAVN_APIS) {
+      try {
+        const res = await fetchWithTimeout(
+          `${api}/artists/${artistId}/songs?page=${page}&sortBy=popular&sortOrder=desc`, {}, 7000
+        );
+        if (res && res.ok) {
+          const data = await res.json();
+          const songs = data?.data?.songs || data?.data?.results || data?.data || [];
+          if (Array.isArray(songs) && songs.length > 0) {
+            allSongs.push(...songs);
+            gotSongs = true;
+            if (songs.length < 10) { page = maxPages; } // last page
+            break;
+          } else {
+            page = maxPages; // no more pages
+            gotSongs = true;
+            break;
+          }
+        }
+      } catch {}
+    }
+    if (!gotSongs) break;
+  }
+  return allSongs;
+}
+
+// --- JioSaavn Album API (full album by ID) ---
+async function fetchAlbumSongsById(albumId) {
+  for (const api of SAAVN_APIS) {
+    try {
+      const res = await fetchWithTimeout(`${api}/albums/${albumId}`, {}, 7000);
+      if (res && res.ok) {
+        const data = await res.json();
+        const songs = data?.data?.songs || [];
+        if (songs.length > 0) return { songs, info: data?.data };
+      }
+    } catch {}
+  }
+  return { songs: [], info: null };
+}
+
+export async function fetchAlbumByQuery(albumQuery) {
+  for (const api of SAAVN_APIS) {
+    try {
+      const res = await fetchWithTimeout(
+        `${api}/search/albums?query=${encodeURIComponent(albumQuery)}&limit=10`, {}, 6000
+      );
+      if (res && res.ok) {
+        const data = await res.json();
+        const albums = data?.data?.results || [];
+        if (albums.length > 0) {
+          // Try each album until we find one with songs
+          for (const album of albums.slice(0, 5)) {
+            const { songs, info } = await fetchAlbumSongsById(album.id);
+            if (songs.length > 0) {
+              return {
+                albumId: album.id,
+                albumInfo: info || album,
+                songs: dedupe(songs.map(normalizeSong).filter(Boolean))
+              };
+            }
+          }
+        }
+      }
+    } catch {}
+  }
+  return null;
+}
+
 async function enrichWithoutAudio(song) {
   const rawId = song._saavnId || String(song.id || '').replace('saavn-', '');
   if (!rawId) return song;
@@ -286,13 +376,28 @@ async function enrichWithoutAudio(song) {
 }
 
 async function searchAndResolve(query, limit = 50) {
-  const searchResults = await fetchSaavnSearchRaw(query, Math.min(limit, 100)).catch(() => []);
-  const normalized = searchResults.map(normalizeSong).filter(Boolean);
-  const withAudio = normalized.filter(s => s.audioUrl);
+  // Run primary search and alternate search in PARALLEL for speed
+  const [searchResults, altResults] = await Promise.all([
+    fetchSaavnSearchRaw(query, Math.min(limit, 100)).catch(() => []),
+    fetchSaavnSearchRaw(
+      !query.toLowerCase().includes('songs') ? `${query} songs` : `${query} album`,
+      Math.min(limit, 40)
+    ).catch(() => []),
+  ]);
+
+  const allRaw = [...searchResults, ...altResults];
+  const normalized = allRaw.map(normalizeSong).filter(Boolean);
+  let withAudio = normalized.filter(s => s.audioUrl);
   const noAudio = normalized.filter(s => !s.audioUrl && s._saavnId);
 
-  if (noAudio.length > 0 && withAudio.length < limit) {
-    const enriched = await Promise.allSettled(noAudio.slice(0, 10).map(s => enrichWithoutAudio(s)));
+  // Remove duplicates early
+  withAudio = dedupe(withAudio);
+
+  // Enrich missing audio in parallel (not sequential) — fixes Mayavi/Lifeu Ishtene type issues
+  if (noAudio.length > 0) {
+    const enriched = await Promise.allSettled(
+      dedupe(noAudio).slice(0, 20).map(s => enrichWithoutAudio(s))
+    );
     for (const r of enriched) {
       if (r.status === 'fulfilled' && r.value?.audioUrl && !withAudio.some(x => x.id === r.value.id)) {
         withAudio.push(r.value);
@@ -300,50 +405,15 @@ async function searchAndResolve(query, limit = 50) {
     }
   }
 
-  if (withAudio.length < limit) {
-    const altQuery = !query.toLowerCase().includes('songs') ? `${query} songs` : `${query} album`;
-    const altResults = await fetchSaavnSearchRaw(altQuery, Math.min(limit, 30)).catch(() => []);
-    const altNormalized = altResults.map(normalizeSong).filter(Boolean).filter(s => s.audioUrl);
-    for (const s of altNormalized) {
+  // YouTube Music fallback — only when JioSaavn has very few results
+  if (withAudio.length < 4) {
+    const ytSongs = await searchYouTube(query, 12).catch(() => []);
+    for (const s of ytSongs) {
       if (!withAudio.some(x => x.id === s.id)) withAudio.push(s);
     }
   }
 
-  if (withAudio.length < 20) {
-    const hitsQuery = `${query} hits`;
-    const hitsResults = await fetchSaavnSearchRaw(hitsQuery, 20).catch(() => []);
-    for (const s of hitsResults.map(normalizeSong).filter(Boolean).filter(s => s.audioUrl)) {
-      if (!withAudio.some(x => x.id === s.id)) withAudio.push(s);
-    }
-  }
-
-  if (withAudio.length < 10) {
-    const albumSongs = await fetchSaavnAlbums(query, 5).catch(() => []);
-    for (const raw of albumSongs) {
-      const norm = normalizeSong(raw);
-      if (norm && norm.audioUrl && !withAudio.some(x => x.id === norm.id)) withAudio.push(norm);
-    }
-  }
-
-  if (withAudio.length < 15) {
-    const cleanQuery = query.replace(/songs|hits|album|classic/gi, '').trim();
-    if (cleanQuery && cleanQuery !== query) {
-      const extraResults = await fetchSaavnSearchRaw(cleanQuery, 25).catch(() => []);
-      for (const s of extraResults.map(normalizeSong).filter(Boolean).filter(s => s.audioUrl)) {
-        if (!withAudio.some(x => x.id === s.id)) withAudio.push(s);
-      }
-    }
-  }
-
-  if (withAudio.length < 8) {
-    const topQuery = `${query} top`;
-    const topResults = await fetchSaavnSearchRaw(topQuery, 15).catch(() => []);
-    for (const s of topResults.map(normalizeSong).filter(Boolean).filter(s => s.audioUrl)) {
-      if (!withAudio.some(x => x.id === s.id)) withAudio.push(s);
-    }
-  }
-
-  return withAudio;
+  return dedupe(withAudio);
 }
 
 const searchCache = new Map();
@@ -387,44 +457,85 @@ export async function searchSaavnWithYoutube(query, limit = 20) {
 }
 
 export async function searchArtistSongs(artistName, limit = 500) {
-  const queries = [
-    `${artistName} songs`, `${artistName} hits`, `${artistName} album`,
-    `${artistName} tamil`, `${artistName} hindi`, `${artistName} kannada`,
-    `${artistName} telugu`, `${artistName} malayalam`, `${artistName} bengali`,
-    `${artistName} punjabi`, `${artistName} marathi`, `${artistName} gujarati`,
-    `${artistName} old songs`, `${artistName} classic`, `${artistName} vintage`,
-    `${artistName} duet`, `${artistName} sad`, `${artistName} romantic`,
-    `${artistName} devotional`, `${artistName} folk`,
-  ];
-  
-  if (artistName.includes('MGR') || artistName.includes('Ramachandran')) {
-    queries.push(
-      'M.G. Ramachandran songs', 'MGR tamil songs', 'MGR hit songs',
-      'MGR old songs', 'MGR classic songs', 'MGR romantic songs',
-      'MGR folk songs', 'MGR devotional songs'
-    );
-  }
-  if (artistName.includes('Sivaji') || artistName.includes('Ganesan')) {
-    queries.push(
-      'Sivaji Ganesan songs', 'Sivaji tamil songs', 'Sivaji hit songs',
-      'Sivaji old songs', 'Sivaji classic songs', 'Sivaji romantic songs'
-    );
-  }
-  
   const results = [];
   const seenIds = new Set();
-  const batchSize = 40;
-  
-  for (const q of queries) {
-    const batch = await searchSongs(q, batchSize);
-    for (const s of batch) {
-      if (!seenIds.has(s.id)) {
+
+  const addSongs = (songs) => {
+    for (const s of songs) {
+      if (s && s.id && !seenIds.has(s.id)) {
         seenIds.add(s.id);
         results.push(s);
       }
     }
+  };
+
+  // Strategy 1: JioSaavn dedicated artist API — gives paginated 400-600 songs
+  try {
+    const artists = await fetchArtistsByQuery(artistName, 5);
+    if (artists.length > 0) {
+      // Try top 2 matching artists
+      for (const artist of artists.slice(0, 2)) {
+        const rawSongs = await fetchArtistSongsByIdPaged(artist.id, 20);
+        if (rawSongs.length > 5) {
+          const normalized = rawSongs.map(normalizeSong).filter(Boolean);
+          const withAudio = normalized.filter(s => s.audioUrl);
+          const noAudio = normalized.filter(s => !s.audioUrl && s._saavnId);
+
+          addSongs(withAudio);
+
+          // Enrich missing audio in parallel batches
+          if (noAudio.length > 0) {
+            const batches = [];
+            for (let i = 0; i < Math.min(noAudio.length, 60); i += 10) {
+              batches.push(noAudio.slice(i, i + 10));
+            }
+            for (const batch of batches) {
+              const enriched = await Promise.allSettled(batch.map(s => enrichWithoutAudio(s)));
+              for (const r of enriched) {
+                if (r.status === 'fulfilled' && r.value?.audioUrl) addSongs([r.value]);
+              }
+            }
+          }
+        }
+      }
+    }
+  } catch {}
+
+  // Strategy 2: Text-search fallback (covers regional language variations, Kannada/Telugu etc.)
+  const fallbackQueries = [
+    `${artistName} songs`, `${artistName} hits`, `${artistName} album`,
+    `${artistName} tamil songs`, `${artistName} hindi songs`, `${artistName} kannada songs`,
+    `${artistName} telugu songs`, `${artistName} malayalam songs`, `${artistName} bengali songs`,
+    `${artistName} punjabi songs`, `${artistName} old songs`, `${artistName} classic`,
+    `${artistName} duet songs`, `${artistName} sad songs`, `${artistName} romantic songs`,
+    `${artistName} devotional`, `${artistName} folk songs`,
+  ];
+
+  // Special aliases
+  if (artistName.toLowerCase().includes('mgr') || artistName.toLowerCase().includes('ramachandran')) {
+    fallbackQueries.push('M.G. Ramachandran songs', 'MGR hits', 'MGR evergreen', 'MGR melody', 'Maruthanaattu Maamannan');
   }
-  return dedupe(results);
+  if (artistName.toLowerCase().includes('sivaji') || artistName.toLowerCase().includes('ganesan')) {
+    fallbackQueries.push('Sivaji Ganesan classic', 'Sivaji evergreen hits', 'Gemini Sivaji songs');
+  }
+  if (artistName.toLowerCase().includes('ilaiyaraaja') || artistName.toLowerCase().includes('ilayaraja')) {
+    fallbackQueries.push('Ilaiyaraaja tamil', 'Ilaiyaraaja hindi', 'Ilaiyaraaja telugu', 'Ilaiyaraaja kannada', 'Ilaiyaraaja malayalam', 'Ilaiyaraaja 80s', 'Ilaiyaraaja 90s', 'Ilaiyaraaja instrumental');
+  }
+  if (artistName.toLowerCase().includes('sonu nigam')) {
+    fallbackQueries.push('Sonu Nigam kannada songs', 'Sonu Nigam hindi', 'Sonu Nigam telugu', 'Sonu Nigam devotional', 'Mayavi Sonu Nigam', 'Sonu Nigam album');
+  }
+  if (artistName.toLowerCase().includes('sid sriram')) {
+    fallbackQueries.push('Sid Sriram telugu', 'Sid Sriram tamil', 'Sid Sriram melody', 'Sid Sriram 2022', 'Sid Sriram 2023', 'Sid Sriram love songs');
+  }
+
+  // Only run fallback queries needed to fill quota
+  for (const q of fallbackQueries) {
+    if (results.length >= limit) break;
+    const batch = await searchSongs(q, 40).catch(() => []);
+    addSongs(batch);
+  }
+
+  return dedupe(results).slice(0, limit);
 }
 
 export async function searchYouTubeAlbums(albumName, artistName = '', limit = 15) {
@@ -643,15 +754,37 @@ export async function downloadAudioBlob(audioUrl, rawUrls) {
   return null;
 }
 
+function cleanTitle(t) {
+  if (!t) return '';
+  return t.toLowerCase()
+    .replace(/\(.*?\)/g, '')
+    .replace(/\[.*?\]/g, '')
+    .replace(/feat\.?.*/i, '')
+    .replace(/ft\.?.*/i, '')
+    .replace(/full audio song|official video|lyrical|video song|song/gi, '')
+    .replace(/[^a-z0-9]/g, '')
+    .trim();
+}
+
 function dedupe(sources) {
-  const seen = new Set();
+  const seenTitles = new Set();
+  const seenIds = new Set();
   const merged = [];
   for (const s of sources) {
-    const key = `${(s.title || '').toLowerCase().trim()}|${(s.artist || '').toLowerCase().trim()}|${s.id || ''}`;
-    if (!seen.has(key)) {
-      seen.add(key);
-      merged.push(s);
+    if (!s || !s.title) continue;
+    if (s.id && seenIds.has(s.id)) continue;
+    
+    const titleKey = cleanTitle(s.title);
+    const artistKey = cleanTitle(s.artist || '').slice(0, 15);
+    const normKey = `${titleKey}|${artistKey}`;
+    
+    if (normKey.length > 2 && seenTitles.has(normKey)) {
+      continue;
     }
+    
+    if (s.id) seenIds.add(s.id);
+    if (normKey.length > 2) seenTitles.add(normKey);
+    merged.push(s);
   }
   return merged;
 }
