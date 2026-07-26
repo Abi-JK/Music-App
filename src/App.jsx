@@ -321,18 +321,21 @@ function AppContent() {
       } catch {}
     }
 
-    originalPlaylistRef.current = ctx;
+    const playableCtx = ctx.filter(s => s.audioUrl || s.source === 'custom' || s.source === 'shared');
+    const finalCtx = playableCtx.length > 0 ? playableCtx : ctx;
+
+    originalPlaylistRef.current = finalCtx;
     autoPlayGenreRef.current = song.genre || song.language || (song.artist ? `${song.artist}` : 'trending india');
     playedSongIds.current = new Set();
     recentAutoPlay.current = [];
     if (shuffleRef.current) {
-      const shuffled = shuffleArray(ctx);
+      const shuffled = shuffleArray(finalCtx);
       const si = shuffled.findIndex(s => s.id === song.id);
       setPlaylist(shuffled);
       setCurrentIndex(si >= 0 ? si : 0);
     } else {
-      setPlaylist(ctx);
-      const idx = contextIdx != null ? contextIdx : ctx.findIndex(s => s.id === song.id);
+      setPlaylist(finalCtx);
+      const idx = finalCtx.findIndex(s => s.id === song.id);
       setCurrentIndex(idx >= 0 ? idx : 0);
     }
     setIsPlaying(true);
@@ -705,7 +708,7 @@ function AppContent() {
 
   return (
     <div className="app">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} customCount={customSongs.length} onSearch={searchByQuery} onInstall={handleInstallApp} showToast={showToast} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} customCount={customSongs.length} onSearch={searchByQuery} onInstall={handleInstallApp} showToast={showToast} onOpenArtist={openArtistPage} />
       <div className="body">
         <Topbar
           q={searchQ} setQ={setSearchQ}
@@ -753,6 +756,7 @@ function AppContent() {
                 downloadSong={downloadSong}
                 downloadedIds={downloadedIds}
                 downloadingIds={downloadingIds}
+                onOpenArtist={openArtistPage}
               />
             ) : (
               <SearchScreen

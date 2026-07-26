@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { searchSaavn, fetchAlbumByQuery } from '../utils/api';
 import { formatTime } from '../utils/helpers';
 
-export default function AlbumPage({ albumQuery, playSong, currentSong, isPlaying, onBack, showToast, downloadSong, downloadedIds, downloadingIds }) {
+export default function AlbumPage({ albumQuery, playSong, currentSong, isPlaying, onBack, showToast, downloadSong, downloadedIds, downloadingIds, onOpenArtist }) {
   const [songs, setSongs] = useState([]);
   const [albumInfo, setAlbumInfo] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -104,6 +104,12 @@ export default function AlbumPage({ albumQuery, playSong, currentSong, isPlaying
           ▶
         </button>
         <span style={{ color: 'var(--text-dim)', fontSize: 13, marginLeft: 12 }}>Play all</span>
+        {albumInfo?.artist && onOpenArtist && (
+          <button className="icon-btn" onClick={() => onOpenArtist(albumInfo.artist)}
+            style={{ marginLeft: 'auto', fontSize: 13, padding: '6px 14px', borderRadius: 20, background: 'var(--accent-dim)', color: 'var(--accent)', border: '1px solid rgba(0,212,232,0.3)', fontWeight: 600, cursor: 'pointer' }}>
+            🎤 View All Artist Songs
+          </button>
+        )}
       </div>
 
       <div className="artist-tracks-section">

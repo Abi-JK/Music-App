@@ -11,7 +11,7 @@ const LogoImage = ({ size = 48 }) => (
   />
 );
 
-export default function Sidebar({ activeTab, setActiveTab, likedCount, customCount, onSearch, onInstall, showToast }) {
+export default function Sidebar({ activeTab, setActiveTab, likedCount, customCount, onSearch, onInstall, showToast, onOpenArtist }) {
   const playlists = [
     { label: '🎬 Bollywood Hits',        term: 'bollywood hindi songs' },
     { label: '🎵 Tamil Hits',            term: 'tamil film songs' },
@@ -64,16 +64,16 @@ export default function Sidebar({ activeTab, setActiveTab, likedCount, customCou
 
   const albumCategories = [
     { label: '🎬 Mayavi (Lifeu Ishtene)', query: 'Lifeu Ishtene kannada songs' },
-    { label: '🎵 MGR Hits', query: 'Annakili songs' },
-    { label: '🎶 Sivaji Ganesan', query: 'Thiruvilaiyadal songs' },
-    { label: '🎤 Rajinikanth Hits', query: 'rajinikanth songs' },
-    { label: '🎸 Kamal Haasan', query: 'kamal haasan songs' },
-    { label: '🎹 Vijay Hits', query: 'vijay actor songs' },
-    { label: '🎤 Ajith Hits', query: 'ajith kumar songs' },
-    { label: '🎶 Puneeth Rajkumar', query: 'puneeth rajkumar songs' },
-    { label: '🎸 Darshan Hits', query: 'darshan kannada songs' },
-    { label: '🎹 Dr. Rajkumar', query: 'dr rajkumar songs kannada' },
-    { label: '🎤 Upendra Hits', query: 'upendra kannada songs' },
+    { label: '🎵 MGR Hits', query: 'MGR tamil songs', artist: 'M.G. Ramachandran' },
+    { label: '🎶 Sivaji Ganesan', query: 'Sivaji Ganesan songs', artist: 'Sivaji Ganesan' },
+    { label: '🎤 Rajinikanth Hits', query: 'rajinikanth songs', artist: 'Rajinikanth' },
+    { label: '🎸 Kamal Haasan', query: 'kamal haasan songs', artist: 'Kamal Haasan' },
+    { label: '🎹 Vijay Hits', query: 'vijay actor songs', artist: 'Vijay' },
+    { label: '🎤 Ajith Hits', query: 'ajith kumar songs', artist: 'Ajith Kumar' },
+    { label: '🎶 Puneeth Rajkumar', query: 'puneeth rajkumar songs', artist: 'Puneeth Rajkumar' },
+    { label: '🎸 Darshan Hits', query: 'darshan kannada songs', artist: 'Darshan' },
+    { label: '🎹 Dr. Rajkumar', query: 'dr rajkumar songs kannada', artist: 'Dr. Rajkumar' },
+    { label: '🎤 Upendra Hits', query: 'upendra kannada songs', artist: 'Upendra' },
   ];
 
   return (
@@ -115,15 +115,24 @@ export default function Sidebar({ activeTab, setActiveTab, likedCount, customCou
         ))}
 
         <div className="nav-label">Albums & Movies</div>
+        <button className="pl-item" onClick={() => onSearch && onSearch('Lifeu Ishtene kannada songs')}>
+          🎬 Mayavi (Lifeu Ishtene)
+        </button>
         {albumCategories.map(pl => (
-          <button key={pl.query} className="pl-item" onClick={() => onSearch && onSearch(pl.query)}>
+          <button key={pl.query} className="pl-item" onClick={() => {
+            if (pl.artist && onOpenArtist) onOpenArtist(pl.artist);
+            else if (onSearch) onSearch(pl.query);
+          }}>
             {pl.label}
           </button>
         ))}
 
         <div className="nav-label">Top Artists</div>
         {topArtists.map(a => (
-          <button key={a.name} className="pl-item" onClick={() => onSearch && onSearch(a.query)}>
+          <button key={a.name} className="pl-item" onClick={() => {
+            if (onOpenArtist) onOpenArtist(a.name);
+            else if (onSearch) onSearch(a.query);
+          }}>
             🎤 {a.name}
           </button>
         ))}
