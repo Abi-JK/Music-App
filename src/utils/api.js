@@ -293,32 +293,47 @@ async function fetchArtistsByQuery(query, limit = 5) {
   return [];
 }
 
-async function fetchArtistSongsByIdPaged(artistId, maxPages = 30) {
+async function fetchArtistSongsByIdPaged(artistId, maxPages = 50) {
   const allSongs = [];
-  for (let page = 0; page < maxPages; page++) {
+  const seenIds = new Set();
+  let emptyPages = 0;
+
+  for (let page = 1; page <= maxPages; page++) {
     let gotSongs = false;
     for (const api of SAAVN_APIS) {
       try {
         const res = await fetchWithTimeout(
-          `${api}/artists/${artistId}/songs?page=${page}&sortBy=popular&sortOrder=desc`, {}, 10000
+          `${api}/artists/${artistId}/songs?page=${page}`, {}, 15000
         );
         if (res && res.ok) {
           const data = await res.json();
           const songs = data?.data?.songs || data?.data?.results || data?.data || [];
           if (Array.isArray(songs) && songs.length > 0) {
-            allSongs.push(...songs);
+            for (const s of songs) {
+              const rawId = String(s.id || '').replace(/^saavn-/, '');
+              if (rawId && !seenIds.has(rawId)) {
+                seenIds.add(rawId);
+                allSongs.push(s);
+              }
+            }
             gotSongs = true;
-            if (songs.length < 10) { page = maxPages; } // last page
+            if (songs.length < 5) emptyPages++;
+            else emptyPages = 0;
+            if (emptyPages >= 2) { page = maxPages + 1; break; }
             break;
           } else {
-            page = maxPages; // no more pages
+            emptyPages++;
+            if (emptyPages >= 2) { page = maxPages + 1; break; }
             gotSongs = true;
             break;
           }
         }
       } catch {}
     }
-    if (!gotSongs) break;
+    if (!gotSongs) {
+      emptyPages++;
+      if (emptyPages >= 3) break;
+    }
   }
   return allSongs;
 }
@@ -510,8 +525,8 @@ export async function searchArtistSongs(artistName, limit = 500) {
   try {
     const artists = await fetchArtistsByQuery(artistName, 5);
     if (artists.length > 0) {
-      for (const artist of artists.slice(0, 2)) {
-        const rawSongs = await fetchArtistSongsByIdPaged(artist.id, 30);
+      for (const artist of artists.slice(0, 3)) {
+        const rawSongs = await fetchArtistSongsByIdPaged(artist.id, 50);
         if (rawSongs.length > 0) {
           const normalized = rawSongs.map(normalizeSong).filter(Boolean);
           const withAudio = normalized.filter(s => s.audioUrl);
@@ -520,7 +535,7 @@ export async function searchArtistSongs(artistName, limit = 500) {
           addSongs(withAudio);
 
           if (noAudio.length > 0) {
-            const enriched = await batchEnrichSongs(noAudio);
+            const enriched = await batchEnrichSongs(noAudio.slice(0, 100));
             addSongs(enriched);
           }
         }
@@ -655,11 +670,11 @@ export async function searchArtistSongs(artistName, limit = 500) {
       'Kishore Kumar dance', 'Kishore Kumar comedy songs');
   }
 
-  const BATCH_SIZE = 5;
+  const BATCH_SIZE = 8;
   for (let i = 0; i < fallbackQueries.length; i += BATCH_SIZE) {
     if (results.length >= limit) break;
     const batch = fallbackQueries.slice(i, i + BATCH_SIZE);
-    const batchResults = await Promise.all(batch.map(q => searchSongs(q, 30).catch(() => [])));
+    const batchResults = await Promise.all(batch.map(q => searchSongs(q, 40).catch(() => [])));
     for (const r of batchResults) addSongs(r);
   }
 
@@ -702,6 +717,36 @@ export async function refreshSongUrl(song) {
 
 export async function retrySaavnSong(song) {
   return fetchFreshUrls(song);
+}
+
+export async function fetchSharedSongs(limit = 200) {
+  try {
+    const res = await fetchWithTimeout(`/api/shared-songs?limit=${limit}`, {}, 8000);
+    if (res && res.ok) {
+      const data = await res.json();
+      return data.songs || [];
+    }
+  } catch {}
+  return [];
+}
+
+export async function addSharedSong(song) {
+  try {
+    const res = await fetch('/api/shared-songs', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: song.title,
+        artist: song.artist,
+        album: song.album || '',
+        genre: song.genre || '',
+        coverUrl: song.coverUrl || '',
+        addedBy: 'user',
+      }),
+    });
+    if (res.ok) return await res.json();
+  } catch {}
+  return null;
 }
 
 export { fetchSongById };
@@ -898,7 +943,7 @@ function cleanTitle(t) {
     .replace(/ft\.?.*/i, '')
     .replace(/[-–—:|]/g, ' ')
     .replace(/\d{4}/g, '')
-    .replace(/[^a-z0-9 ]/g, '')
+    .replace(/[^\p{L}\p{N} ]/gu, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -913,7 +958,7 @@ function cleanTitleForDedupe(t) {
     .replace(/instrumental|karaoke|ringtone|bgm|theme|background|unplugged|live|acoustic|club|extended|reprise|revisited|cover|tribute|version|edited|remastered|original|promo|teaser|trailer|full audio|full song|official video|lyrical video|video song|motion poster|audio|video|lyrics|jiosaavn|hd|mp3/gi, '')
     .replace(/[-–—:|]/g, ' ')
     .replace(/\d{4}/g, '')
-    .replace(/[^a-z0-9 ]/g, '')
+    .replace(/[^\p{L}\p{N} ]/gu, '')
     .replace(/\s+/g, ' ')
     .trim();
 }

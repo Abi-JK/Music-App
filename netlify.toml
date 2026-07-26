@@ -38,6 +38,11 @@
   path = "/api/stream-audio"
   function = "stream-audio"
 
+# Edge Function for shared songs
+[[edge_functions]]
+  path = "/api/shared-songs"
+  function = "shared-songs"
+
 # SPA fallback — must be LAST (netlify.toml fallback)
 [[redirects]]
   from = "/.netlify/functions/*"

@@ -37,3 +37,6 @@ Music-App.git/
 *.njsproj
 *.sln
 *.sw?
+
+# Local Netlify folder
+.netlify

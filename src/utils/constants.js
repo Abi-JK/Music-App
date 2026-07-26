@@ -102,14 +102,20 @@ export const LANG_SEARCH_QUERIES = {
   Sanskrit: [
     'sanskrit devotional songs', 'sanskrit bhajans', 'sanskrit chants',
     'sanskrit mantras', 'sanskrit songs', 'vedic chants',
+    'sanskrit stotram', 'sanskrit sloka songs', 'sanskrit veda songs',
+    'sanskrit classical songs',
   ],
   Urdu: [
     'urdu ghazal songs', 'urdu ghazal', 'urdu poetry songs',
     'urdu romantic songs', 'urdu sad songs', 'urdu songs',
+    'urdu qawwali', 'urdu nazm', 'urdu classical songs',
+    'urdu love songs',
   ],
   Rajasthani: [
     'rajasthani folk songs', 'rajasthani songs', 'rajasthani hits',
     'rajasthani devotional songs', 'rajasthani romantic songs',
+    'rajasthani ballad songs', 'rajasthani lofi', 'rajasthani pop',
+    'rajasthani traditional songs',
   ],
 };
 

@@ -3,6 +3,7 @@ import { formatTime } from '../utils/helpers';
 import { fetchLyrics, downloadAudioBlob } from '../utils/api';
 import { cutAudio } from '../utils/audio';
 import { Storage } from '../utils/storage';
+import { addSharedSong } from '../utils/api';
 
 function generateId() {
   return `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -53,8 +54,9 @@ export default function FullScreenPlayer({
         addedAt: new Date().toISOString(),
       };
       await Storage.addCustomSong(song, blob);
+      addSharedSong(song).catch(() => {});
       if (onSaveToMySongs) onSaveToMySongs(song);
-      showToast(`"${song.title}" saved to My Songs — won't be lost!`);
+      showToast(`"${song.title}" saved to My Songs — shared with community!`);
     } catch (err) {
       console.error(err);
       showToast('Failed to save song');

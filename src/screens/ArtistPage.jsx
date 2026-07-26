@@ -31,7 +31,7 @@ export default function ArtistPage({ query, playSong, currentSong, isPlaying, on
     setLangFilter('all');
     setLoadProgress('Searching artist...');
 
-    searchArtistSongs(query, 500).then(tracks => {
+    searchArtistSongs(query, 1000).then(tracks => {
       if (cancelled) return;
       setAllTracks(tracks);
       setAlbums(groupTracksByAlbum(tracks));

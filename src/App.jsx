@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import './index.css';
 
 import ErrorBoundary from './components/ErrorBoundary';
@@ -21,7 +21,7 @@ import MySongsScreen from './screens/MySongsScreen';
 import ArtistPage from './screens/ArtistPage';
 import AlbumPage from './screens/AlbumPage';
 
-import { searchSongs, downloadAudioBlob, searchSaavn } from './utils/api';
+import { searchSongs, downloadAudioBlob, searchSaavn, fetchSharedSongs, addSharedSong } from './utils/api';
 import { Storage } from './utils/storage';
 import { LANG_QUERIES, LANG_SEARCH_QUERIES } from './utils/constants';
 
@@ -52,6 +52,7 @@ function AppContent() {
   const [recentlyPlayed, setRecentlyPlayed] = useState([]);
   const [downloadedSongs, setDownloadedSongs] = useState([]);
   const [customSongs, setCustomSongs] = useState([]);
+  const [sharedSongs, setSharedSongs] = useState([]);
   const [downloadingIds, setDownloadingIds] = useState([]);
 
   const [audioState, setAudioState] = useState({ curTime: 0, dur: 0 });
@@ -77,6 +78,7 @@ function AppContent() {
   const currentSong = playlist[currentIndex] || null;
 
   const playNextRef = useRef(null);
+  const playSongRef = useRef(null);
   const autoPlayGenreFuncRef = useRef(null);
 
   useEffect(() => { shuffleRef.current = shuffleOn; }, [shuffleOn]);
@@ -121,6 +123,10 @@ function AppContent() {
         setRecentlyPlayed(recent);
         setDownloadedSongs(downloaded);
         setCustomSongs(custom);
+
+        fetchSharedSongs(200).then(songs => {
+          if (songs.length > 0) setSharedSongs(songs);
+        }).catch(() => {});
       } catch (error) {
         console.error('Failed to load data from IndexedDB:', error);
       }
@@ -205,15 +211,20 @@ function AppContent() {
       });
     }
 
+    let heartbeatRetries = 0;
     const heartbeat = setInterval(() => {
       const a = document.getElementById('main-audio');
       if (a && a.paused && a.src && !a.ended && a.currentTime > 0 && isPlayingRef.current) {
-        a.play().then(() => {
-          setIsPlaying(true);
-          if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
-        }).catch(() => {});
+        if (heartbeatRetries < 3) {
+          a.play().then(() => {
+            heartbeatRetries = 0;
+            setIsPlaying(true);
+            if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+          }).catch(() => { heartbeatRetries++; });
+        }
       }
       if (a && !a.paused && isPlayingRef.current) {
+        heartbeatRetries = 0;
         if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
       }
       reacquireWakeLock();
@@ -264,18 +275,46 @@ function AppContent() {
     });
   }, []);
 
-  const playSong = useCallback((song, context, contextIdx) => {
+  const playSong = useCallback(async (song, context, contextIdx) => {
     if (!song) return;
     const ctx = context || [song];
+
+    if (song.source === 'shared' && song._sharedQuery && !song.audioUrl) {
+      try {
+        const resolved = await searchSongs(song._sharedQuery, 5);
+        if (resolved.length > 0) {
+          const resolvedSong = { ...resolved[0], coverUrl: song.coverUrl || resolved[0].coverUrl };
+          const idx = ctx.findIndex(s => s.id === song.id);
+          const newCtx = [...ctx];
+          if (idx >= 0) newCtx[idx] = resolvedSong;
+          const resolvedIds = new Set([resolvedSong.id]);
+          for (let i = 0; i < newCtx.length; i++) {
+            const s = newCtx[i];
+            if (s.source === 'shared' && s._sharedQuery && !s.audioUrl && s.id !== song.id) {
+              try {
+                const r = await searchSongs(s._sharedQuery, 3);
+                if (r.length > 0 && !resolvedIds.has(r[0].id)) {
+                  newCtx[i] = { ...r[0], coverUrl: s.coverUrl || r[0].coverUrl };
+                  resolvedIds.add(r[0].id);
+                }
+              } catch {}
+            }
+          }
+          playSongRef.current(resolvedSong, newCtx.length > 0 ? newCtx : [resolvedSong], idx >= 0 ? idx : 0);
+          return;
+        }
+      } catch {}
+    }
+
     originalPlaylistRef.current = ctx;
     autoPlayGenreRef.current = song.genre || song.language || (song.artist ? `${song.artist}` : 'trending india');
     playedSongIds.current = new Set();
     recentAutoPlay.current = [];
     if (shuffleRef.current) {
       const shuffled = shuffleArray(ctx);
-      const idx = shuffled.findIndex(s => s.id === song.id);
+      const si = shuffled.findIndex(s => s.id === song.id);
       setPlaylist(shuffled);
-      setCurrentIndex(idx >= 0 ? idx : 0);
+      setCurrentIndex(si >= 0 ? si : 0);
     } else {
       setPlaylist(ctx);
       const idx = contextIdx != null ? contextIdx : ctx.findIndex(s => s.id === song.id);
@@ -297,12 +336,7 @@ function AppContent() {
         genre,
         `${genre} songs`,
         `${genre} hits`,
-        `${genre} album`,
         `${genre} ${year}`,
-        `${genre} ${year - 1}`,
-        `${genre} best`,
-        `${genre} latest`,
-        `${genre} popular`,
         `${genre} evergreen`,
       ];
       const allResults = await Promise.all(searchTerms.map(t => searchSaavn(t, 25).catch(() => [])));
@@ -367,19 +401,23 @@ function AppContent() {
           setIsPlaying(true);
           if (pick) addRecent(pick);
         } else {
-          autoPlayGenre(autoPlayGenreRef.current || 'trending india');
+          autoPlayGenreFuncRef.current?.(autoPlayGenreRef.current || 'trending india');
         }
+      } else if (repeatMode === 'off') {
+        showToast('Playlist ended. Tap play to start auto-play.');
+        return;
       } else {
-        autoPlayGenre(autoPlayGenreRef.current || 'trending india');
+        autoPlayGenreFuncRef.current?.(autoPlayGenreRef.current || 'trending india');
       }
       return;
     }
     setCurrentIndex(nextIdx);
     setIsPlaying(true);
     if (playlist[nextIdx]) addRecent(playlist[nextIdx]);
-  }, [playlist, currentIndex, addRecent, repeatMode, autoPlayGenre, currentSong]);
+  }, [playlist, currentIndex, addRecent, repeatMode, currentSong]);
 
   useEffect(() => { playNextRef.current = playNext; }, [playNext]);
+  useEffect(() => { playSongRef.current = playSong; }, [playSong]);
 
   const playPrev = useCallback(() => {
     if (!playlist.length) return;
@@ -395,6 +433,7 @@ function AppContent() {
   }, [playlist, currentIndex, addRecent, audioState.curTime]);
 
   const toggleShuffle = useCallback(() => {
+    if (playlist.length === 0) return;
     setShuffleOn(prev => {
       const next = !prev;
       shuffleRef.current = next;
@@ -462,11 +501,20 @@ function AppContent() {
     setSearched(true);
     setSearchLoading(true);
     const queries = LANG_SEARCH_QUERIES[lang];
-    const searchTerms = queries ? queries.slice(0, 8) : [`${lang} songs`];
-    Promise.all(searchTerms.map(t => searchSongs(t, 20).catch(() => [])))
+    const searchTerms = queries ? queries.slice(0, 12) : [`${lang} songs`];
+    const BATCH = 4;
+    const runBatches = async () => {
+      let all = [];
+      for (let i = 0; i < searchTerms.length; i += BATCH) {
+        const batch = searchTerms.slice(i, i + BATCH);
+        const results = await Promise.all(batch.map(t => searchSongs(t, 20).catch(() => [])));
+        all = all.concat(results.flat());
+      }
+      return all;
+    };
+    runBatches()
       .then(results => {
-        const all = results.flat();
-        const unique = [...new Map(all.map(s => [s.id, s])).values()];
+        const unique = [...new Map(results.map(s => [s.id, s])).values()];
         setSearchResults(unique);
       })
       .catch(() => showToast('Could not load.'))
@@ -546,7 +594,8 @@ function AppContent() {
       };
       await Storage.addCustomSong(customSong, blob);
       setCustomSongs(prev => [...prev, customSong]);
-      showToast(`"${song.title}" saved to My Songs — won't be lost!`);
+      addSharedSong(customSong).catch(() => {});
+      showToast(`"${song.title}" saved to My Songs — shared with community!`);
     } catch (err) {
       console.error(err);
       showToast('Failed to save song');
@@ -571,7 +620,7 @@ function AppContent() {
   const openAlbumPage = useCallback((title) => { setAlbumQuery(title); setArtistQuery(null); setActiveTab('search'); }, []);
   const closeAlbumPage = useCallback(() => { setAlbumQuery(null); }, []);
 
-  const downloadedIds = downloadedSongs.map(s => s.id);
+  const downloadedIds = useMemo(() => downloadedSongs.map(s => s.id), [downloadedSongs]);
 
   return (
     <div className="app">
@@ -590,6 +639,7 @@ function AppContent() {
               currentSong={currentSong}
               isPlaying={isPlaying}
               recentlyPlayed={recentlyPlayed}
+              sharedSongs={sharedSongs}
               downloadSong={downloadSong}
               downloadedIds={downloadedIds}
               downloadingIds={downloadingIds}
@@ -729,7 +779,7 @@ function AppContent() {
           onShowQueue={() => { setShowFullScreen(false); setShowQueue(true); }}
           downloadSong={downloadSong}
           currentSongDownloaded={downloadedIds.includes(currentSong?.id)}
-          onSaveToMySongs={(song) => setCustomSongs(prev => [...prev, song])}
+          onSaveToMySongs={saveToMySongs}
         />
       )}
       {showLyrics && currentSong && (

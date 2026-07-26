@@ -50,7 +50,7 @@ async function loadSaavnSection(sec) {
   }
 }
 
-export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyPlayed, downloadSong, downloadedIds, downloadingIds, onOpenArtist, onOpenAlbum }) {
+export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyPlayed, sharedSongs, downloadSong, downloadedIds, downloadingIds, onOpenArtist, onOpenAlbum }) {
   const [sections, setSections] = useState({});
   const [loading, setLoading] = useState(true);
   const [loadCount, setLoadCount] = useState(INITIAL_BATCH);
@@ -62,12 +62,15 @@ export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyP
 
     (async () => {
       const initialSections = HOME_SECTIONS.slice(0, INITIAL_BATCH);
-      const results = await Promise.all(initialSections.map(loadSaavnSection));
-
-      if (cancelled) return;
+      const BATCH_SIZE = 4;
       const data = {};
-      results.forEach(r => { data[r.key] = r; });
-      setSections({ ...data });
+      for (let i = 0; i < initialSections.length; i += BATCH_SIZE) {
+        const batch = initialSections.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(batch.map(loadSaavnSection));
+        if (cancelled) return;
+        results.forEach(r => { data[r.key] = r; });
+        setSections({ ...data });
+      }
       setLoading(false);
     })();
 
@@ -155,6 +158,43 @@ export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyP
                 <span>{s.title}</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {sharedSongs && sharedSongs.length > 0 && (
+        <div className="home-section">
+          <h3 className="sec-title">Community Songs — Added by Users</h3>
+          <div className="song-scroll">
+            {sharedSongs.slice(0, 20).map(s => {
+              const enrichedSong = {
+                id: `shared-search-${s.title}-${s.artist}`,
+                title: s.title,
+                artist: s.artist,
+                album: s.album || '',
+                genre: s.genre || '',
+                coverUrl: s.coverUrl || null,
+                audioUrl: null,
+                allAudioUrls: [],
+                rawAudioUrls: [],
+                source: 'shared',
+                _sharedQuery: `${s.title} ${s.artist} ${s.album || ''}`,
+              };
+              return (
+                <div key={s.id} className={`song-card ${currentSong?.id === enrichedSong.id ? 'active' : ''}`}
+                  onClick={() => playSong(enrichedSong, sharedSongs.map(ss => ({
+                    id: `shared-search-${ss.title}-${ss.artist}`,
+                    title: ss.title, artist: ss.artist, album: ss.album || '',
+                    genre: ss.genre || '', coverUrl: ss.coverUrl || null,
+                    audioUrl: null, allAudioUrls: [], rawAudioUrls: [],
+                    source: 'shared', _sharedQuery: `${ss.title} ${ss.artist} ${ss.album || ''}`,
+                  })), sharedSongs.indexOf(s))}>
+                  {s.coverUrl ? <img src={s.coverUrl} alt="" /> : <div className="qph">🎵</div>}
+                  <h4>{s.title}</h4>
+                  <p>{s.artist}</p>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

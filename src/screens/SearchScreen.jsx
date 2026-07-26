@@ -27,8 +27,8 @@ export default function SearchScreen({ searchResults, searchLoading, searched, c
   const playable = searchResults.filter(s => s.audioUrl);
 
   const playAll = () => {
-    const list = playable.length > 0 ? playable : searchResults;
-    if (list.length > 0) playSong(list[0], list, 0);
+    if (playable.length > 0) playSong(playable[0], playable, 0);
+    else if (searchResults.length > 0) playSong(searchResults[0], searchResults, 0);
   };
 
   const shufflePlay = () => {
@@ -40,7 +40,7 @@ export default function SearchScreen({ searchResults, searchLoading, searched, c
 
   return (
     <div className="search-screen">
-      {topArtist && artistCount >= 1 && onOpenArtist && (
+      {topArtist && artistCount >= 3 && onOpenArtist && (
         <div className="artist-card" onClick={() => onOpenArtist(topArtist)}>
           <div className="artist-card-left">
             {searchResults[0].coverUrl ? (
