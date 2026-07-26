@@ -43,7 +43,7 @@ const LOAD_MORE_BATCH = 8;
 
 async function loadSaavnSection(sec) {
   try {
-    const songs = await searchSaavn(sec.query, 30);
+    const songs = await searchSaavn(sec.query, 40);
     return { key: sec.key, label: sec.label, songs };
   } catch {
     return { key: sec.key, label: sec.label, songs: [] };
@@ -118,6 +118,10 @@ export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyP
     { title: 'Ilaiyaraaja Magical Melodies', type: 'Artist', query: 'Ilaiyaraaja', cover: 'https://c.saavncdn.com/artists/Ilaiyaraaja_002_20230323062635_500x500.jpg' },
     { title: 'Puneeth Rajkumar Hits', type: 'Artist', query: 'Puneeth Rajkumar', cover: 'https://c.saavncdn.com/artists/Puneeth_Rajkumar_500x500.jpg' },
     { title: 'Diljit Dosanjh Punjabi Power', type: 'Artist', query: 'Diljit Dosanjh', cover: 'https://c.saavncdn.com/artists/Diljit_Dosanjh_004_20230318080358_500x500.jpg' },
+    { title: 'K.J. Yesudas Evergreen', type: 'Artist', query: 'K.J. Yesudas', cover: 'https://c.saavncdn.com/artists/K_J_Yesudas_500x500.jpg' },
+    { title: 'Sonu Nigam Melodies', type: 'Artist', query: 'Sonu Nigam', cover: 'https://c.saavncdn.com/artists/Sonu_Nigam_002_20230323063633_500x500.jpg' },
+    { title: 'Lata Mangeshkar Classics', type: 'Artist', query: 'Lata Mangeshkar', cover: 'https://c.saavncdn.com/artists/Lata_Mangeshkar_500x500.jpg' },
+    { title: 'Kishore Kumar Evergreen', type: 'Artist', query: 'Kishore Kumar', cover: 'https://c.saavncdn.com/artists/Kishore_Kumar_500x500.jpg' },
   ];
 
   return (

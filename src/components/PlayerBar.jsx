@@ -1,8 +1,9 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { formatTime } from '../utils/helpers';
 import { refreshSongUrl } from '../utils/api';
+import { Storage } from '../utils/storage';
 
-export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNext, playPrev, liked, toggleLike, onProgressUpdate, onExpand, onShowLyrics, repeatMode, toggleRepeat, shuffleOn, toggleShuffle, onShowQueue, downloadSong, currentSongDownloaded }) {
+export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNext, playPrev, liked, toggleLike, onProgressUpdate, onExpand, onShowLyrics, repeatMode, toggleRepeat, shuffleOn, toggleShuffle, onShowQueue, downloadSong, currentSongDownloaded, onSaveToMySongs }) {
   const audioRef = useRef(null);
   const [dur, setDur] = useState(0);
   const [curTime, setCurTime] = useState(0);
@@ -228,7 +229,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
       navigator.mediaSession.metadata = new MediaMetadata({
         title: currentSong.title || 'Unknown',
         artist: currentSong.artist || 'Unknown Artist',
-        album: 'SoundAura',
+        album: currentSong.source === 'custom' ? 'My Songs' : 'SoundAura',
         artwork: currentSong.coverUrl ? [
           { src: currentSong.coverUrl, sizes: '512x512', type: 'image/jpeg' },
           { src: currentSong.coverUrl, sizes: '256x256', type: 'image/jpeg' },
@@ -238,32 +239,61 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     }
 
     const candidates = [];
-    if (currentSong.audioBlob) {
-      const blobUrl = URL.createObjectURL(currentSong.audioBlob);
-      candidates.push({ url: blobUrl, type: 'blob' });
-      blobUrls.current.push(blobUrl);
-    }
-    if (currentSong.audioUrl) {
-      candidates.push({ url: currentSong.audioUrl, type: 'primary' });
-    }
-    if (currentSong.allAudioUrls) {
-      for (const entry of currentSong.allAudioUrls) {
-        if (entry.url && !candidates.some(c => c.url === entry.url)) {
-          candidates.push({ url: entry.url, type: entry.quality || 'fallback' });
+
+    if (currentSong.source === 'custom' || currentSong._customFile) {
+      const loadCustomAudio = async () => {
+        try {
+          const blob = await Storage.loadCustomSongBlob(currentSong.id);
+          if (blob) {
+            const blobUrl = URL.createObjectURL(blob);
+            candidates.push({ url: blobUrl, type: 'custom-blob' });
+            blobUrls.current.push(blobUrl);
+          }
+        } catch (err) {
+          console.error('Failed to load custom song blob:', err);
+        }
+        urlList.current = candidates;
+        if (candidates.length > 0) {
+          const candidate = candidates[0];
+          urlIndex.current = 0;
+          loadingUrlRef.current = true;
+          a.src = candidate.url;
+          a.volume = volRef.current;
+          a.load();
+        } else {
+          setLoading(false);
+          setErrorMsg('No playable URL found');
+        }
+      };
+      loadCustomAudio();
+    } else {
+      if (currentSong.audioBlob) {
+        const blobUrl = URL.createObjectURL(currentSong.audioBlob);
+        candidates.push({ url: blobUrl, type: 'blob' });
+        blobUrls.current.push(blobUrl);
+      }
+      if (currentSong.audioUrl) {
+        candidates.push({ url: currentSong.audioUrl, type: 'primary' });
+      }
+      if (currentSong.allAudioUrls) {
+        for (const entry of currentSong.allAudioUrls) {
+          if (entry.url && !candidates.some(c => c.url === entry.url)) {
+            candidates.push({ url: entry.url, type: entry.quality || 'fallback' });
+          }
         }
       }
-    }
-    urlList.current = candidates;
-    if (candidates.length > 0) {
-      const candidate = candidates[0];
-      urlIndex.current = 0;
-      loadingUrlRef.current = true;
-      a.src = candidate.url;
-      a.volume = volRef.current;
-      a.load();
-    } else {
-      setLoading(false);
-      setErrorMsg('No playable URL found');
+      urlList.current = candidates;
+      if (candidates.length > 0) {
+        const candidate = candidates[0];
+        urlIndex.current = 0;
+        loadingUrlRef.current = true;
+        a.src = candidate.url;
+        a.volume = volRef.current;
+        a.load();
+      } else {
+        setLoading(false);
+        setErrorMsg('No playable URL found');
+      }
     }
   }, [currentSong?.id]);
 
@@ -360,6 +390,15 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
               style={{ opacity: currentSongDownloaded ? 0.5 : 1 }}
             >
               {currentSongDownloaded ? '✅' : '📥'}
+            </button>
+          )}
+          {onSaveToMySongs && currentSong.source !== 'custom' && !currentSong._customFile && (
+            <button
+              className="icon-btn"
+              onClick={() => onSaveToMySongs(currentSong)}
+              title="Save to My Songs (permanent)"
+            >
+              💾
             </button>
           )}
           {onExpand && (

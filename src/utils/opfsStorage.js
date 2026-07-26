@@ -146,6 +146,9 @@ export const OpfsStorage = {
   async getDownloadedSongs() { return (await this.loadJson('downloads')) || []; },
   async saveDownloadedSongs(songs) { return this.saveJson('downloads', songs); },
 
+  async getCustomSongs() { return (await this.loadJson('custom')) || []; },
+  async saveCustomSongs(songs) { return this.saveJson('custom', songs); },
+
   async exportAll() {
     const liked = await this.getLikedSongs();
     const recent = await this.getRecentlyPlayed();

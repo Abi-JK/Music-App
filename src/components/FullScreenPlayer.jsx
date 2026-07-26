@@ -2,18 +2,66 @@ import React, { useState, useEffect } from 'react';
 import { formatTime } from '../utils/helpers';
 import { fetchLyrics, downloadAudioBlob } from '../utils/api';
 import { cutAudio } from '../utils/audio';
+import { Storage } from '../utils/storage';
+
+function generateId() {
+  return `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
 
 export default function FullScreenPlayer({
   currentSong, isPlaying, setIsPlaying, playNext, playPrev,
   liked, toggleLike, curTime, dur, onClose, showToast,
   repeatMode, toggleRepeat, shuffleOn, toggleShuffle, onShowQueue,
-  downloadSong, currentSongDownloaded
+  downloadSong, currentSongDownloaded, onSaveToMySongs
 }) {
   const [lyrics, setLyrics] = useState('');
   const [loadingLyrics, setLoadingLyrics] = useState(true);
   const [downloadingRingtone, setDownloadingRingtone] = useState(false);
   const [showRingtoneEditor, setShowRingtoneEditor] = useState(false);
   const [ringtoneStart, setRingtoneStart] = useState(0);
+  const [savingToMySongs, setSavingToMySongs] = useState(false);
+
+  const handleSaveToMySongs = async () => {
+    if (!currentSong || savingToMySongs) return;
+    if (currentSong.source === 'custom' || currentSong._customFile) {
+      showToast('This song is already in My Songs');
+      return;
+    }
+    setSavingToMySongs(true);
+    showToast('Saving to My Songs...');
+    try {
+      let blob = currentSong.audioBlob || null;
+      if (!blob) {
+        blob = await downloadAudioBlob(currentSong.audioUrl, currentSong.rawAudioUrls || []);
+      }
+      if (!blob) throw new Error('Could not download audio');
+      const song = {
+        id: generateId(),
+        title: currentSong.title,
+        artist: currentSong.artist,
+        album: currentSong.album || 'My Songs',
+        year: currentSong.year || '',
+        duration: currentSong.duration || dur || 0,
+        coverUrl: currentSong.coverUrl,
+        audioUrl: null,
+        allAudioUrls: [],
+        rawAudioUrls: [],
+        genre: currentSong.genre || '',
+        source: 'custom',
+        downloadable: true,
+        _customFile: true,
+        addedAt: new Date().toISOString(),
+      };
+      await Storage.addCustomSong(song, blob);
+      if (onSaveToMySongs) onSaveToMySongs(song);
+      showToast(`"${song.title}" saved to My Songs — won't be lost!`);
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to save song');
+    } finally {
+      setSavingToMySongs(false);
+    }
+  };
 
   useEffect(() => {
     if (!currentSong) return;
@@ -92,6 +140,17 @@ export default function FullScreenPlayer({
               <p className="fs-artist">{currentSong.artist}</p>
             </div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {currentSong.source !== 'custom' && !currentSong._customFile && (
+                <button
+                  className="icon-btn"
+                  onClick={handleSaveToMySongs}
+                  style={{ fontSize: 22, opacity: savingToMySongs ? 0.5 : 1 }}
+                  disabled={savingToMySongs}
+                  title={savingToMySongs ? 'Saving...' : 'Save to My Songs (permanent)'}
+                >
+                  {savingToMySongs ? '⏳' : '💾'}
+                </button>
+              )}
               {downloadSong && (
                 <button
                   className="icon-btn"

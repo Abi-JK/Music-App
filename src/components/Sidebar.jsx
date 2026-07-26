@@ -11,7 +11,7 @@ const LogoImage = ({ size = 48 }) => (
   />
 );
 
-export default function Sidebar({ activeTab, setActiveTab, likedCount, onSearch, onInstall, showToast }) {
+export default function Sidebar({ activeTab, setActiveTab, likedCount, customCount, onSearch, onInstall, showToast }) {
   const playlists = [
     { label: '🎬 Bollywood Hits',        term: 'bollywood hindi songs' },
     { label: '🎵 Tamil Hits',            term: 'tamil film songs' },
@@ -95,6 +95,9 @@ export default function Sidebar({ activeTab, setActiveTab, likedCount, onSearch,
         </button>
         <button className={`nav-item ${activeTab === 'downloads' ? 'active' : ''}`} onClick={() => setActiveTab('downloads')}>
           <span className="nav-icon">📥</span>Downloads
+        </button>
+        <button className={`nav-item ${activeTab === 'mysongs' ? 'active' : ''}`} onClick={() => setActiveTab('mysongs')}>
+          <span className="nav-icon">🎵</span>My Songs {customCount > 0 && <span className="sidebar-badge">{customCount}</span>}
         </button>
         {onInstall && (
           <button className="nav-item" onClick={onInstall} style={{ color: 'var(--accent)' }}>

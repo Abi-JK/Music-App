@@ -17,12 +17,13 @@ import HomeScreen from './screens/HomeScreen';
 import SearchScreen from './screens/SearchScreen';
 import LikedScreen from './screens/LikedScreen';
 import DownloadsScreen from './screens/DownloadsScreen';
+import MySongsScreen from './screens/MySongsScreen';
 import ArtistPage from './screens/ArtistPage';
 import AlbumPage from './screens/AlbumPage';
 
 import { searchSongs, downloadAudioBlob, searchSaavn } from './utils/api';
 import { Storage } from './utils/storage';
-import { LANG_QUERIES } from './utils/constants';
+import { LANG_QUERIES, LANG_SEARCH_QUERIES } from './utils/constants';
 
 function shuffleArray(arr) {
   const a = [...arr];
@@ -50,6 +51,7 @@ function AppContent() {
   const [likedSongs, setLikedSongs] = useState([]);
   const [recentlyPlayed, setRecentlyPlayed] = useState([]);
   const [downloadedSongs, setDownloadedSongs] = useState([]);
+  const [customSongs, setCustomSongs] = useState([]);
   const [downloadingIds, setDownloadingIds] = useState([]);
 
   const [audioState, setAudioState] = useState({ curTime: 0, dur: 0 });
@@ -109,14 +111,16 @@ function AppContent() {
     const loadData = async () => {
       try {
         await Storage.migrateIfNeeded();
-        const [liked, recent, downloaded] = await Promise.all([
+        const [liked, recent, downloaded, custom] = await Promise.all([
           Storage.getLikedSongs(),
           Storage.getRecentlyPlayed(),
-          Storage.getDownloadedSongs()
+          Storage.getDownloadedSongs(),
+          Storage.getCustomSongs(),
         ]);
         setLikedSongs(liked);
         setRecentlyPlayed(recent);
         setDownloadedSongs(downloaded);
+        setCustomSongs(custom);
       } catch (error) {
         console.error('Failed to load data from IndexedDB:', error);
       }
@@ -285,45 +289,62 @@ function AppContent() {
     if (!genre) return;
     try {
       const playedIds = playedSongIds.current;
+      const lastId = currentSong?.id;
       const playlistIds = new Set(playlist.map(p => p.id));
+
+      const year = new Date().getFullYear();
       const searchTerms = [
         genre,
         `${genre} songs`,
         `${genre} hits`,
         `${genre} album`,
+        `${genre} ${year}`,
+        `${genre} ${year - 1}`,
+        `${genre} best`,
+        `${genre} latest`,
+        `${genre} popular`,
+        `${genre} evergreen`,
       ];
-      const allResults = await Promise.all(searchTerms.map(t => searchSaavn(t, 15).catch(() => [])));
+      const allResults = await Promise.all(searchTerms.map(t => searchSaavn(t, 25).catch(() => [])));
       let moreSongs = allResults.flat();
       moreSongs = [...new Map(moreSongs.map(s => [s.id, s])).values()];
+
       if (moreSongs.length > 0) {
-        const filtered = moreSongs.filter(s => !playlistIds.has(s.id) && !playedIds.has(s.id));
-        const filteredNoPlayed = moreSongs.filter(s => !playedIds.has(s.id));
-        const toUse = filtered.length > 0 ? filtered : (filteredNoPlayed.length > 0 ? filteredNoPlayed : moreSongs);
+        const filtered = moreSongs.filter(s => !playlistIds.has(s.id) && !playedIds.has(s.id) && s.id !== lastId);
+        const filteredNoPlayed = moreSongs.filter(s => !playedIds.has(s.id) && s.id !== lastId);
+        const toUse = filtered.length > 0 ? filtered : filteredNoPlayed;
+        if (toUse.length > 0) {
+          const shuffled = shuffleArray(toUse);
+          originalPlaylistRef.current = shuffled;
+          setPlaylist(shuffled);
+          setCurrentIndex(0);
+          setIsPlaying(true);
+          if (shuffled[0]) playedSongIds.current.add(shuffled[0].id);
+          showToast(`Playing more ${genre} songs...`);
+          return;
+        }
+      }
+
+      const fallbackTerms = ['trending india', 'bollywood hits', 'tamil hits', 'telugu hits', 'hindi songs'];
+      const fallback = await Promise.all(fallbackTerms.map(t => searchSaavn(t, 10).catch(() => [])));
+      const allFallback = [...new Map(fallback.flat().map(s => [s.id, s])).values()];
+      const fresh = allFallback.filter(s => !playedIds.has(s.id) && s.id !== lastId);
+      const toUse = fresh.length > 0 ? fresh : allFallback.filter(s => s.id !== lastId);
+      if (toUse.length > 0) {
         const shuffled = shuffleArray(toUse);
         originalPlaylistRef.current = shuffled;
         setPlaylist(shuffled);
         setCurrentIndex(0);
         setIsPlaying(true);
         if (shuffled[0]) playedSongIds.current.add(shuffled[0].id);
-        showToast(`Playing more ${genre} songs...`);
+        showToast('Playing trending songs...');
       } else {
-        const fallback = await searchSaavn('trending india 2025', 15).catch(() => []);
-        const fresh = fallback.filter(s => !playedIds.has(s.id));
-        const toUse = fresh.length > 0 ? fresh : fallback;
-        if (toUse.length > 0) {
-          originalPlaylistRef.current = toUse;
-          setPlaylist(toUse);
-          setCurrentIndex(0);
-          setIsPlaying(true);
-          showToast('Playing trending songs...');
-        } else {
-          showToast('No more songs found.');
-        }
+        showToast('No more songs found.');
       }
     } catch {
       showToast('Could not load more songs.');
     }
-  }, [playlist, showToast]);
+  }, [playlist, showToast, currentSong]);
 
   useEffect(() => { autoPlayGenreFuncRef.current = autoPlayGenre; }, [autoPlayGenre]);
 
@@ -338,18 +359,16 @@ function AppContent() {
     const nextIdx = currentIndex + 1;
     if (nextIdx >= playlist.length) {
       if (repeatMode === 'all') {
-        const unplayed = playlist.filter(s => !playedSongIds.current.has(s.id));
+        const unplayed = playlist.filter(s => !playedSongIds.current.has(s.id) && s.id !== currentSong?.id);
         if (unplayed.length > 0) {
           const pick = unplayed[Math.floor(Math.random() * unplayed.length)];
           const pickIdx = playlist.findIndex(s => s.id === pick.id);
           setCurrentIndex(pickIdx >= 0 ? pickIdx : 0);
+          setIsPlaying(true);
+          if (pick) addRecent(pick);
         } else {
-          playedSongIds.current = new Set();
-          setCurrentIndex(0);
+          autoPlayGenre(autoPlayGenreRef.current || 'trending india');
         }
-        setIsPlaying(true);
-        const nextSong = playlist[playlist.length > 0 ? (playlist.findIndex(s => s.id === (unplayed.length > 0 ? unplayed[0]?.id : playlist[0]?.id))) : 0];
-        if (nextSong) addRecent(nextSong);
       } else {
         autoPlayGenre(autoPlayGenreRef.current || 'trending india');
       }
@@ -430,7 +449,6 @@ function AppContent() {
       const term = langObj?.term && langObj.label !== 'All' ? `${q} ${langObj.term}` : q;
       const songs = await searchSongs(term, 50);
       setSearchResults(songs);
-      // NOTE: Do NOT update playlist here — only update playlist when user explicitly clicks a song
     } catch {
       showToast('Search failed. Check your connection.');
     }
@@ -443,12 +461,13 @@ function AppContent() {
     setActiveTab('search');
     setSearched(true);
     setSearchLoading(true);
-    const langObj = LANG_QUERIES.find(l => l.label === lang);
-    if (!langObj?.term) return;
-    searchSongs(langObj.term, 80)
-      .then(songs => {
-        setSearchResults(songs);
-        // Do NOT update playlist — only update on explicit song click
+    const queries = LANG_SEARCH_QUERIES[lang];
+    const searchTerms = queries ? queries.slice(0, 8) : [`${lang} songs`];
+    Promise.all(searchTerms.map(t => searchSongs(t, 20).catch(() => [])))
+      .then(results => {
+        const all = results.flat();
+        const unique = [...new Map(all.map(s => [s.id, s])).values()];
+        setSearchResults(unique);
       })
       .catch(() => showToast('Could not load.'))
       .finally(() => setSearchLoading(false));
@@ -495,6 +514,45 @@ function AppContent() {
     }
   }, [downloadedSongs, showToast]);
 
+  const saveToMySongs = useCallback(async (song) => {
+    if (!song) return;
+    if (song.source === 'custom' || song._customFile) {
+      showToast('This song is already in My Songs');
+      return;
+    }
+    showToast(`Saving "${song.title}" to My Songs...`);
+    try {
+      let blob = song.audioBlob || null;
+      if (!blob) {
+        blob = await downloadAudioBlob(song.audioUrl, song.rawAudioUrls || []);
+      }
+      if (!blob) throw new Error('Could not download audio');
+      const customSong = {
+        id: `custom-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        title: song.title,
+        artist: song.artist,
+        album: song.album || 'My Songs',
+        year: song.year || '',
+        duration: song.duration || 0,
+        coverUrl: song.coverUrl,
+        audioUrl: null,
+        allAudioUrls: [],
+        rawAudioUrls: [],
+        genre: song.genre || '',
+        source: 'custom',
+        downloadable: true,
+        _customFile: true,
+        addedAt: new Date().toISOString(),
+      };
+      await Storage.addCustomSong(customSong, blob);
+      setCustomSongs(prev => [...prev, customSong]);
+      showToast(`"${song.title}" saved to My Songs — won't be lost!`);
+    } catch (err) {
+      console.error(err);
+      showToast('Failed to save song');
+    }
+  }, [showToast]);
+
   const removeDownload = useCallback(async (songId) => {
     try {
       await Storage.removeDownloadedSong(songId);
@@ -517,7 +575,7 @@ function AppContent() {
 
   return (
     <div className="app">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} onSearch={searchByQuery} onInstall={handleInstallApp} showToast={showToast} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} customCount={customSongs.length} onSearch={searchByQuery} onInstall={handleInstallApp} showToast={showToast} />
       <div className="body">
         <Topbar
           q={searchQ} setQ={setSearchQ}
@@ -604,6 +662,16 @@ function AppContent() {
               removeDownload={removeDownload}
             />
           )}
+          {activeTab === 'mysongs' && (
+            <MySongsScreen
+              customSongs={customSongs}
+              setCustomSongs={setCustomSongs}
+              playSong={playSong}
+              currentSong={currentSong}
+              isPlaying={isPlaying}
+              showToast={showToast}
+            />
+          )}
         </div>
       </div>
       <PlayerBar
@@ -624,6 +692,7 @@ function AppContent() {
         onShowQueue={() => setShowQueue(true)}
         downloadSong={downloadSong}
         currentSongDownloaded={currentSong ? downloadedIds.includes(currentSong.id) : false}
+        onSaveToMySongs={saveToMySongs}
       />
       <MiniPlayer
         currentSong={currentSong}
@@ -638,7 +707,7 @@ function AppContent() {
         downloadSong={downloadSong}
         currentSongDownloaded={currentSong ? downloadedIds.includes(currentSong.id) : false}
       />
-      <MobileNav activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} onInstall={handleInstallApp} />
+      <MobileNav activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} customCount={customSongs.length} onInstall={handleInstallApp} />
       <Toast msg={toastMsg} />
       {showFullScreen && currentSong && (
         <FullScreenPlayer
@@ -660,6 +729,7 @@ function AppContent() {
           onShowQueue={() => { setShowFullScreen(false); setShowQueue(true); }}
           downloadSong={downloadSong}
           currentSongDownloaded={downloadedIds.includes(currentSong?.id)}
+          onSaveToMySongs={(song) => setCustomSongs(prev => [...prev, song])}
         />
       )}
       {showLyrics && currentSong && (

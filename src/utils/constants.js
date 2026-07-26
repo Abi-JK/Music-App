@@ -10,12 +10,108 @@ export const LANG_QUERIES = [
   { label: 'Marathi',    term: 'marathi film songs' },
   { label: 'Gujarati',   term: 'gujarati songs' },
   { label: 'Bhojpuri',   term: 'bhojpuri songs' },
-  { label: 'Odia',       term: 'odia songs' },
-  { label: 'Assamese',   term: 'assamese songs' },
-  { label: 'Sanskrit',   term: 'sanskrit devotional' },
-  { label: 'Urdu',       term: 'urdu ghazal' },
-  { label: 'Rajasthani', term: 'rajasthani folk' },
+  { label: 'Odia',       term: 'odia film songs' },
+  { label: 'Assamese',   term: 'assamese film songs' },
+  { label: 'Sanskrit',   term: 'sanskrit devotional songs' },
+  { label: 'Urdu',       term: 'urdu ghazal songs' },
+  { label: 'Rajasthani', term: 'rajasthani folk songs' },
 ];
+
+export const LANG_SEARCH_QUERIES = {
+  Tamil: [
+    'tamil film songs', 'tamil movie songs', 'tamil hits', 'tamil songs',
+    'tamil romantic songs', 'tamil sad songs', 'tamil love songs',
+    'tamil mass songs', 'tamil melody songs', 'tamil kuthu songs',
+    'tamil classical songs', 'tamil devotional songs', 'tamil album songs',
+    'tamil old songs', 'tamil new songs', 'tamil 2025 songs',
+    'tamil 2024 songs', 'tamil 2023 songs', 'kollywood songs',
+    'tamil duet songs', 'tamil dance songs', 'tamil folk songs',
+  ],
+  Hindi: [
+    'bollywood hindi songs', 'hindi film songs', 'hindi movie songs',
+    'hindi hits', 'hindi romantic songs', 'hindi sad songs',
+    'hindi love songs', 'hindi dance songs', 'hindi party songs',
+    'hindi old songs', 'hindi new songs', 'hindi 2025 songs',
+    'hindi 2024 songs', 'hindi 2023 songs', 'bollywood songs',
+    'hindi devotional songs', 'hindi ghazal', 'hindi classical songs',
+    'hindi folk songs', 'hindi pop songs', 'hindi album songs',
+  ],
+  Telugu: [
+    'telugu film songs', 'telugu movie songs', 'telugu hits',
+    'telugu songs', 'telugu romantic songs', 'telugu mass songs',
+    'telugu melody songs', 'telugu dance songs', 'telugu old songs',
+    'telugu new songs', 'telugu 2025 songs', 'telugu 2024 songs',
+    'tollywood songs', 'telugu devotional songs', 'telugu folk songs',
+    'telugu classical songs', 'telugu duet songs', 'telugu album songs',
+  ],
+  Malayalam: [
+    'malayalam film songs', 'malayalam movie songs', 'malayalam hits',
+    'malayalam songs', 'malayalam romantic songs', 'malayalam melody songs',
+    'malayalam old songs', 'malayalam new songs', 'malayalam 2025 songs',
+    'mollywood songs', 'malayalam devotional songs', 'malayalam folk songs',
+    'malayalam classical songs', 'malayalam dance songs', 'malayalam album songs',
+  ],
+  Kannada: [
+    'kannada film songs', 'kannada movie songs', 'kannada hits',
+    'kannada songs', 'kannada romantic songs', 'kannada melody songs',
+    'kannada old songs', 'kannada new songs', 'kannada 2025 songs',
+    'sandalwood songs', 'kannada devotional songs', 'kannada folk songs',
+    'kannada classical songs', 'kannada dance songs', 'kannada album songs',
+    'kannada mass songs', 'kannada love songs',
+  ],
+  Bengali: [
+    'bengali songs', 'bengali film songs', 'bengali movie songs',
+    'bengali hits', 'bengali romantic songs', 'bengali sad songs',
+    'bengali old songs', 'bengali new songs', 'bengali 2025 songs',
+    'tollywood bengali songs', 'bengali devotional songs', 'bengali folk songs',
+    'bengali classical songs', 'bengali album songs',
+  ],
+  Punjabi: [
+    'punjabi songs', 'punjabi hits', 'punjabi romantic songs',
+    'punjabi dance songs', 'punjabi bhangra songs', 'punjabi sad songs',
+    'punjabi old songs', 'punjabi new songs', 'punjabi 2025 songs',
+    'punjabi pop songs', 'punjabi folk songs', 'punjabi album songs',
+  ],
+  Marathi: [
+    'marathi film songs', 'marathi movie songs', 'marathi hits',
+    'marathi songs', 'marathi romantic songs', 'marathi old songs',
+    'marathi new songs', 'marathi 2025 songs', 'marathi devotional songs',
+    'marathi folk songs', 'marathi classical songs', 'marathi album songs',
+  ],
+  Gujarati: [
+    'gujarati songs', 'gujarati film songs', 'gujarati hits',
+    'gujarati romantic songs', 'gujarati old songs', 'gujarati new songs',
+    'gujarati 2025 songs', 'gujarati folk songs', 'gujarati devotional songs',
+    'gujarati album songs',
+  ],
+  Bhojpuri: [
+    'bhojpuri songs', 'bhojpuri film songs', 'bhojpuri hits',
+    'bhojpuri romantic songs', 'bhojpuri dance songs', 'bhojpuri old songs',
+    'bhojpuri new songs', 'bhojpuri 2025 songs', 'bhojpuri album songs',
+  ],
+  Odia: [
+    'odia songs', 'odia film songs', 'odia hits',
+    'odia romantic songs', 'odia old songs', 'odia new songs',
+    'odia 2025 songs', 'odia devotional songs', 'odia album songs',
+  ],
+  Assamese: [
+    'assamese songs', 'assamese film songs', 'assamese hits',
+    'assamese romantic songs', 'assamese old songs', 'assamese new songs',
+    'assamese 2025 songs', 'assamese folk songs', 'assamese album songs',
+  ],
+  Sanskrit: [
+    'sanskrit devotional songs', 'sanskrit bhajans', 'sanskrit chants',
+    'sanskrit mantras', 'sanskrit songs', 'vedic chants',
+  ],
+  Urdu: [
+    'urdu ghazal songs', 'urdu ghazal', 'urdu poetry songs',
+    'urdu romantic songs', 'urdu sad songs', 'urdu songs',
+  ],
+  Rajasthani: [
+    'rajasthani folk songs', 'rajasthani songs', 'rajasthani hits',
+    'rajasthani devotional songs', 'rajasthani romantic songs',
+  ],
+};
 
 export const HOME_SECTIONS = [
   // ── Trending & Popular ──
@@ -187,6 +283,31 @@ export const HOME_SECTIONS = [
   { key: 'anupam',        label: 'Anupam Roy',                 query: 'anupam roy songs' },
   { key: 'bengali2025',   label: 'Bengali 2025',              query: 'bengali songs 2025' },
 
+  // ── Odia ──
+  { key: 'odia',          label: 'Odia Hits',                  query: 'odia film songs' },
+  { key: 'odia2025',      label: 'Odia 2025',                 query: 'odia songs 2025' },
+  { key: 'odiaold',       label: 'Odia Classics',              query: 'odia old songs' },
+
+  // ── Assamese ──
+  { key: 'assamese',      label: 'Assamese Hits',              query: 'assamese film songs' },
+  { key: 'assamese2025',  label: 'Assamese 2025',             query: 'assamese songs 2025' },
+  { key: 'zubeen',        label: 'Zubeen Garg Hits',           query: 'zubeen garg songs' },
+  { key: 'bhupen',        label: 'Bhupen Hazarika Classics',   query: 'bhupen hazardika songs' },
+
+  // ── Gujarati ──
+  { key: 'gujarati2025',  label: 'Gujarati 2025',             query: 'gujarati songs 2025' },
+  { key: 'gujaratiold',   label: 'Gujarati Classics',          query: 'gujarati old songs' },
+  { key: 'navratri',      label: 'Navratri Garba Songs',       query: 'garba songs' },
+
+  // ── Bhojpuri ──
+  { key: 'bhojpuri2025',  label: 'Bhojpuri 2025',             query: 'bhojpuri songs 2025' },
+  { key: 'bhojpuriold',   label: 'Bhojpuri Classics',          query: 'bhojpuri old songs' },
+
+  // ── Rajasthani ──
+  { key: 'rajasthani',    label: 'Rajasthani Hits',            query: 'rajasthani songs' },
+  { key: 'rajasthani2025', label: 'Rajasthani 2025',           query: 'rajasthani songs 2025' },
+  { key: 'manganiyar',    label: 'Rajasthani Folk',            query: 'rajasthani folk songs' },
+
   // ── Devotional ──
   { key: 'ganesh',        label: 'Ganesh Chalisa & Aarti',     query: 'ganesh aarti' },
   { key: 'krishna',       label: 'Krishna Bhajans',            query: 'krishna bhajans' },
@@ -332,4 +453,33 @@ export const INDIAN_ARTISTS = [
   // ── Bengali ──
   { name: 'Jeet Gannguli',          lang: 'Bengali' },
   { name: 'Anupam Roy',             lang: 'Bengali' },
+  { name: 'Arijit Singh',           lang: 'Bengali' },
+
+  // ── Odia ──
+  { name: 'Sarbeswar Bhoi',         lang: 'Odia' },
+  { name: 'Tara Ranjan',            lang: 'Odia' },
+  { name: 'Humane Sagar',           lang: 'Odia' },
+  { name: 'Asima Panda',            lang: 'Odia' },
+
+  // ── Bhojpuri ──
+  { name: 'Pawan Singh',            lang: 'Bhojpuri' },
+  { name: 'Khesari Lal Yadav',      lang: 'Bhojpuri' },
+  { name: 'Khushbu Jain',           lang: 'Bhojpuri' },
+  { name: 'Ritesh Pandey',          lang: 'Bhojpuri' },
+
+  // ── Assamese ──
+  { name: 'Zubeen Garg',            lang: 'Assamese' },
+  { name: 'Bhupen Hazarika',        lang: 'Assamese' },
+  { name: 'Jitan Das',              lang: 'Assamese' },
+
+  // ── Gujarati ──
+  { name: 'Kedar Pandit',           lang: 'Gujarati' },
+  { name: 'Geeta Rabari',           lang: 'Gujarati' },
+  { name: 'Kirtidan Gadhvi',        lang: 'Gujarati' },
+  { name: 'Jigardan Gadhavi',       lang: 'Gujarati' },
+
+  // ── Rajasthani ──
+  { name: 'Rahul Vyas',             lang: 'Rajasthani' },
+  { name: 'Mame Khan',              lang: 'Rajasthani' },
+  { name: 'Kamla Barupal',          lang: 'Rajasthani' },
 ];

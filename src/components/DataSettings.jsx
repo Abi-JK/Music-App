@@ -16,7 +16,8 @@ export default function DataSettings({ showToast }) {
     const liked = await Storage.getLikedSongs();
     const recent = await Storage.getRecentlyPlayed();
     const downloads = await Storage.getDownloadedSongs();
-    setStats({ liked: liked.length, recent: recent.length, downloads: downloads.length });
+    const custom = await Storage.getCustomSongs();
+    setStats({ liked: liked.length, recent: recent.length, downloads: downloads.length, custom: custom.length });
   };
 
   const handleExport = async () => {
@@ -57,7 +58,7 @@ export default function DataSettings({ showToast }) {
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 10, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 12, color: 'var(--text-dim)' }}>
-          ❤️ {stats.liked} · 🕐 {stats.recent} · 📥 {stats.downloads}
+          ❤️ {stats.liked} · 🕐 {stats.recent} · 📥 {stats.downloads} · 🎵 {stats.custom}
         </span>
         <span style={{
           fontSize: 10, padding: '2px 6px', borderRadius: 4,
