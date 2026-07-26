@@ -246,13 +246,6 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     if (currentSong.audioUrl) {
       candidates.push({ url: currentSong.audioUrl, type: 'primary' });
     }
-    if (currentSong.rawAudioUrls) {
-      for (const entry of currentSong.rawAudioUrls) {
-        if (entry.url && !candidates.some(c => c.url === entry.url)) {
-          candidates.push({ url: entry.url, type: 'raw' });
-        }
-      }
-    }
     if (currentSong.allAudioUrls) {
       for (const entry of currentSong.allAudioUrls) {
         if (entry.url && !candidates.some(c => c.url === entry.url)) {

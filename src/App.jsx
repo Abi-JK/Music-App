@@ -69,6 +69,8 @@ function AppContent() {
   const autoPlayGenreRef = useRef(null);
   const wakeLockRef = useRef(null);
   const isPlayingRef = useRef(false);
+  const playedSongIds = useRef(new Set());
+  const recentAutoPlay = useRef([]);
 
   const currentSong = playlist[currentIndex] || null;
 
@@ -263,6 +265,8 @@ function AppContent() {
     const ctx = context || [song];
     originalPlaylistRef.current = ctx;
     autoPlayGenreRef.current = song.genre || song.language || (song.artist ? `${song.artist}` : 'trending india');
+    playedSongIds.current = new Set();
+    recentAutoPlay.current = [];
     if (shuffleRef.current) {
       const shuffled = shuffleArray(ctx);
       const idx = shuffled.findIndex(s => s.id === song.id);
@@ -280,6 +284,8 @@ function AppContent() {
   const autoPlayGenre = useCallback(async (genre) => {
     if (!genre) return;
     try {
+      const playedIds = playedSongIds.current;
+      const playlistIds = new Set(playlist.map(p => p.id));
       const searchTerms = [
         genre,
         `${genre} songs`,
@@ -290,19 +296,23 @@ function AppContent() {
       let moreSongs = allResults.flat();
       moreSongs = [...new Map(moreSongs.map(s => [s.id, s])).values()];
       if (moreSongs.length > 0) {
-        const filtered = moreSongs.filter(s => !playlist.some(p => p.id === s.id));
-        const toUse = filtered.length > 0 ? filtered : moreSongs;
+        const filtered = moreSongs.filter(s => !playlistIds.has(s.id) && !playedIds.has(s.id));
+        const filteredNoPlayed = moreSongs.filter(s => !playedIds.has(s.id));
+        const toUse = filtered.length > 0 ? filtered : (filteredNoPlayed.length > 0 ? filteredNoPlayed : moreSongs);
         const shuffled = shuffleArray(toUse);
         originalPlaylistRef.current = shuffled;
         setPlaylist(shuffled);
         setCurrentIndex(0);
         setIsPlaying(true);
+        if (shuffled[0]) playedSongIds.current.add(shuffled[0].id);
         showToast(`Playing more ${genre} songs...`);
       } else {
         const fallback = await searchSaavn('trending india 2025', 15).catch(() => []);
-        if (fallback.length > 0) {
-          originalPlaylistRef.current = fallback;
-          setPlaylist(fallback);
+        const fresh = fallback.filter(s => !playedIds.has(s.id));
+        const toUse = fresh.length > 0 ? fresh : fallback;
+        if (toUse.length > 0) {
+          originalPlaylistRef.current = toUse;
+          setPlaylist(toUse);
           setCurrentIndex(0);
           setIsPlaying(true);
           showToast('Playing trending songs...');
@@ -324,12 +334,22 @@ function AppContent() {
       if (audioEl) { audioEl.currentTime = 0; audioEl.play().catch(() => {}); }
       return;
     }
+    if (currentSong) playedSongIds.current.add(currentSong.id);
     const nextIdx = currentIndex + 1;
     if (nextIdx >= playlist.length) {
       if (repeatMode === 'all') {
-        setCurrentIndex(0);
+        const unplayed = playlist.filter(s => !playedSongIds.current.has(s.id));
+        if (unplayed.length > 0) {
+          const pick = unplayed[Math.floor(Math.random() * unplayed.length)];
+          const pickIdx = playlist.findIndex(s => s.id === pick.id);
+          setCurrentIndex(pickIdx >= 0 ? pickIdx : 0);
+        } else {
+          playedSongIds.current = new Set();
+          setCurrentIndex(0);
+        }
         setIsPlaying(true);
-        if (playlist[0]) addRecent(playlist[0]);
+        const nextSong = playlist[playlist.length > 0 ? (playlist.findIndex(s => s.id === (unplayed.length > 0 ? unplayed[0]?.id : playlist[0]?.id))) : 0];
+        if (nextSong) addRecent(nextSong);
       } else {
         autoPlayGenre(autoPlayGenreRef.current || 'trending india');
       }
@@ -338,7 +358,7 @@ function AppContent() {
     setCurrentIndex(nextIdx);
     setIsPlaying(true);
     if (playlist[nextIdx]) addRecent(playlist[nextIdx]);
-  }, [playlist, currentIndex, addRecent, repeatMode, autoPlayGenre]);
+  }, [playlist, currentIndex, addRecent, repeatMode, autoPlayGenre, currentSong]);
 
   useEffect(() => { playNextRef.current = playNext; }, [playNext]);
 

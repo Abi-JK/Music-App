@@ -18,6 +18,7 @@ export default function ArtistPage({ query, playSong, currentSong, isPlaying, on
   const [allTracks, setAllTracks] = useState([]);
   const [albums, setAlbums] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [loadProgress, setLoadProgress] = useState('');
   const [langFilter, setLangFilter] = useState('all');
   const [selectedAlbum, setSelectedAlbum] = useState(null);
   const [sortBy, setSortBy] = useState('default');
@@ -28,14 +29,16 @@ export default function ArtistPage({ query, playSong, currentSong, isPlaying, on
     setLoading(true);
     setSelectedAlbum(null);
     setLangFilter('all');
+    setLoadProgress('Searching artist...');
 
     searchArtistSongs(query, 500).then(tracks => {
       if (cancelled) return;
       setAllTracks(tracks);
       setAlbums(groupTracksByAlbum(tracks));
       setLoading(false);
+      setLoadProgress('');
     }).catch(() => {
-      if (!cancelled) setLoading(false);
+      if (!cancelled) { setLoading(false); setLoadProgress(''); }
     });
 
     return () => { cancelled = true; };
@@ -53,7 +56,7 @@ export default function ArtistPage({ query, playSong, currentSong, isPlaying, on
   if (loading) return (
     <div className="spinner-wrap">
       <div className="spinner" />
-      <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Finding songs by {query}...</p>
+      <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Finding all songs by {query}... This may take a moment for large discographies.</p>
     </div>
   );
 

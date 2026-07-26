@@ -50,7 +50,7 @@ export const HOME_SECTIONS = [
   { key: 'punjabiold',    label: 'Punjabi Classics',           query: 'old punjabi songs' },
 
   // ── Tamil Albums & Themes ──
-  { key: 'mayavi',        label: 'Mayavi (Lifeu Ishtene)',     query: 'Lifeu Ishtene kannada songs' },
+  { key: 'mayavi',        label: 'Mayavi',                      query: 'Mayavi 2007 kannada songs' },
   { key: 'mgr',           label: 'MGR Hits',                   query: 'MGR tamil songs' },
   { key: 'mgrclassics',   label: 'MGR Classics',               query: 'M.G. Ramachandran songs' },
   { key: 'sivaji',        label: 'Sivaji Ganesan Classics',    query: 'Sivaji Ganesan songs' },
@@ -100,6 +100,17 @@ export const HOME_SECTIONS = [
   { key: 'salman',        label: 'Salman Khan Hits',           query: 'salman khan songs' },
   { key: 'amir',          label: 'Aamir Khan Hits',            query: 'aamir khan songs' },
   { key: 'ranbir',        label: 'Ranbir Kapoor Hits',         query: 'ranbir kapoor songs' },
+  { key: 'varun',         label: 'Varun Dhawan Hits',          query: 'varun dhawan songs' },
+  { key: 'ranveer',       label: 'Ranveer Singh Hits',         query: 'ranveer singh songs' },
+  { key: 'hindi2025',     label: 'Bollywood 2025 Hits',       query: 'bollywood songs 2025' },
+  { key: 'pathaan',       label: 'Pathaan Songs',              query: 'Pathaan movie songs' },
+  { key: 'jawan',         label: 'Jawan Songs',                query: 'Jawan movie songs' },
+  { key: 'animal',        label: 'Animal Songs',               query: 'Animal movie songs' },
+  { key: 'strafer',       label: 'Stree 2 Songs',              query: 'Stree 2 movie songs' },
+  { key: 'tamil2025',     label: 'Tamil 2025 Hits',            query: 'tamil songs 2025' },
+  { key: 'ponniyin',      label: 'Ponniyin Selvan Songs',      query: 'Ponniyin Selvan tamil songs' },
+  { key: 'leo',           label: 'Leo Songs',                   query: 'Leo vijay songs' },
+  { key: 'jailer',        label: 'Jailer Songs',               query: 'Jailer rajinikanth songs' },
 
   // ── Composer-Specific ──
   { key: 'arrijit',       label: 'Arijit Singh',               query: 'Arijit Singh songs' },
@@ -166,10 +177,15 @@ export const HOME_SECTIONS = [
   { key: 'allu',          label: 'Allu Arjun Hits',            query: 'allu arjun songs' },
   { key: 'ram',           label: 'Ram Charan Hits',            query: 'ram charan songs' },
   { key: 'ntr',           label: 'Jr NTR Hits',                query: 'junior ntr songs' },
+  { key: 'telugu2025',    label: 'Telugu 2025 Hits',           query: 'telugu songs 2025' },
+  { key: 'pushpa',        label: 'Pushpa Songs',               query: 'Pushpa telugu songs' },
+  { key: 'rrr',           label: 'RRR Songs',                  query: 'RRR telugu songs' },
 
   // ── Bengali ──
   { key: 'riba',          label: 'Rituparna Sengupta',         query: 'bengali film songs' },
   { key: 'jeet',          label: 'Jeet Gannguli',              query: 'jeet gannguli songs' },
+  { key: 'anupam',        label: 'Anupam Roy',                 query: 'anupam roy songs' },
+  { key: 'bengali2025',   label: 'Bengali 2025',              query: 'bengali songs 2025' },
 
   // ── Devotional ──
   { key: 'ganesh',        label: 'Ganesh Chalisa & Aarti',     query: 'ganesh aarti' },
@@ -242,6 +258,23 @@ export const INDIAN_ARTISTS = [
   { name: 'Gemini Ganesan',         lang: 'Tamil' },
   { name: 'Nagesh',                 lang: 'Tamil' },
   { name: 'Cho Ramaswamy',          lang: 'Tamil' },
+  { name: 'K.S. Chithra',           lang: 'Multi' },
+  { name: 'Bombay Jayashri',        lang: 'Multi' },
+  { name: 'Karthik',                lang: 'Multi' },
+  { name: 'Hariharan',              lang: 'Multi' },
+  { name: 'T.M. Krishna',           lang: 'Tamil' },
+  { name: 'Sathyaprakash',          lang: 'Tamil' },
+  { name: 'Vijay Yesudas',          lang: 'Multi' },
+  { name: 'Shweta Mohan',           lang: 'Multi' },
+  { name: 'Malavika',               lang: 'Tamil' },
+  { name: 'Andrea Jeremiah',        lang: 'Tamil' },
+  { name: 'Saindhavi',              lang: 'Tamil' },
+  { name: 'Megha',                  lang: 'Tamil' },
+  { name: 'Aajeedh Khalique',       lang: 'Tamil' },
+  { name: 'Inno Genga',             lang: 'Tamil' },
+  { name: 'Pradeep Kumar',          lang: 'Tamil' },
+  { name: 'Sean Roldan',            lang: 'Tamil' },
+  { name: 'Vaikom Vijayalakshmi',   lang: 'Multi' },
 
   // ── Kannada ──
   { name: 'Sonu Nigam Kannada',     lang: 'Kannada' },
@@ -254,6 +287,10 @@ export const INDIAN_ARTISTS = [
   { name: 'Guru Kiran',             lang: 'Kannada' },
   { name: 'Arjun Janya',            lang: 'Kannada' },
   { name: 'Anuradha Bhat',          lang: 'Kannada' },
+  { name: 'Shreya Ghoshal Kannada', lang: 'Kannada' },
+  { name: 'Chaitra Ambadipodi',     lang: 'Kannada' },
+  { name: 'Vinayak Patil',          lang: 'Kannada' },
+  { name: 'Rajesh Ramanath',        lang: 'Kannada' },
 
   // ── Telugu ──
   { name: 'Devi Sri Prasad',        lang: 'Telugu' },
@@ -261,15 +298,22 @@ export const INDIAN_ARTISTS = [
   { name: 'Keeravani',              lang: 'Telugu' },
   { name: 'MM Keeravani',           lang: 'Telugu' },
   { name: 'DSP',                    lang: 'Telugu' },
-  { name: 'Thaman S',               lang: 'Telugu' },
   { name: 'Sid Sriram Telugu',      lang: 'Telugu' },
   { name: 'Shreya Ghoshal Telugu',  lang: 'Telugu' },
+  { name: 'Geetha Madhuri',         lang: 'Telugu' },
+  { name: 'Malavika',               lang: 'Telugu' },
+  { name: 'Shweta Mohan Telugu',    lang: 'Telugu' },
+  { name: 'Rahul Sipligunj',        lang: 'Telugu' },
+  { name: 'Mangli',                 lang: 'Telugu' },
 
   // ── Malayalam ──
   { name: 'Vidyadharan Master',     lang: 'Malayalam' },
   { name: 'Shreya Ghoshal Malayalam', lang: 'Malayalam' },
   { name: 'Vineeth Sreenivasan',    lang: 'Malayalam' },
   { name: 'K.J. Yesudas Malayalam', lang: 'Malayalam' },
+  { name: 'KS Chithra Malayalam',   lang: 'Malayalam' },
+  { name: 'Sithara Krishnakumar',   lang: 'Malayalam' },
+  { name: 'Vijay Yesudas Malayalam', lang: 'Malayalam' },
 
   // ── Punjabi ──
   { name: 'Diljit Dosanjh',         lang: 'Punjabi' },

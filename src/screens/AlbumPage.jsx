@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { searchSaavn } from '../utils/api';
+import { searchSaavn, fetchAlbumByQuery } from '../utils/api';
 import { formatTime } from '../utils/helpers';
 
 export default function AlbumPage({ albumQuery, playSong, currentSong, isPlaying, onBack, showToast, downloadSong, downloadedIds, downloadingIds }) {
@@ -14,26 +14,38 @@ export default function AlbumPage({ albumQuery, playSong, currentSong, isPlaying
 
     (async () => {
       try {
-        const [res1, res2] = await Promise.all([
-          searchSaavn(`${albumQuery} songs`, 60).catch(() => []),
-          searchSaavn(`${albumQuery} movie album`, 40).catch(() => [])
-        ]);
+        const albumResult = await fetchAlbumByQuery(albumQuery);
         if (cancelled) return;
 
-        const combined = [...res1, ...res2];
-        const deduped = [...new Map(combined.map(s => [s.id, s])).values()];
-
-        if (deduped.length > 0) {
+        if (albumResult && albumResult.songs.length > 0) {
+          const info = albumResult.albumInfo;
           setAlbumInfo({
-            title: deduped[0]?.album || albumQuery,
-            coverUrl: deduped[0]?.coverUrl,
-            year: deduped[0]?.year,
-            artist: deduped[0]?.artist,
+            title: info?.name || albumQuery,
+            coverUrl: Array.isArray(info?.image) ? info.image.find(i => i.quality === '500x500')?.url || info.image[0]?.url : info?.image,
+            year: info?.year || '',
+            artist: info?.artists?.primary?.map(a => a.name).join(', ') || info?.primaryArtists || '',
           });
-          setSongs(deduped);
+          setSongs(albumResult.songs);
         } else {
-          setAlbumInfo({ title: albumQuery });
-          setSongs([]);
+          const [res1, res2] = await Promise.all([
+            searchSaavn(`${albumQuery} songs`, 60).catch(() => []),
+            searchSaavn(`${albumQuery} movie album`, 40).catch(() => [])
+          ]);
+          if (cancelled) return;
+          const combined = [...res1, ...res2];
+          const deduped = [...new Map(combined.map(s => [s.id, s])).values()];
+          if (deduped.length > 0) {
+            setAlbumInfo({
+              title: deduped[0]?.album || albumQuery,
+              coverUrl: deduped[0]?.coverUrl,
+              year: deduped[0]?.year,
+              artist: deduped[0]?.artist,
+            });
+            setSongs(deduped);
+          } else {
+            setAlbumInfo({ title: albumQuery });
+            setSongs([]);
+          }
         }
       } catch {
         if (!cancelled) {
