@@ -110,10 +110,20 @@ function AppContent() {
   }, []);
 
   useEffect(() => {
-    Storage.requestPersistence().catch(console.error);
+    const requestPersist = async () => {
+      for (let i = 0; i < 6; i++) {
+        const granted = await Storage.requestPersistence();
+        if (granted) break;
+        await new Promise(r => setTimeout(r, 5000));
+      }
+    };
+    requestPersist();
+    if (screen.orientation && screen.orientation.lock) {
+      screen.orientation.lock('portrait').catch(() => {});
+    }
     const loadData = async () => {
       try {
-        await Storage.migrateIfNeeded();
+        await Storage.cleanupOldCache();
         const [liked, recent, downloaded, custom] = await Promise.all([
           Storage.getLikedSongs(),
           Storage.getRecentlyPlayed(),
@@ -141,6 +151,10 @@ function AppContent() {
       }
     };
     loadData();
+
+    const syncTimer = setInterval(() => Storage.forceSyncToOpfs().catch(() => {}), 300000);
+    const cleanup = () => clearInterval(syncTimer);
+
     if (window.__installPrompt) setDeferredPrompt(window.__installPrompt);
     const handler = (e) => { e.preventDefault(); setDeferredPrompt(e); };
     window.addEventListener('beforeinstallprompt', handler);
@@ -246,6 +260,7 @@ function AppContent() {
     }, 3000);
 
     return () => {
+      clearInterval(syncTimer);
       clearInterval(heartbeat);
       window.removeEventListener('beforeinstallprompt', handler);
       document.removeEventListener('visibilitychange', handleVisibility);

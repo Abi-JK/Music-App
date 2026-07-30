@@ -724,7 +724,12 @@ export async function fetchSharedSongs(limit = 200) {
     const res = await fetchWithTimeout(`/api/shared-songs?limit=${limit}`, {}, 8000);
     if (res && res.ok) {
       const data = await res.json();
-      return data.songs || [];
+      const songs = data.songs || [];
+      return songs.map(s => ({
+        ...s,
+        source: 'shared',
+        _sharedQuery: `${s.title} ${s.artist}`,
+      }));
     }
   } catch {}
   return [];

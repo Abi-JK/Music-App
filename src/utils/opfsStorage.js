@@ -1,22 +1,12 @@
-// ---------------------------------------------------------------------------
-// SoundAura — OPFS Storage (independent from Chrome IndexedDB/localStorage)
-// Uses Origin Private File System + Cache API for audio blobs
-// Survives Chrome "Clear browsing data" in most cases
-// ---------------------------------------------------------------------------
-
-const CACHE_NAME = 'soundaura-audio-v1';
 const META_DIR = 'meta';
+const AUDIO_DIR = 'audio';
 
 function getRoot() {
   return navigator.storage.getDirectory();
 }
 
 async function ensureDir(parent, name) {
-  try {
-    return await parent.getDirectoryHandle(name, { create: true });
-  } catch {
-    return await parent.getDirectoryHandle(name, { create: true });
-  }
+  return await parent.getDirectoryHandle(name, { create: true });
 }
 
 async function writeFile(dir, fileName, data) {
@@ -55,21 +45,20 @@ async function getMetaDir() {
   return ensureDir(root, META_DIR);
 }
 
+async function getAudioDir() {
+  const root = await getRoot();
+  return ensureDir(root, AUDIO_DIR);
+}
+
 export const OpfsStorage = {
   async isAvailable() {
     try {
       const root = await getRoot();
-      await root.getDirectoryHandle('__test__', { create: false });
+      await root.getDirectoryHandle('__test_opfs__', { create: true });
+      await root.removeEntry('__test_opfs__');
       return true;
     } catch {
-      try {
-        const root = await getRoot();
-        await root.getDirectoryHandle('__test_opfs__', { create: true });
-        await root.removeEntry('__test_opfs__');
-        return true;
-      } catch {
-        return false;
-      }
+      return false;
     }
   },
 
@@ -104,12 +93,11 @@ export const OpfsStorage = {
 
   async saveAudioBlob(songId, blob) {
     try {
-      const cache = await caches.open(CACHE_NAME);
-      const url = new Request(`soundaura://audio/${songId}`);
-      const response = new Response(blob, {
-        headers: { 'Content-Type': blob.type || 'audio/mpeg', 'X-Song-Id': songId }
-      });
-      await cache.put(url, response);
+      const dir = await getAudioDir();
+      const handle = await dir.getFileHandle(songId, { create: true });
+      const writable = await handle.createWritable();
+      await writable.write(blob);
+      await writable.close();
       return true;
     } catch (e) {
       console.warn(`[OPFS] saveAudioBlob(${songId}) failed:`, e);
@@ -119,11 +107,10 @@ export const OpfsStorage = {
 
   async loadAudioBlob(songId) {
     try {
-      const cache = await caches.open(CACHE_NAME);
-      const url = new Request(`soundaura://audio/${songId}`);
-      const response = await cache.match(url);
-      if (response) return await response.blob();
-      return null;
+      const dir = await getAudioDir();
+      const handle = await dir.getFileHandle(songId);
+      const file = await handle.getFile();
+      return file;
     } catch {
       return null;
     }
@@ -131,9 +118,8 @@ export const OpfsStorage = {
 
   async removeAudioBlob(songId) {
     try {
-      const cache = await caches.open(CACHE_NAME);
-      const url = new Request(`soundaura://audio/${songId}`);
-      await cache.delete(url);
+      const dir = await getAudioDir();
+      await deleteFile(dir, songId);
     } catch {}
   },
 
@@ -171,7 +157,10 @@ export const OpfsStorage = {
       }
     } catch {}
     try {
-      await caches.delete(CACHE_NAME);
+      const dir = await getAudioDir();
+      for (const name of await listFiles(dir)) {
+        await deleteFile(dir, name);
+      }
     } catch {}
   }
 };

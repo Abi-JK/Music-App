@@ -16,6 +16,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
   const urlIndex = useRef(0);
   const urlList = useRef([]);
   const blobUrls = useRef([]);
+  const blobSources = useRef([]);
   const playNextRef = useRef(playNext);
   const playPrevRef = useRef(playPrev);
   const endedGuard = useRef(false);
@@ -143,10 +144,36 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
               retryTimerRef.current = setTimeout(() => tryNextUrl(), 5000);
             });
           } else {
-            setLoading(false);
-            setErrorMsg('Trying next song...');
-            errorRetryCount.current = 0;
-            setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 2000);
+            // All URLs exhausted — try to recreate stale blob URLs (iOS fix)
+            const blobCandidate = urlList.current.find(c => c.url && c.url.startsWith('blob:'));
+            if (blobCandidate && currentSong) {
+              setLoading(true);
+              setErrorMsg('Reconnecting audio...');
+              errorRetryCount.current = 0;
+              const reloadBlob = async () => {
+                try {
+                  const blob = currentSong.audioBlob || (currentSong.source === 'custom' && currentSong._customFile
+                    ? await Storage.loadCustomSongBlob(currentSong.id).catch(() => null) : null);
+                  if (blob && songLoadId.current === myLoadId) {
+                    const newUrl = URL.createObjectURL(blob);
+                    blobUrls.current.push(newUrl);
+                    urlList.current = [{ url: newUrl, type: blobCandidate.type }];
+                    urlIndex.current = -1;
+                    tryNextUrl();
+                    return;
+                  }
+                } catch {}
+                setLoading(false);
+                setErrorMsg('Trying next song...');
+                setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 2000);
+              };
+              reloadBlob();
+            } else {
+              setLoading(false);
+              setErrorMsg('Trying next song...');
+              errorRetryCount.current = 0;
+              setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 2000);
+            }
           }
         }
       };
@@ -366,7 +393,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
 
   if (!currentSong) return (
     <div className="player">
-      <audio ref={audioRef} referrerPolicy="no-referrer" />
+      <audio ref={audioRef} preload="auto" crossOrigin="anonymous" referrerPolicy="no-referrer" />
       <div className="player-empty">🎵 Select any song to play — 100% free, no login required</div>
     </div>
   );
@@ -376,7 +403,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
 
   return (
     <div className="player">
-      <audio id="main-audio" ref={audioRef} onTimeUpdate={onTimeUpdate} preload="auto" referrerPolicy="no-referrer" />
+      <audio id="main-audio" ref={audioRef} onTimeUpdate={onTimeUpdate} preload="auto" crossOrigin="anonymous" referrerPolicy="no-referrer" playsInline />
       <div className="player-inner">
         <div className="player-song">
           {currentSong.coverUrl ? <img src={currentSong.coverUrl} alt="" className="player-cover" onClick={onExpand} style={{ cursor: 'pointer' }} /> : <div className="player-cover player-ph" onClick={onExpand} style={{ cursor: 'pointer' }}>🎵</div>}

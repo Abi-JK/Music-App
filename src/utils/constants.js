@@ -321,6 +321,16 @@ export const HOME_SECTIONS = [
   { key: 'rajasthani2025', label: 'Rajasthani 2025',           query: 'rajasthani songs 2025' },
   { key: 'manganiyar',    label: 'Rajasthani Folk',            query: 'rajasthani folk songs' },
 
+  // ── Sanskrit ──
+  { key: 'sanskrit',      label: 'Sanskrit Devotional',        query: 'sanskrit devotional songs' },
+  { key: 'sanskritbhajans', label: 'Sanskrit Bhajans',         query: 'sanskrit bhajans' },
+  { key: 'sanskritmantras', label: 'Sanskrit Mantras',         query: 'sanskrit mantras' },
+
+  // ── Urdu ──
+  { key: 'urdu',          label: 'Urdu Ghazals',               query: 'urdu ghazal songs' },
+  { key: 'urdupoetry',    label: 'Urdu Poetry',                query: 'urdu poetry songs' },
+  { key: 'urdusongs',     label: 'Urdu Songs',                 query: 'urdu romantic songs' },
+
   // ── Devotional ──
   { key: 'ganesh',        label: 'Ganesh Chalisa & Aarti',     query: 'ganesh aarti' },
   { key: 'krishna',       label: 'Krishna Bhajans',            query: 'krishna bhajans' },

@@ -23,7 +23,7 @@ export default defineConfig({
         start_url: '/',
         scope: '/',
         display: 'standalone',
-        orientation: 'any',
+        orientation: 'portrait',
         theme_color: '#00d4e8',
         background_color: '#070b14',
         categories: ['music', 'entertainment'],
