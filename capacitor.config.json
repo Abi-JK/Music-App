@@ -1,0 +1,13 @@
+{
+  "appId": "com.soundaura.app",
+  "appName": "SoundAura",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "Preferences": {
+      "group": "SoundAura"
+    }
+  }
+}

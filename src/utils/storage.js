@@ -1,4 +1,5 @@
 import { OpfsStorage } from './opfsStorage';
+import { CapacitorStorage } from './capacitorStorage';
 
 const DB_NAME = 'SoundAuraDB';
 const DB_VERSION = 3;
@@ -7,41 +8,19 @@ const STORE_RECENT = 'recentlyPlayed';
 const STORE_DOWNLOADS = 'downloadedSongs';
 const STORE_CUSTOM = 'customSongs';
 
-const LS_LIKED_KEY = 'soundaura_liked_backup';
-const LS_RECENT_KEY = 'soundaura_recent_backup';
-const LS_DOWNLOADS_KEY = 'soundaura_downloads_backup';
-const LS_CUSTOM_KEY = 'soundaura_custom_backup';
-
-const LS_STORE_MAP = {
-  [LS_LIKED_KEY]: STORE_LIKED,
-  [LS_RECENT_KEY]: STORE_RECENT,
-  [LS_DOWNLOADS_KEY]: STORE_DOWNLOADS,
-  [LS_CUSTOM_KEY]: STORE_CUSTOM,
+const NATIVE_KEYS = {
+  liked: 'sa_liked',
+  recent: 'sa_recent',
+  downloads: 'sa_downloads',
+  custom: 'sa_custom',
 };
 
 let db = null;
 let opfsReady = null;
-const CACHE_NAME = 'soundaura-data-v1';
-
-async function cacheSave(key, data) {
-  try {
-    const cache = await caches.open(CACHE_NAME);
-    const resp = new Response(JSON.stringify(data), { headers: { 'Content-Type': 'application/json' } });
-    await cache.put(new Request(`https://soundaura.local/${key}`), resp);
-  } catch {}
-}
-
-async function cacheLoad(key) {
-  try {
-    const cache = await caches.open(CACHE_NAME);
-    const resp = await cache.match(new Request(`https://soundaura.local/${key}`));
-    if (resp) return await resp.json();
-  } catch {}
-  return null;
-}
 
 function openDB() {
   return new Promise((resolve, reject) => {
+    if (CapacitorStorage.isNative()) { resolve(null); return; }
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onerror = () => reject(request.error);
     request.onsuccess = () => { db = request.result; resolve(db); };
@@ -56,77 +35,14 @@ function openDB() {
 }
 
 async function getDB() {
-  if (!db) await openDB();
+  if (!db && !CapacitorStorage.isNative()) await openDB();
   return db;
 }
 
 async function isOpfsReady() {
+  if (CapacitorStorage.isNative()) return false;
   if (opfsReady === null) opfsReady = await OpfsStorage.isAvailable();
   return opfsReady;
-}
-
-function lsSet(key, data) {
-  try {
-    const slim = data.map(s => ({
-      id: s.id, title: s.title, artist: s.artist,
-      album: s.album, duration: s.duration,
-      coverUrl: s.coverUrl, audioUrl: s.audioUrl,
-      language: s.language, hasLyrics: s.hasLyrics,
-      allAudioUrls: s.allAudioUrls,
-      rawAudioUrls: s.rawAudioUrls,
-      _saavnId: s._saavnId, source: s.source, genre: s.genre,
-    }));
-    localStorage.setItem(key, JSON.stringify(slim));
-  } catch {}
-  try {
-    const storeName = LS_STORE_MAP[key];
-    if (storeName) {
-      const transaction = db.transaction([storeName], 'readwrite');
-      const store = transaction.objectStore(storeName);
-      store.clear();
-      slim.forEach(item => store.put(item));
-    }
-  } catch {}
-  try {
-    const storeName = LS_STORE_MAP[key];
-    if (storeName) cacheSave(storeName, slim);
-  } catch {}
-}
-
-function lsGet(key) {
-  try {
-    const v = localStorage.getItem(key);
-    if (v) return JSON.parse(v);
-  } catch {}
-  try {
-    const storeName = LS_STORE_MAP[key];
-    if (storeName) {
-      const transaction = db.transaction([storeName], 'readonly');
-      const store = transaction.objectStore(storeName);
-      const request = store.getAll();
-      return new Promise((resolve) => {
-        request.onsuccess = () => {
-          const result = request.result || [];
-          if (result.length > 0) {
-            cacheSave(storeName, result).catch(() => {});
-          }
-          resolve(result);
-        };
-        request.onerror = () => resolve([]);
-      });
-    }
-  } catch {
-    return [];
-  }
-  try {
-    const storeName = LS_STORE_MAP[key];
-    if (storeName) {
-      return new Promise((resolve) => {
-        cacheLoad(storeName).then(cached => resolve(cached || [])).catch(() => resolve([]));
-      });
-    }
-  } catch {}
-  return [];
 }
 
 function slimSong(s) {
@@ -145,8 +61,10 @@ function slimSong(s) {
 }
 
 async function idbGetAll(storeName) {
+  if (CapacitorStorage.isNative()) return [];
   try {
     const database = await getDB();
+    if (!database) return [];
     return new Promise((resolve) => {
       const tx = database.transaction([storeName], 'readonly');
       const req = tx.objectStore(storeName).getAll();
@@ -157,7 +75,9 @@ async function idbGetAll(storeName) {
 }
 
 async function idbPut(storeName, song) {
+  if (CapacitorStorage.isNative()) return;
   const database = await getDB();
+  if (!database) return;
   return new Promise((resolve, reject) => {
     const tx = database.transaction([storeName], 'readwrite');
     const req = tx.objectStore(storeName).put(song);
@@ -167,20 +87,21 @@ async function idbPut(storeName, song) {
 }
 
 async function idbPutAll(storeName, songs) {
-  if (songs.length === 0) return;
+  if (CapacitorStorage.isNative() || songs.length === 0) return;
   const database = await getDB();
+  if (!database) return;
   return new Promise((resolve, reject) => {
     const tx = database.transaction([storeName], 'readwrite');
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
-    for (const song of songs) {
-      tx.objectStore(storeName).put(song);
-    }
+    for (const song of songs) tx.objectStore(storeName).put(song);
   });
 }
 
 async function idbDelete(storeName, id) {
+  if (CapacitorStorage.isNative()) return;
   const database = await getDB();
+  if (!database) return;
   return new Promise((resolve, reject) => {
     const tx = database.transaction([storeName], 'readwrite');
     const req = tx.objectStore(storeName).delete(id);
@@ -190,7 +111,9 @@ async function idbDelete(storeName, id) {
 }
 
 async function idbClear(storeName) {
+  if (CapacitorStorage.isNative()) return;
   const database = await getDB();
+  if (!database) return;
   return new Promise((resolve) => {
     const tx = database.transaction([storeName], 'readwrite');
     const req = tx.objectStore(storeName).clear();
@@ -200,13 +123,17 @@ async function idbClear(storeName) {
 }
 
 async function syncToOpfs(storeName, data) {
+  if (CapacitorStorage.isNative()) return;
   if (await isOpfsReady()) {
     await OpfsStorage.saveJson(storeName, data);
   }
 }
 
 export const Storage = {
+  isNative: () => CapacitorStorage.isNative(),
+
   async cleanupOldCache() {
+    if (CapacitorStorage.isNative()) return;
     try {
       const keys = await caches.keys();
       for (const key of keys) {
@@ -218,39 +145,34 @@ export const Storage = {
   },
 
   async forceSyncToOpfs() {
-    if (!(await isOpfsReady())) return false;
+    if (CapacitorStorage.isNative()) return true;
     try {
       await syncToOpfs('liked', await idbGetAll(STORE_LIKED));
       await syncToOpfs('recent', await idbGetAll(STORE_RECENT));
       await syncToOpfs('downloads', (await idbGetAll(STORE_DOWNLOADS)).map(slimSong));
       await syncToOpfs('custom', (await idbGetAll(STORE_CUSTOM)).map(slimSong));
       return true;
-    } catch {
-      return false;
-    }
+    } catch { return false; }
   },
 
   async requestPersistence() {
+    if (CapacitorStorage.isNative()) return true;
     if (navigator.storage && navigator.storage.persist) {
-      try {
-        const granted = await navigator.storage.persist();
-        console.log(`[SoundAura] Persistent storage ${granted ? 'granted' : 'denied'}`);
-        return granted;
-      } catch {
-        return false;
-      }
+      try { return await navigator.storage.persist(); } catch { return false; }
     }
     return false;
   },
 
   async getLikedSongs() {
+    if (CapacitorStorage.isNative()) {
+      return (await CapacitorStorage.getJSON(NATIVE_KEYS.liked)) || [];
+    }
     if (await isOpfsReady()) {
       try {
         const opfsData = await OpfsStorage.getLikedSongs();
         if (opfsData.length > 0) {
           const idbData = await idbGetAll(STORE_LIKED);
           if (idbData.length === 0) await idbPutAll(STORE_LIKED, opfsData);
-          cacheSave(STORE_LIKED, opfsData).catch(() => {});
           return opfsData;
         }
       } catch {}
@@ -258,24 +180,19 @@ export const Storage = {
     const idbData = await idbGetAll(STORE_LIKED);
     if (idbData.length > 0) {
       syncToOpfs('liked', idbData).catch(() => {});
-      cacheSave(STORE_LIKED, idbData).catch(() => {});
       return idbData;
-    }
-    const lsData = lsGet(LS_LIKED_KEY);
-    if (lsData.length > 0) {
-      syncToOpfs('liked', lsData).catch(() => {});
-      return lsData;
-    }
-    const cached = await cacheLoad(STORE_LIKED);
-    if (cached && cached.length > 0) {
-      await idbPutAll(STORE_LIKED, cached);
-      syncToOpfs('liked', cached).catch(() => {});
-      return cached;
     }
     return [];
   },
 
   async addLikedSong(song) {
+    if (CapacitorStorage.isNative()) {
+      const current = await CapacitorStorage.getJSON(NATIVE_KEYS.liked) || [];
+      if (current.find(s => s.id === song.id)) return;
+      current.push(slimSong(song));
+      await CapacitorStorage.setJSON(NATIVE_KEYS.liked, current);
+      return;
+    }
     const opfs = await isOpfsReady();
     if (opfs) {
       const current = await OpfsStorage.getLikedSongs();
@@ -285,29 +202,35 @@ export const Storage = {
     }
     await idbPut(STORE_LIKED, song);
     const all = await idbGetAll(STORE_LIKED);
-    lsSet(LS_LIKED_KEY, all);
+    await idbPutAll(STORE_LIKED, all);
   },
 
   async removeLikedSong(songId) {
+    if (CapacitorStorage.isNative()) {
+      const current = await CapacitorStorage.getJSON(NATIVE_KEYS.liked) || [];
+      await CapacitorStorage.setJSON(NATIVE_KEYS.liked, current.filter(s => s.id !== songId));
+      return;
+    }
     const opfs = await isOpfsReady();
     if (opfs) {
       const current = await OpfsStorage.getLikedSongs();
-      const filtered = current.filter(s => s.id !== songId);
-      await OpfsStorage.saveLikedSongs(filtered);
+      await OpfsStorage.saveLikedSongs(current.filter(s => s.id !== songId));
     }
     await idbDelete(STORE_LIKED, songId);
     const all = await idbGetAll(STORE_LIKED);
-    lsSet(LS_LIKED_KEY, all);
+    await idbPutAll(STORE_LIKED, all);
   },
 
   async getRecentlyPlayed() {
+    if (CapacitorStorage.isNative()) {
+      return (await CapacitorStorage.getJSON(NATIVE_KEYS.recent)) || [];
+    }
     if (await isOpfsReady()) {
       try {
         const opfsData = await OpfsStorage.getRecentlyPlayed();
         if (opfsData.length > 0) {
           const idbData = await idbGetAll(STORE_RECENT);
           if (idbData.length === 0) await idbPutAll(STORE_RECENT, opfsData);
-          cacheSave(STORE_RECENT, opfsData).catch(() => {});
           return opfsData;
         }
       } catch {}
@@ -315,24 +238,19 @@ export const Storage = {
     const idbData = await idbGetAll(STORE_RECENT);
     if (idbData.length > 0) {
       syncToOpfs('recent', idbData).catch(() => {});
-      cacheSave(STORE_RECENT, idbData).catch(() => {});
       return idbData;
-    }
-    const lsData = lsGet(LS_RECENT_KEY);
-    if (lsData.length > 0) {
-      syncToOpfs('recent', lsData).catch(() => {});
-      return lsData;
-    }
-    const cached = await cacheLoad(STORE_RECENT);
-    if (cached && cached.length > 0) {
-      await idbPutAll(STORE_RECENT, cached);
-      syncToOpfs('recent', cached).catch(() => {});
-      return cached;
     }
     return [];
   },
 
   async addRecentlyPlayed(song) {
+    if (CapacitorStorage.isNative()) {
+      const current = await CapacitorStorage.getJSON(NATIVE_KEYS.recent) || [];
+      const filtered = current.filter(s => s.id !== song.id).slice(0, 11);
+      filtered.unshift(slimSong(song));
+      await CapacitorStorage.setJSON(NATIVE_KEYS.recent, filtered);
+      return;
+    }
     const opfs = await isOpfsReady();
     if (opfs) {
       const current = await OpfsStorage.getRecentlyPlayed();
@@ -342,23 +260,28 @@ export const Storage = {
     }
     await idbPut(STORE_RECENT, song);
     const all = await idbGetAll(STORE_RECENT);
-    lsSet(LS_RECENT_KEY, all.slice(0, 12));
+    await idbPutAll(STORE_RECENT, all);
   },
 
   async clearRecentlyPlayed() {
+    if (CapacitorStorage.isNative()) {
+      await CapacitorStorage.setJSON(NATIVE_KEYS.recent, []);
+      return;
+    }
     if (await isOpfsReady()) await OpfsStorage.saveRecentlyPlayed([]);
     await idbClear(STORE_RECENT);
-    try { localStorage.removeItem(LS_RECENT_KEY); } catch {}
   },
 
   async getDownloadedSongs() {
+    if (CapacitorStorage.isNative()) {
+      return (await CapacitorStorage.getJSON(NATIVE_KEYS.downloads)) || [];
+    }
     if (await isOpfsReady()) {
       try {
         const opfsData = await OpfsStorage.getDownloadedSongs();
         if (opfsData.length > 0) {
           const idbData = await idbGetAll(STORE_DOWNLOADS);
           if (idbData.length === 0) await idbPutAll(STORE_DOWNLOADS, opfsData);
-          cacheSave(STORE_DOWNLOADS, opfsData).catch(() => {});
           return opfsData;
         }
       } catch {}
@@ -366,24 +289,19 @@ export const Storage = {
     const idbData = await idbGetAll(STORE_DOWNLOADS);
     if (idbData.length > 0) {
       syncToOpfs('downloads', idbData.map(slimSong)).catch(() => {});
-      cacheSave(STORE_DOWNLOADS, idbData).catch(() => {});
       return idbData;
-    }
-    const lsData = lsGet(LS_DOWNLOADS_KEY);
-    if (lsData.length > 0) {
-      syncToOpfs('downloads', lsData.map(slimSong)).catch(() => {});
-      return lsData;
-    }
-    const cached = await cacheLoad(STORE_DOWNLOADS);
-    if (cached && cached.length > 0) {
-      await idbPutAll(STORE_DOWNLOADS, cached);
-      syncToOpfs('downloads', cached).catch(() => {});
-      return cached;
     }
     return [];
   },
 
   async addDownloadedSong(song) {
+    if (CapacitorStorage.isNative()) {
+      const current = await CapacitorStorage.getJSON(NATIVE_KEYS.downloads) || [];
+      if (current.find(s => s.id === song.id)) return;
+      current.push(slimSong(song));
+      await CapacitorStorage.setJSON(NATIVE_KEYS.downloads, current);
+      return;
+    }
     const opfs = await isOpfsReady();
     if (opfs) {
       const current = await OpfsStorage.getDownloadedSongs();
@@ -393,33 +311,35 @@ export const Storage = {
     }
     await idbPut(STORE_DOWNLOADS, song);
     const all = await idbGetAll(STORE_DOWNLOADS);
-    try { localStorage.setItem(LS_DOWNLOADS_KEY, JSON.stringify(all.map(slimSong))); } catch {}
-    if (opfs && song.audioBlob) {
-      await OpfsStorage.saveAudioBlob(song.id, song.audioBlob);
-    }
+    await idbPutAll(STORE_DOWNLOADS, all);
   },
 
   async removeDownloadedSong(songId) {
+    if (CapacitorStorage.isNative()) {
+      const current = await CapacitorStorage.getJSON(NATIVE_KEYS.downloads) || [];
+      await CapacitorStorage.setJSON(NATIVE_KEYS.downloads, current.filter(s => s.id !== songId));
+      return;
+    }
     const opfs = await isOpfsReady();
     if (opfs) {
       const current = await OpfsStorage.getDownloadedSongs();
-      const filtered = current.filter(s => s.id !== songId);
-      await OpfsStorage.saveDownloadedSongs(filtered);
+      await OpfsStorage.saveDownloadedSongs(current.filter(s => s.id !== songId));
     }
     await idbDelete(STORE_DOWNLOADS, songId);
     const all = await idbGetAll(STORE_DOWNLOADS);
-    try { localStorage.setItem(LS_DOWNLOADS_KEY, JSON.stringify(all.map(slimSong))); } catch {}
-    if (opfs) await OpfsStorage.removeAudioBlob(songId);
+    await idbPutAll(STORE_DOWNLOADS, all);
   },
 
   async getCustomSongs() {
+    if (CapacitorStorage.isNative()) {
+      return (await CapacitorStorage.getJSON(NATIVE_KEYS.custom)) || [];
+    }
     if (await isOpfsReady()) {
       try {
         const opfsData = await OpfsStorage.getCustomSongs();
         if (opfsData.length > 0) {
           const idbData = await idbGetAll(STORE_CUSTOM);
           if (idbData.length === 0) await idbPutAll(STORE_CUSTOM, opfsData);
-          cacheSave(STORE_CUSTOM, opfsData).catch(() => {});
           return opfsData;
         }
       } catch {}
@@ -427,24 +347,19 @@ export const Storage = {
     const idbData = await idbGetAll(STORE_CUSTOM);
     if (idbData.length > 0) {
       syncToOpfs('custom', idbData.map(slimSong)).catch(() => {});
-      cacheSave(STORE_CUSTOM, idbData).catch(() => {});
       return idbData;
-    }
-    const lsData = lsGet(LS_CUSTOM_KEY);
-    if (lsData.length > 0) {
-      syncToOpfs('custom', lsData.map(slimSong)).catch(() => {});
-      return lsData;
-    }
-    const cached = await cacheLoad(STORE_CUSTOM);
-    if (cached && cached.length > 0) {
-      await idbPutAll(STORE_CUSTOM, cached);
-      syncToOpfs('custom', cached).catch(() => {});
-      return cached;
     }
     return [];
   },
 
   async addCustomSong(song, audioBlob) {
+    if (CapacitorStorage.isNative()) {
+      const current = await CapacitorStorage.getJSON(NATIVE_KEYS.custom) || [];
+      if (current.find(s => s.id === song.id)) return;
+      current.push(slimSong(song));
+      await CapacitorStorage.setJSON(NATIVE_KEYS.custom, current);
+      return;
+    }
     const opfs = await isOpfsReady();
     if (opfs) {
       const current = await OpfsStorage.getCustomSongs();
@@ -455,26 +370,54 @@ export const Storage = {
     const songWithBlob = { ...song, audioBlob };
     await idbPut(STORE_CUSTOM, songWithBlob);
     const all = await idbGetAll(STORE_CUSTOM);
-    lsSet(LS_CUSTOM_KEY, all.map(s => { const c = { ...s }; delete c.audioBlob; return c; }));
+    await idbPutAll(STORE_CUSTOM, all);
     if (opfs && audioBlob) {
       await OpfsStorage.saveAudioBlob(song.id, audioBlob);
     }
   },
 
   async removeCustomSong(songId) {
+    if (CapacitorStorage.isNative()) {
+      const current = await CapacitorStorage.getJSON(NATIVE_KEYS.custom) || [];
+      await CapacitorStorage.setJSON(NATIVE_KEYS.custom, current.filter(s => s.id !== songId));
+      return;
+    }
     const opfs = await isOpfsReady();
     if (opfs) {
       const current = await OpfsStorage.getCustomSongs();
-      const filtered = current.filter(s => s.id !== songId);
-      await OpfsStorage.saveCustomSongs(filtered);
+      await OpfsStorage.saveCustomSongs(current.filter(s => s.id !== songId));
     }
     await idbDelete(STORE_CUSTOM, songId);
     const all = await idbGetAll(STORE_CUSTOM);
-    lsSet(LS_CUSTOM_KEY, all.map(s => { const c = { ...s }; delete c.audioBlob; return c; }));
+    await idbPutAll(STORE_CUSTOM, all);
     if (opfs) await OpfsStorage.removeAudioBlob(songId);
   },
 
+  async updateCustomSong(songId, updates) {
+    if (CapacitorStorage.isNative()) {
+      const current = await CapacitorStorage.getJSON(NATIVE_KEYS.custom) || [];
+      const idx = current.findIndex(s => s.id === songId);
+      if (idx >= 0) { current[idx] = { ...current[idx], ...updates }; await CapacitorStorage.setJSON(NATIVE_KEYS.custom, current); }
+      return;
+    }
+    const opfs = await isOpfsReady();
+    if (opfs) {
+      const current = await OpfsStorage.getCustomSongs();
+      const idx = current.findIndex(s => s.id === songId);
+      if (idx >= 0) { current[idx] = { ...current[idx], ...updates }; await OpfsStorage.saveCustomSongs(current); }
+    }
+    const all = await idbGetAll(STORE_CUSTOM);
+    const idx = all.findIndex(s => s.id === songId);
+    if (idx >= 0) {
+      all[idx] = { ...all[idx], ...updates };
+      await idbPut(STORE_CUSTOM, all[idx]);
+    }
+    const updated = await idbGetAll(STORE_CUSTOM);
+    await idbPutAll(STORE_CUSTOM, updated);
+  },
+
   async loadCustomSongBlob(songId) {
+    if (CapacitorStorage.isNative()) return null;
     if (await isOpfsReady()) {
       const file = await OpfsStorage.loadAudioBlob(songId);
       if (file) return file;
@@ -484,22 +427,8 @@ export const Storage = {
     return song?.audioBlob || null;
   },
 
-  async updateCustomSong(song) {
-    const opfs = await isOpfsReady();
-    if (opfs) {
-      const current = await OpfsStorage.getCustomSongs();
-      const idx = current.findIndex(s => s.id === song.id);
-      if (idx >= 0) {
-        current[idx] = { ...current[idx], ...slimSong(song) };
-        await OpfsStorage.saveCustomSongs(current);
-      }
-    }
-    await idbPut(STORE_CUSTOM, song);
-    const all = await idbGetAll(STORE_CUSTOM);
-    lsSet(LS_CUSTOM_KEY, all.map(s => { const c = { ...s }; delete c.audioBlob; return c; }));
-  },
-
   async loadSongBlob(songId) {
+    if (CapacitorStorage.isNative()) return null;
     if (await isOpfsReady()) {
       const file = await OpfsStorage.loadAudioBlob(songId);
       if (file) return file;
@@ -513,14 +442,8 @@ export const Storage = {
   },
 
   async getOpfsStatus() {
+    if (CapacitorStorage.isNative()) return false;
     return isOpfsReady();
-  },
-
-  // Helper to persist arbitrary data to IndexedDB to survive localStorage clear
-  async persistData(storeName, key) {
-    const data = await this.getLikedSongs(); // example for liked; adjust per store if needed
-    await idbPutAll(storeName, data);
-    lsSet(key, data);
   },
 
   async importCloudData({ liked, recent, downloads, custom } = {}) {
@@ -529,46 +452,31 @@ export const Storage = {
     const downloadsArr = Array.isArray(downloads) ? downloads : [];
     const customArr = Array.isArray(custom) ? custom : [];
 
+    if (CapacitorStorage.isNative()) {
+      await CapacitorStorage.setJSON(NATIVE_KEYS.liked, likedArr);
+      await CapacitorStorage.setJSON(NATIVE_KEYS.recent, recentArr.slice(0, 12));
+      await CapacitorStorage.setJSON(NATIVE_KEYS.downloads, downloadsArr);
+      await CapacitorStorage.setJSON(NATIVE_KEYS.custom, customArr);
+      return { liked: likedArr.length, recent: recentArr.length, downloads: downloadsArr.length, custom: customArr.length };
+    }
+
     await idbClear(STORE_LIKED);
     await idbPutAll(STORE_LIKED, likedArr);
-    await syncToOpfs('liked', likedArr);
-    cacheSave(STORE_LIKED, likedArr).catch(() => {});
+    syncToOpfs('liked', likedArr).catch(() => {});
 
     await idbClear(STORE_RECENT);
     await idbPutAll(STORE_RECENT, recentArr);
-    await syncToOpfs('recent', recentArr.slice(0, 12));
-    cacheSave(STORE_RECENT, recentArr.slice(0, 12)).catch(() => {});
+    syncToOpfs('recent', recentArr.slice(0, 12)).catch(() => {});
 
     await idbClear(STORE_DOWNLOADS);
     await idbPutAll(STORE_DOWNLOADS, downloadsArr);
-    await syncToOpfs('downloads', downloadsArr.map(slimSong));
-    cacheSave(STORE_DOWNLOADS, downloadsArr.map(slimSong)).catch(() => {});
+    syncToOpfs('downloads', downloadsArr.map(slimSong)).catch(() => {});
 
     await idbClear(STORE_CUSTOM);
     await idbPutAll(STORE_CUSTOM, customArr);
-    await syncToOpfs('custom', customArr.map(slimSong));
-    cacheSave(STORE_CUSTOM, customArr.map(slimSong)).catch(() => {});
+    syncToOpfs('custom', customArr.map(slimSong)).catch(() => {});
 
-    try {
-      localStorage.removeItem(LS_LIKED_KEY);
-      localStorage.removeItem(LS_RECENT_KEY);
-      localStorage.removeItem(LS_DOWNLOADS_KEY);
-      localStorage.removeItem(LS_CUSTOM_KEY);
-    } catch {}
-    try {
-      const cache = await caches.open(CACHE_NAME);
-      await cache.delete(new Request('https://soundaura.local/likedSongs'));
-      await cache.delete(new Request('https://soundaura.local/recentlyPlayed'));
-      await cache.delete(new Request('https://soundaura.local/downloadedSongs'));
-      await cache.delete(new Request('https://soundaura.local/customSongs'));
-    } catch {}
-
-    return {
-      liked: likedArr.length,
-      recent: recentArr.length,
-      downloads: downloadsArr.length,
-      custom: customArr.length,
-    };
+    return { liked: likedArr.length, recent: recentArr.length, downloads: downloadsArr.length, custom: customArr.length };
   },
 
   async exportBackup() {
@@ -615,17 +523,26 @@ export const Storage = {
           }
           if (data.downloads && Array.isArray(data.downloads)) {
             for (const song of data.downloads) {
-              await idbPut(STORE_DOWNLOADS, song);
+              if (CapacitorStorage.isNative()) {
+                const current = await CapacitorStorage.getJSON(NATIVE_KEYS.downloads) || [];
+                if (!current.find(s => s.id === song.id)) current.push(slimSong(song));
+                await CapacitorStorage.setJSON(NATIVE_KEYS.downloads, current);
+              } else {
+                await idbPut(STORE_DOWNLOADS, song);
+              }
             }
-            const all = await idbGetAll(STORE_DOWNLOADS);
-            await syncToOpfs('downloads', all.map(slimSong));
           }
           if (data.custom && Array.isArray(data.custom)) {
             for (const song of data.custom) {
-              await idbPut(STORE_CUSTOM, { ...song, source: 'custom', _customFile: true });
+              const customSong = { ...song, source: 'custom', _customFile: true };
+              if (CapacitorStorage.isNative()) {
+                const current = await CapacitorStorage.getJSON(NATIVE_KEYS.custom) || [];
+                if (!current.find(s => s.id === song.id)) current.push(slimSong(customSong));
+                await CapacitorStorage.setJSON(NATIVE_KEYS.custom, current);
+              } else {
+                await idbPut(STORE_CUSTOM, customSong);
+              }
             }
-            const all = await idbGetAll(STORE_CUSTOM);
-            await syncToOpfs('custom', all.map(slimSong));
           }
           resolve({
             likedCount: data.liked?.length || 0,
@@ -633,9 +550,9 @@ export const Storage = {
             downloadsCount: data.downloads?.length || 0,
             customCount: data.custom?.length || 0,
           });
-        } catch (err) { reject(err); }
+        } catch { reject(new Error('Invalid backup file')); }
       };
-      reader.onerror = () => reject(reader.error);
+      reader.onerror = () => reject(new Error('Failed to read file'));
       reader.readAsText(file);
     });
   },
