@@ -986,7 +986,7 @@ function AppContent() {
           <div style={{ width: 48, height: 48, border: '3px solid #1e293b', borderTopColor: '#00d4e8', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
         </div>
       )}
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} customCount={customSongs.length} onSearch={searchByQuery} showToast={showToast} onOpenArtist={openArtistPage} backupCode={backupCode} cloudSyncing={cloudSyncing} cloudRestoring={cloudRestoring} lastSync={lastSync} onSyncNow={syncMetaNow} onRestore={restoreFromCode} onCopyCode={copyBackupCode} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} customCount={customSongs.length} onSearch={searchByQuery} showToast={showToast} onOpenArtist={openArtistPage} />
       <div className="body">
         <Topbar
           q={searchQ} setQ={setSearchQ}

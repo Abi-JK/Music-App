@@ -11,7 +11,7 @@ const LogoImage = ({ size = 48 }) => (
   />
 );
 
-export default function Sidebar({ activeTab, setActiveTab, likedCount, customCount, onSearch, showToast, onOpenArtist, backupCode, cloudSyncing, cloudRestoring, lastSync, onSyncNow, onRestore, onCopyCode }) {
+export default function Sidebar({ activeTab, setActiveTab, likedCount, customCount, onSearch, showToast, onOpenArtist }) {
   const playlists = [
     { label: '🎬 Bollywood Hits',        term: 'bollywood hindi songs' },
     { label: '🎵 Tamil Hits',            term: 'tamil film songs' },
@@ -105,13 +105,6 @@ export default function Sidebar({ activeTab, setActiveTab, likedCount, customCou
 
         <DataSettings
           showToast={showToast}
-          backupCode={backupCode}
-          cloudSyncing={cloudSyncing}
-          cloudRestoring={cloudRestoring}
-          lastSync={lastSync}
-          onSyncNow={onSyncNow}
-          onRestore={onRestore}
-          onCopyCode={onCopyCode}
         />
 
         <div className="nav-label">Quick Playlists</div>
