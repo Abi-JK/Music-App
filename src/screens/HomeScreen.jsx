@@ -258,8 +258,8 @@ export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyP
       </div>
 
       {!installed && (
-        <div style={{ padding: '0 16px 12px' }}>
-          <button onClick={handleInstall} style={{ width: '100%', padding: '10px 0', borderRadius: 500, background: '#00d4e8', color: '#000', border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+        <div style={{ position: 'absolute', top: 12, right: 16 }}>
+          <button onClick={handleInstall} style={{ padding: '5px 14px', borderRadius: 500, background: '#00d4e8', color: '#000', border: 'none', fontWeight: 600, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
             Install Now
           </button>
         </div>
