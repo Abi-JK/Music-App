@@ -67,12 +67,19 @@ export default async (request: Request) => {
     responseHeaders.set('Access-Control-Allow-Origin', '*');
     responseHeaders.set('Access-Control-Allow-Headers', 'Range, Content-Type');
     responseHeaders.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-    responseHeaders.set('Cache-Control', 'public, max-age=3600');
+    responseHeaders.set('Cache-Control', 'no-store');
 
     const cl = res.headers.get('content-length');
     const cr = res.headers.get('content-range');
     if (cl) responseHeaders.set('Content-Length', cl);
-    if (cr) responseHeaders.set('Content-Range', cr);
+    if (cr) {
+      responseHeaders.set('Content-Range', cr);
+      const m = cr.match(/bytes (\d+)-(\d+)\/(\d+|\*)/);
+      if (m) {
+        const partialLength = parseInt(m[2], 10) - parseInt(m[1], 10) + 1;
+        if (!cl) responseHeaders.set('Content-Length', String(partialLength));
+      }
+    }
 
     return new Response(res.body, {
       status: res.status,

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Storage } from '../utils/storage';
 import { CloudSync } from '../utils/cloudSync';
-import BackgroundPlaybackGuide from './BackgroundPlaybackGuide';
 
 export default function DataSettings({ showToast, backupCode, cloudSyncing, cloudRestoring, lastSync, onSyncNow, onRestore, onCopyCode }) {
   const [opfsAvailable, setOpfsAvailable] = useState(null);
@@ -121,8 +120,6 @@ export default function DataSettings({ showToast, backupCode, cloudSyncing, clou
           Back up downloaded audio files to the cloud
         </label>
       </div>
-
-      <BackgroundPlaybackGuide showToast={showToast} />
 
       <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)' }}>
         <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-dim)', marginBottom: 10 }}>

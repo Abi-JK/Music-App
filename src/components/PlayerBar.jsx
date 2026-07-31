@@ -43,7 +43,8 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
       const a = audioRef.current;
       if (!a || !a.src) return;
       if (a.ended) return;
-      if (!a.paused && a.readyState >= 2) return;
+      if (!isPlayingRef.current) return;
+      if (a.readyState >= 2) return;
       if (tryNextUrlRef.current) tryNextUrlRef.current();
     }, 20000);
   };
@@ -163,6 +164,13 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
                   for (const entry of fresh.allAudioUrls) {
                     if (entry.url && !newCandidates.some(c => c.url === entry.url)) {
                       newCandidates.push({ url: entry.url, type: entry.quality || 'fallback' });
+                    }
+                  }
+                }
+                if (fresh.rawAudioUrls) {
+                  for (const entry of fresh.rawAudioUrls) {
+                    if (entry.url && !newCandidates.some(c => c.url === entry.url)) {
+                      newCandidates.push({ url: entry.url, type: 'direct' });
                     }
                   }
                 }
@@ -376,6 +384,13 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
             }
           }
         }
+        if (currentSong.rawAudioUrls) {
+          for (const entry of currentSong.rawAudioUrls) {
+            if (entry.url && !candidates.some(c => c.url === entry.url)) {
+              candidates.push({ url: entry.url, type: 'direct' });
+            }
+          }
+        }
         urlList.current = candidates;
         if (candidates.length > 0) {
           const candidate = candidates[0];
@@ -404,6 +419,13 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
         for (const entry of currentSong.allAudioUrls) {
           if (entry.url && !candidates.some(c => c.url === entry.url)) {
             candidates.push({ url: entry.url, type: entry.quality || 'fallback' });
+          }
+        }
+      }
+      if (currentSong.rawAudioUrls) {
+        for (const entry of currentSong.rawAudioUrls) {
+          if (entry.url && !candidates.some(c => c.url === entry.url)) {
+            candidates.push({ url: entry.url, type: 'direct' });
           }
         }
       }
