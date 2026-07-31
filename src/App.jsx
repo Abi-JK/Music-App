@@ -212,21 +212,35 @@ function AppContent() {
     let heartbeatRetries = 0;
     const resumeAudio = () => {
       const a = document.getElementById('main-audio');
-      if (a && a.paused && a.src && !a.ended && isPlayingRef.current) {
-        heartbeatRetries = 0;
+      if (!a) return;
+      reacquireWakeLock();
+      if (!isPlayingRef.current) return;
+      if (!a.paused && a.readyState >= 2) return;
+      const tryPlay = (attempt) => {
+        if (!a.src || a.ended) return;
         a.play().then(() => {
           setIsPlaying(true);
+          heartbeatRetries = 0;
           if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
-        }).catch(() => {});
-      }
-      reacquireWakeLock();
+        }).catch(() => {
+          if (attempt < 5) {
+            setTimeout(() => tryPlay(attempt + 1), 500 * (attempt + 1));
+          } else {
+            autoPlayOnReady.current = true;
+            try { a.load(); } catch {}
+          }
+        });
+      };
+      tryPlay(0);
     };
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
+        heartbeatRetries = 0;
         resumeAudio();
         setTimeout(resumeAudio, 300);
         setTimeout(resumeAudio, 1000);
-        setTimeout(resumeAudio, 3000);
+        setTimeout(resumeAudio, 2000);
+        setTimeout(resumeAudio, 4000);
       }
     };
     const handlePageShow = (e) => {
@@ -296,20 +310,20 @@ function AppContent() {
       const a = document.getElementById('main-audio');
       if (a && a.src && isPlayingRef.current) {
         if (a.paused && !a.ended) {
-          if (heartbeatRetries < 5) {
+          if (heartbeatRetries < 10) {
             a.play().then(() => {
               heartbeatRetries = 0;
               setIsPlaying(true);
               if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
             }).catch(() => { heartbeatRetries++; });
           }
-        } else {
+        } else if (!a.paused) {
           heartbeatRetries = 0;
           if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
         }
       }
       reacquireWakeLock();
-    }, 3000);
+    }, 2000);
 
     return () => {
       clearInterval(syncTimer);
