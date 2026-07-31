@@ -5,9 +5,23 @@ export default function MiniPlayer({ currentSong, isPlaying, setIsPlaying, onPla
     e.stopPropagation();
     const rect = e.currentTarget.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    const audioEl = document.getElementById('main-audio');
-    if (audioEl && dur) audioEl.currentTime = pct * dur;
+    const a = document.getElementById('main-audio');
+    if (a && a.src && dur) a.currentTime = pct * dur;
   }, [dur]);
+
+  const onTogglePlay = useCallback(() => {
+    const a = document.getElementById('main-audio');
+    if (a && a.src) {
+      if (!a.paused) {
+        a.pause();
+        setIsPlaying(false);
+      } else {
+        a.play().then(() => setIsPlaying(true)).catch(() => {});
+      }
+    } else {
+      setIsPlaying(prev => !prev);
+    }
+  }, [setIsPlaying]);
 
   if (!currentSong) return null;
 
@@ -27,7 +41,7 @@ export default function MiniPlayer({ currentSong, isPlaying, setIsPlaying, onPla
         {onPlayPrev && (
           <button className="mini-play-btn" onClick={onPlayPrev} style={{ fontSize: 16 }}>⏮</button>
         )}
-        <button className="mini-play-btn" onClick={() => setIsPlaying(!isPlaying)}>
+        <button className="mini-play-btn" onClick={onTogglePlay}>
           {isPlaying ? '⏸' : '▶'}
         </button>
         <button className="mini-next-btn" onClick={onPlayNext}>⏭</button>

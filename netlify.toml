@@ -43,12 +43,12 @@
   path = "/api/shared-songs"
   function = "shared-songs"
 
-# SPA fallback — must be LAST (netlify.toml fallback)
-[[redirects]]
-  from = "/.netlify/functions/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
+# Edge Function for user data backup/restore (Netlify Blobs)
+[[edge_functions]]
+  path = "/api/user-data"
+  function = "user-data"
 
+# SPA fallback — must be LAST (netlify.toml fallback)
 [[redirects]]
   from = "/*"
   to = "/index.html"

@@ -20,9 +20,12 @@ import DownloadsScreen from './screens/DownloadsScreen';
 import MySongsScreen from './screens/MySongsScreen';
 import ArtistPage from './screens/ArtistPage';
 import AlbumPage from './screens/AlbumPage';
+import SettingsScreen from './screens/SettingsScreen';
 
 import { searchSongs, downloadAudioBlob, searchSaavn, fetchSharedSongs, addSharedSong } from './utils/api';
 import { Storage } from './utils/storage';
+import { OpfsStorage } from './utils/opfsStorage';
+import { CloudSync, generateBackupCode, normalizeCode } from './utils/cloudSync';
 import { LANG_QUERIES, LANG_SEARCH_QUERIES } from './utils/constants';
 
 function shuffleArray(arr) {
@@ -73,6 +76,15 @@ function AppContent() {
   const wakeLockRef = useRef(null);
   const isPlayingRef = useRef(false);
   const playedSongIds = useRef(new Set());
+  const [backupCode, setBackupCode] = useState(null);
+  const [cloudReady, setCloudReady] = useState(false);
+  const [cloudSyncing, setCloudSyncing] = useState(false);
+  const [cloudRestoring, setCloudRestoring] = useState(false);
+  const [lastSync, setLastSync] = useState(null);
+  const cloudSyncingRef = useRef(false);
+  const audioSyncingRef = useRef(false);
+  const syncMetaNowRef = useRef(null);
+  const backupAudioNowRef = useRef(null);
   const recentAutoPlay = useRef([]);
 
   const currentSong = playlist[currentIndex] || null;
@@ -152,16 +164,21 @@ function AppContent() {
     };
     loadData();
 
-    const syncTimer = setInterval(() => Storage.forceSyncToOpfs().catch(() => {}), 300000);
-    const cleanup = () => clearInterval(syncTimer);
+    const syncTimer = setInterval(() => {
+      Storage.forceSyncToOpfs().catch(() => {});
+      if (syncMetaNowRef.current) syncMetaNowRef.current();
+      if (backupAudioNowRef.current) backupAudioNowRef.current();
+    }, 300000);
 
     if (window.__installPrompt) setDeferredPrompt(window.__installPrompt);
-    const handler = (e) => { e.preventDefault(); setDeferredPrompt(e); };
+    const handler = (e) => { e.preventDefault(); window.__installPrompt = e; setDeferredPrompt(e); };
     window.addEventListener('beforeinstallprompt', handler);
 
+    let heartbeatRetries = 0;
     const resumeAudio = () => {
       const a = document.getElementById('main-audio');
-      if (a && a.paused && a.src && !a.ended && a.currentTime > 0 && isPlayingRef.current) {
+      if (a && a.paused && a.src && !a.ended && isPlayingRef.current) {
+        heartbeatRetries = 0;
         a.play().then(() => {
           setIsPlaying(true);
           if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
@@ -240,21 +257,21 @@ function AppContent() {
       } catch {}
     }
 
-    let heartbeatRetries = 0;
     const heartbeat = setInterval(() => {
       const a = document.getElementById('main-audio');
-      if (a && a.paused && a.src && !a.ended && a.currentTime > 0 && isPlayingRef.current) {
-        if (heartbeatRetries < 3) {
-          a.play().then(() => {
-            heartbeatRetries = 0;
-            setIsPlaying(true);
-            if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
-          }).catch(() => { heartbeatRetries++; });
+      if (a && a.src && isPlayingRef.current) {
+        if (a.paused && !a.ended) {
+          if (heartbeatRetries < 5) {
+            a.play().then(() => {
+              heartbeatRetries = 0;
+              setIsPlaying(true);
+              if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
+            }).catch(() => { heartbeatRetries++; });
+          }
+        } else {
+          heartbeatRetries = 0;
+          if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
         }
-      }
-      if (a && !a.paused && isPlayingRef.current) {
-        heartbeatRetries = 0;
-        if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
       }
       reacquireWakeLock();
     }, 3000);
@@ -304,6 +321,166 @@ function AppContent() {
       return next;
     });
   }, []);
+
+  /* ---------- Cloud backup & restore (survives Chrome clear data) ---------- */
+
+  const syncMetaNow = useCallback(async () => {
+    if (!backupCode || cloudSyncingRef.current) return false;
+    cloudSyncingRef.current = true;
+    setCloudSyncing(true);
+    try {
+      const meta = {
+        liked: likedSongs,
+        recent: recentlyPlayed,
+        downloads: downloadedSongs,
+        custom: customSongs,
+      };
+      await CloudSync.uploadMeta(backupCode, meta);
+      setLastSync(CloudSync.getLastSync());
+      if (backupAudioNowRef.current) backupAudioNowRef.current();
+      return true;
+    } catch {
+      return false;
+    } finally {
+      cloudSyncingRef.current = false;
+      setCloudSyncing(false);
+    }
+  }, [backupCode, likedSongs, recentlyPlayed, downloadedSongs, customSongs]);
+
+  useEffect(() => { syncMetaNowRef.current = syncMetaNow; }, [syncMetaNow]);
+
+  const backupAudioNow = useCallback(async () => {
+    if (!backupCode || !CloudSync.isAudioBackupEnabled() || audioSyncingRef.current) return;
+    audioSyncingRef.current = true;
+    try {
+      const uploaded = await CloudSync.getUploadedAudioSet(backupCode);
+      const candidates = [];
+      for (const s of customSongs) if (s._customFile || s.audioBlob) candidates.push(s.id);
+      for (const s of downloadedSongs) candidates.push(s.id);
+      const pending = candidates.filter(id => !uploaded.has(id)).slice(0, 5);
+      for (const id of pending) {
+        try {
+          const blob = await OpfsStorage.loadAudioBlob(id);
+          if (blob && blob.size > 0) {
+            await CloudSync.uploadAudio(backupCode, id, blob);
+            uploaded.add(id);
+            await CloudSync.setUploadedAudioSet(backupCode, uploaded);
+          }
+        } catch {}
+      }
+    } finally {
+      audioSyncingRef.current = false;
+    }
+  }, [backupCode, customSongs, downloadedSongs]);
+
+  useEffect(() => { backupAudioNowRef.current = backupAudioNow; }, [backupAudioNow]);
+
+  const copyBackupCode = useCallback((code) => {
+    if (!code) return;
+    try {
+      navigator.clipboard.writeText(code);
+      showToast(`Backup code copied: ${code}`);
+    } catch {
+      showToast(`Backup code: ${code}`);
+    }
+  }, [showToast]);
+
+  const restoreFromCode = useCallback(async (codeInput) => {
+    const code = normalizeCode(codeInput);
+    if (!code) {
+      showToast('Invalid code. Use the format SA-XXXX-XXXX');
+      return false;
+    }
+    setCloudRestoring(true);
+    try {
+      const meta = await CloudSync.fetchMeta(code);
+      const hasData = meta && (
+        meta.updatedAt ||
+        (Array.isArray(meta.liked) && meta.liked.length > 0) ||
+        (Array.isArray(meta.recent) && meta.recent.length > 0) ||
+        (Array.isArray(meta.downloads) && meta.downloads.length > 0) ||
+        (Array.isArray(meta.custom) && meta.custom.length > 0)
+      );
+      if (!hasData) {
+        showToast('No backup found for this code.');
+        return false;
+      }
+      await CloudSync.saveDeviceCode(code);
+      setBackupCode(code);
+      const result = await Storage.importCloudData({
+        liked: meta.liked || [],
+        recent: meta.recent || [],
+        downloads: meta.downloads || [],
+        custom: meta.custom || [],
+      });
+      setLikedSongs(meta.liked || []);
+      setRecentlyPlayed(meta.recent || []);
+      setDownloadedSongs(meta.downloads || []);
+      setCustomSongs(meta.custom || []);
+      showToast(`Restored: ❤️${result.liked} · 🕐${result.recent} · 📥${result.downloads} · 🎵${result.custom}`);
+      setTimeout(() => {
+        (async () => {
+          const songs = [...(meta.downloads || []), ...(meta.custom || [])];
+          const uploaded = await CloudSync.getUploadedAudioSet(code);
+          for (const s of songs) {
+            try {
+              const blob = await CloudSync.fetchAudio(code, s.id);
+              if (blob && blob.size > 0) {
+                await OpfsStorage.saveAudioBlob(s.id, blob);
+                uploaded.add(s.id);
+              }
+            } catch {}
+          }
+          await CloudSync.setUploadedAudioSet(code, uploaded);
+        })();
+      }, 500);
+      return true;
+    } catch (err) {
+      console.error(err);
+      showToast('Restore failed. Check your internet connection.');
+      return false;
+    } finally {
+      setCloudRestoring(false);
+    }
+  }, [showToast]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        let code = await CloudSync.getDeviceCode();
+        if (!code) {
+          code = generateBackupCode();
+          await CloudSync.saveDeviceCode(code);
+        }
+        if (!cancelled) {
+          setBackupCode(code);
+          setLastSync(CloudSync.getLastSync());
+          setCloudReady(true);
+        }
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (!cloudReady || !backupCode) return;
+    const t = setTimeout(() => { syncMetaNow(); backupAudioNow(); }, 4000);
+    return () => clearTimeout(t);
+  }, [likedSongs, recentlyPlayed, downloadedSongs, customSongs, cloudReady, backupCode, syncMetaNow, backupAudioNow]);
+
+  useEffect(() => {
+    if (!cloudReady || !backupCode) return;
+    const flush = () => {
+      if (document.visibilityState === 'hidden') syncMetaNow();
+    };
+    document.addEventListener('visibilitychange', flush);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      document.removeEventListener('visibilitychange', flush);
+      window.removeEventListener('pagehide', flush);
+    };
+  }, [cloudReady, backupCode, syncMetaNow]);
 
   const playSong = useCallback(async (song, context, contextIdx) => {
     if (!song) return;
@@ -723,7 +900,7 @@ function AppContent() {
 
   return (
     <div className="app">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} customCount={customSongs.length} onSearch={searchByQuery} onInstall={handleInstallApp} showToast={showToast} onOpenArtist={openArtistPage} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} customCount={customSongs.length} onSearch={searchByQuery} onInstall={handleInstallApp} showToast={showToast} onOpenArtist={openArtistPage} backupCode={backupCode} cloudSyncing={cloudSyncing} cloudRestoring={cloudRestoring} lastSync={lastSync} onSyncNow={syncMetaNow} onRestore={restoreFromCode} onCopyCode={copyBackupCode} />
       <div className="body">
         <Topbar
           q={searchQ} setQ={setSearchQ}
@@ -820,6 +997,18 @@ function AppContent() {
               currentSong={currentSong}
               isPlaying={isPlaying}
               showToast={showToast}
+            />
+          )}
+          {activeTab === 'settings' && (
+            <SettingsScreen
+              showToast={showToast}
+              backupCode={backupCode}
+              cloudSyncing={cloudSyncing}
+              cloudRestoring={cloudRestoring}
+              lastSync={lastSync}
+              onSyncNow={syncMetaNow}
+              onRestore={restoreFromCode}
+              onCopyCode={copyBackupCode}
             />
           )}
         </div>

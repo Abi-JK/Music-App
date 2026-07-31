@@ -27,6 +27,26 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
   const loadingUrlRef = useRef(false);
   const autoPlayOnReady = useRef(false);
   const songLoadId = useRef(0);
+  const stallTimerRef = useRef(null);
+  const tryNextUrlRef = useRef(null);
+
+  const clearStallTimer = () => {
+    if (stallTimerRef.current) { clearTimeout(stallTimerRef.current); stallTimerRef.current = null; }
+  };
+
+  const startStallTimer = (myLoadId) => {
+    clearStallTimer();
+    stallTimerRef.current = setTimeout(() => {
+      stallTimerRef.current = null;
+      if (songLoadId.current !== myLoadId) return;
+      if (document.hidden) return;
+      const a = audioRef.current;
+      if (!a || !a.src) return;
+      if (a.ended) return;
+      if (!a.paused && a.readyState >= 2) return;
+      if (tryNextUrlRef.current) tryNextUrlRef.current();
+    }, 20000);
+  };
 
   useEffect(() => { playNextRef.current = playNext; }, [playNext]);
   useEffect(() => { playPrevRef.current = playPrev; }, [playPrev]);
@@ -75,6 +95,25 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
   }, [setIsPlaying]);
 
   useEffect(() => {
+    const onVisibility = () => {
+      if (document.hidden) return;
+      const a = audioRef.current;
+      if (!a || !a.src) return;
+      if (a.ended && isPlayingRef.current) {
+        endedGuard.current = false;
+        if (playNextRef.current) playNextRef.current();
+        return;
+      }
+      if (a.paused && isPlayingRef.current) {
+        autoPlayOnReady.current = true;
+        a.play().then(() => setIsPlaying(true)).catch(() => {});
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => document.removeEventListener('visibilitychange', onVisibility);
+  }, [setIsPlaying]);
+
+  useEffect(() => {
     const a = audioRef.current;
     if (!a) return;
 
@@ -86,6 +125,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
       setLoading(false);
       setErrorMsg('');
       loadingUrlRef.current = false;
+      clearStallTimer();
       if (retryTimerRef.current) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
     };
 
@@ -95,6 +135,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
 
     const onError = () => {
       const myLoadId = songLoadId.current;
+      clearStallTimer();
       if (retryTimerRef.current) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
 
       const tryNextUrl = () => {
@@ -107,6 +148,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
           a.src = candidate.url;
           a.volume = volRef.current;
           a.load();
+          startStallTimer(myLoadId);
         } else {
           errorRetryCount.current++;
           if (errorRetryCount.current < 5) {
@@ -131,6 +173,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
                   a.src = newCandidates[0].url;
                   a.volume = volRef.current;
                   a.load();
+                  startStallTimer(myLoadId);
                   return;
                 }
               }
@@ -177,6 +220,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
           }
         }
       };
+      tryNextUrlRef.current = tryNextUrl;
       tryNextUrl();
     };
 
@@ -184,6 +228,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
       loadingUrlRef.current = false;
       setLoading(false); setErrorMsg('');
       endedGuard.current = false;
+      clearStallTimer();
       if (retryTimerRef.current) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
       errorRetryCount.current = 0;
       if (autoPlayOnReady.current || isPlayingRef.current) {
@@ -203,8 +248,9 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     const onEnded = () => {
       if (endedGuard.current) return;
       endedGuard.current = true;
+      clearStallTimer();
       if (retryTimerRef.current) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
-      setTimeout(() => { if (playNextRef.current) playNextRef.current(); }, 300);
+      if (playNextRef.current) playNextRef.current();
     };
 
     a.addEventListener('play', onPlay);
@@ -213,6 +259,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     a.addEventListener('canplay', onCanPlay);
     a.addEventListener('ended', onEnded);
     return () => {
+      clearStallTimer();
       a.removeEventListener('play', onPlay);
       a.removeEventListener('pause', onPause);
       a.removeEventListener('error', onError);
@@ -247,6 +294,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     loadingUrlRef.current = false;
     autoPlayOnReady.current = true;
     songLoadId.current++;
+    clearStallTimer();
     if (retryTimerRef.current) { clearTimeout(retryTimerRef.current); retryTimerRef.current = null; }
 
     const a = audioRef.current;
@@ -295,6 +343,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
           a.src = candidate.url;
           a.volume = volRef.current;
           a.load();
+          startStallTimer(songLoadId.current);
         } else {
           setLoading(false);
           setErrorMsg('No playable URL found');
@@ -325,6 +374,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
         a.src = candidate.url;
         a.volume = volRef.current;
         a.load();
+        startStallTimer(songLoadId.current);
       } else {
         setLoading(false);
         setErrorMsg('No playable URL found');
@@ -393,7 +443,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
 
   if (!currentSong) return (
     <div className="player">
-      <audio ref={audioRef} preload="auto" crossOrigin="anonymous" referrerPolicy="no-referrer" />
+      <audio ref={audioRef} preload="auto" referrerPolicy="no-referrer" />
       <div className="player-empty">🎵 Select any song to play — 100% free, no login required</div>
     </div>
   );
@@ -403,7 +453,7 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
 
   return (
     <div className="player">
-      <audio id="main-audio" ref={audioRef} onTimeUpdate={onTimeUpdate} preload="auto" crossOrigin="anonymous" referrerPolicy="no-referrer" playsInline />
+      <audio id="main-audio" ref={audioRef} onTimeUpdate={onTimeUpdate} preload="auto" referrerPolicy="no-referrer" playsInline />
       <div className="player-inner">
         <div className="player-song">
           {currentSong.coverUrl ? <img src={currentSong.coverUrl} alt="" className="player-cover" onClick={onExpand} style={{ cursor: 'pointer' }} /> : <div className="player-cover player-ph" onClick={onExpand} style={{ cursor: 'pointer' }}>🎵</div>}

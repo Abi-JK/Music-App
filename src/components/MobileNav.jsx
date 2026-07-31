@@ -7,6 +7,7 @@ export default function MobileNav({ activeTab, setActiveTab, likedCount, customC
     { id: 'liked', icon: '❤️', label: 'Liked' },
     { id: 'mysongs', icon: '🎵', label: 'My Songs' },
     { id: 'downloads', icon: '📥', label: 'Offline' },
+    { id: 'settings', icon: '⚙️', label: 'Settings' },
   ];
   return (
     <div className="mobile-nav">

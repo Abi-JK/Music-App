@@ -53,13 +53,32 @@ function lsSet(key, data) {
     }));
     localStorage.setItem(key, JSON.stringify(slim));
   } catch {}
+  // Also persist to IndexedDB as backup
+  try {
+    const transaction = db.transaction([key.replace('soundaura_', '').replace('_backup', '')], 'readwrite');
+    const store = transaction.objectStore(key.replace('soundaura_', '').replace('_backup', ''));
+    store.clear();
+    slim.forEach(item => store.put(item));
+  } catch {}
 }
 
 function lsGet(key) {
   try {
     const v = localStorage.getItem(key);
-    return v ? JSON.parse(v) : [];
-  } catch { return []; }
+    if (v) return JSON.parse(v);
+  } catch {}
+  // Fallback to IndexedDB if localStorage missing
+  try {
+    const transaction = db.transaction([key.replace('soundaura_', '').replace('_backup', '')], 'readonly');
+    const store = transaction.objectStore(key.replace('soundaura_', '').replace('_backup', ''));
+    const request = store.getAll();
+    return new Promise((resolve) => {
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => resolve([]);
+    });
+  } catch {
+    return [];
+  }
 }
 
 function slimSong(s) {
@@ -144,6 +163,16 @@ export const Storage = {
           await caches.delete(key);
         }
       }
+    } catch {}
+  },
+
+  async forceSyncToOpfs() {
+    if (!(await isOpfsReady())) return;
+    try {
+      await syncToOpfs('liked', await idbGetAll(STORE_LIKED));
+      await syncToOpfs('recent', await idbGetAll(STORE_RECENT));
+      await syncToOpfs('downloads', (await idbGetAll(STORE_DOWNLOADS)).map(slimSong));
+      await syncToOpfs('custom', (await idbGetAll(STORE_CUSTOM)).map(slimSong));
     } catch {}
   },
 
@@ -374,6 +403,38 @@ export const Storage = {
 
   async getOpfsStatus() {
     return isOpfsReady();
+  },
+
+  // Helper to persist arbitrary data to IndexedDB to survive localStorage clear
+  async persistData(storeName, key) {
+    const data = await this.getLikedSongs(); // example for liked; adjust per store if needed
+    await idbPutAll(storeName, data);
+    lsSet(key, data);
+  },
+
+  async importCloudData({ liked, recent, downloads, custom } = {}) {
+    if (Array.isArray(liked) && liked.length > 0) {
+      await idbPutAll(STORE_LIKED, liked);
+      await syncToOpfs('liked', liked);
+    }
+    if (Array.isArray(recent) && recent.length > 0) {
+      await idbPutAll(STORE_RECENT, recent);
+      await syncToOpfs('recent', recent.slice(0, 12));
+    }
+    if (Array.isArray(downloads) && downloads.length > 0) {
+      await idbPutAll(STORE_DOWNLOADS, downloads);
+      await syncToOpfs('downloads', downloads.map(slimSong));
+    }
+    if (Array.isArray(custom) && custom.length > 0) {
+      await idbPutAll(STORE_CUSTOM, custom);
+      await syncToOpfs('custom', custom.map(slimSong));
+    }
+    return {
+      liked: liked?.length || 0,
+      recent: recent?.length || 0,
+      downloads: downloads?.length || 0,
+      custom: custom?.length || 0,
+    };
   },
 
   async exportBackup() {

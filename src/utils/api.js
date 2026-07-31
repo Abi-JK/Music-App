@@ -5,7 +5,6 @@
 
 const SAAVN_APIS = [
   'https://saavn.sumit.co/api',
-  'https://api.jiosaavn.com',
 ];
 const SAAVN_FB = 'https://jiosaavn-api.vercel.app';
 const LRCLIB = 'https://lrclib.net';
@@ -239,43 +238,6 @@ async function fetchSaavnSearchRaw(query, limit) {
   return [];
 }
 
-async function fetchSaavnAlbums(query, limit) {
-  for (const api of SAAVN_APIS) {
-    try {
-      const res = await fetchWithTimeout(`${api}/search/albums?query=${encodeURIComponent(query)}&limit=${limit}`, {}, 6000);
-      if (res && res.ok) {
-        const data = await res.json();
-        const albums = data?.data?.results || [];
-        if (albums.length > 0) {
-          const albumIds = albums.map(a => a.id).filter(Boolean);
-          const allSongs = [];
-          for (const aid of albumIds.slice(0, 5)) {
-            for (const api2 of SAAVN_APIS) {
-              try {
-                const aRes = await fetchWithTimeout(`${api2}/albums/${aid}`, {}, 6000);
-                if (aRes && aRes.ok) {
-                  const aData = await aRes.json();
-                  const songs = aData?.data?.songs || [];
-                  if (songs.length > 0) { allSongs.push(...songs); break; }
-                }
-              } catch {}
-            }
-          }
-          return allSongs;
-        }
-      }
-    } catch {}
-  }
-  try {
-    const res = await fetchWithTimeout(`${SAAVN_FB}/album?id=${query}`, {}, 6000);
-    if (res && res.ok) {
-      const data = await res.json();
-      return data?.songs || [];
-    }
-  } catch {}
-  return [];
-}
-
 // --- JioSaavn Artist API (paginated, gives 400-500+ songs) ---
 async function fetchArtistsByQuery(query, limit = 5) {
   for (const api of SAAVN_APIS) {
@@ -392,14 +354,15 @@ async function enrichWithoutAudio(song) {
 }
 
 async function searchAndResolve(query, limit = 50) {
-  const searchResults = await fetchSaavnSearchRaw(query, Math.min(limit, 100)).catch(() => []);
+  let searchResults = await fetchSaavnSearchRaw(query, Math.min(limit, 100)).catch(() => []);
+  if (searchResults.length === 0) {
+    searchResults = await fetchSaavnSearchRaw(`${query} songs`, Math.min(limit, 100)).catch(() => []);
+  }
   const normalized = searchResults.map(normalizeSong).filter(Boolean);
-  let withAudio = normalized.filter(s => s.audioUrl);
+  let withAudio = dedupe(normalized.filter(s => s.audioUrl));
   const noAudio = normalized.filter(s => !s.audioUrl && s._saavnId);
 
-  withAudio = dedupe(withAudio);
-
-  if (noAudio.length > 0 && withAudio.length < limit) {
+  if (noAudio.length > 0) {
     const enriched = await Promise.allSettled(
       dedupe(noAudio).slice(0, 15).map(s => enrichWithoutAudio(s))
     );
@@ -407,38 +370,6 @@ async function searchAndResolve(query, limit = 50) {
       if (r.status === 'fulfilled' && r.value?.audioUrl && !withAudio.some(x => x.id === r.value.id)) {
         withAudio.push(r.value);
       }
-    }
-  }
-
-  if (withAudio.length < 15) {
-    const altQuery = !query.toLowerCase().includes('songs') ? `${query} songs` : `${query} album`;
-    const altResults = await fetchSaavnSearchRaw(altQuery, 30).catch(() => []);
-    for (const s of altResults.map(normalizeSong).filter(Boolean).filter(s => s.audioUrl)) {
-      if (!withAudio.some(x => x.id === s.id)) withAudio.push(s);
-    }
-  }
-
-  if (withAudio.length < 15) {
-    const yearQuery = `${query} ${new Date().getFullYear()}`;
-    const yearResults = await fetchSaavnSearchRaw(yearQuery, 20).catch(() => []);
-    for (const s of yearResults.map(normalizeSong).filter(Boolean).filter(s => s.audioUrl)) {
-      if (!withAudio.some(x => x.id === s.id)) withAudio.push(s);
-    }
-  }
-
-  if (withAudio.length < 8) {
-    const albumSongs = await fetchSaavnAlbums(query, 5).catch(() => []);
-    for (const raw of albumSongs) {
-      const norm = normalizeSong(raw);
-      if (norm && norm.audioUrl && !withAudio.some(x => x.id === norm.id)) withAudio.push(norm);
-    }
-  }
-
-  if (withAudio.length < 8) {
-    const bestQuery = `${query} best hit`;
-    const bestResults = await fetchSaavnSearchRaw(bestQuery, 20).catch(() => []);
-    for (const s of bestResults.map(normalizeSong).filter(Boolean).filter(s => s.audioUrl)) {
-      if (!withAudio.some(x => x.id === s.id)) withAudio.push(s);
     }
   }
 

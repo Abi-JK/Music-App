@@ -11,7 +11,7 @@ const LogoImage = ({ size = 48 }) => (
   />
 );
 
-export default function Sidebar({ activeTab, setActiveTab, likedCount, customCount, onSearch, onInstall, showToast, onOpenArtist }) {
+export default function Sidebar({ activeTab, setActiveTab, likedCount, customCount, onSearch, onInstall, showToast, onOpenArtist, backupCode, cloudSyncing, cloudRestoring, lastSync, onSyncNow, onRestore, onCopyCode }) {
   const playlists = [
     { label: '🎬 Bollywood Hits',        term: 'bollywood hindi songs' },
     { label: '🎵 Tamil Hits',            term: 'tamil film songs' },
@@ -99,13 +99,25 @@ export default function Sidebar({ activeTab, setActiveTab, likedCount, customCou
         <button className={`nav-item ${activeTab === 'mysongs' ? 'active' : ''}`} onClick={() => setActiveTab('mysongs')}>
           <span className="nav-icon">🎵</span>My Songs {customCount > 0 && <span className="sidebar-badge">{customCount}</span>}
         </button>
+        <button className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
+          <span className="nav-icon">⚙️</span>Settings
+        </button>
         {onInstall && (
           <button className="nav-item" onClick={onInstall} style={{ color: 'var(--accent)' }}>
             <span className="nav-icon">📱</span>Install App
           </button>
         )}
 
-        <DataSettings showToast={showToast} />
+        <DataSettings
+          showToast={showToast}
+          backupCode={backupCode}
+          cloudSyncing={cloudSyncing}
+          cloudRestoring={cloudRestoring}
+          lastSync={lastSync}
+          onSyncNow={onSyncNow}
+          onRestore={onRestore}
+          onCopyCode={onCopyCode}
+        />
 
         <div className="nav-label">Quick Playlists</div>
         {playlists.map(pl => (
