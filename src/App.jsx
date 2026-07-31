@@ -614,6 +614,7 @@ function AppContent() {
           autoPlayGenreFuncRef.current?.(autoPlayGenreRef.current || 'trending india');
         }
       } else if (repeatMode === 'off') {
+        setIsPlaying(false);
         showToast('Playlist ended. Tap play to start auto-play.');
         return;
       } else {
@@ -695,6 +696,7 @@ function AppContent() {
     setSearched(true);
     setSearchLoading(true);
     setArtistQuery(null);
+    setAlbumQuery(null);
     try {
       const langObj = LANG_QUERIES.find(l => l.label === activeLang);
       const term = langObj?.term && langObj.label !== 'All' ? `${q} ${langObj.term}` : q;
@@ -782,6 +784,8 @@ function AppContent() {
     setSearched(true);
     setSearchLoading(true);
     setActiveLang('All');
+    setArtistQuery(null);
+    setAlbumQuery(null);
     try {
       const songs = await searchSongs(q, 80);
       const lq = q.toLowerCase();
@@ -1031,6 +1035,7 @@ function AppContent() {
         onShowQueue={() => setShowQueue(true)}
         downloadSong={downloadSong}
         currentSongDownloaded={currentSong ? downloadedIds.includes(currentSong.id) : false}
+        downloadedIds={downloadedIds}
         onSaveToMySongs={saveToMySongs}
       />
       <MiniPlayer

@@ -117,23 +117,14 @@ export default function MySongsScreen({ customSongs, setCustomSongs, playSong, c
   const handleSaveEdit = useCallback(async () => {
     if (!editSong) return;
     const updated = { ...editSong, title: editTitle, artist: editArtist };
-    const allCustom = await Storage.getCustomSongs();
-    const idx = allCustom.findIndex(s => s.id === editSong.id);
-    if (idx >= 0) {
-      allCustom[idx] = { ...allCustom[idx], title: editTitle, artist: editArtist };
-      const blob = await Storage.loadCustomSongBlob(editSong.id);
-      if (blob) {
-        await Storage.removeCustomSong(editSong.id);
-        await Storage.addCustomSong(allCustom[idx], blob);
-      }
-    }
+    await Storage.updateCustomSong(updated).catch(console.error);
     setCustomSongs(prev => prev.map(s => s.id === editSong.id ? updated : s));
     setEditSong(null);
     showToast('Song updated');
   }, [editSong, editTitle, editArtist, showToast, setCustomSongs]);
 
   const handlePlay = useCallback((song) => {
-    const context = customSongs.filter(s => s._customFile);
+    const context = customSongs.filter(s => s._customFile || s.id.startsWith('custom-'));
     const idx = context.findIndex(s => s.id === song.id);
     playSong(song, context, idx >= 0 ? idx : 0);
   }, [customSongs, playSong]);
@@ -184,7 +175,7 @@ export default function MySongsScreen({ customSongs, setCustomSongs, playSong, c
     setImporting(false);
   }, [showToast, setCustomSongs]);
 
-  const songsWithBlob = customSongs.filter(s => s._customFile);
+  const songsWithBlob = customSongs.filter(s => s._customFile || s.id.startsWith('custom-'));
 
   return (
     <div className="liked-screen">

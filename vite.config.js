@@ -100,6 +100,16 @@ export default defineConfig({
             cacheableResponse: { statuses: [0, 200] },
           },
         },
+        // Google Fonts — must come before image-cache (fonts.gstatic.com also matches .gstatic.com)
+        {
+          urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com/,
+          handler: 'CacheFirst',
+          options: {
+            cacheName: 'google-fonts',
+            expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
+            cacheableResponse: { statuses: [0, 200] },
+          },
+        },
         // Cover art / artwork — stale-while-revalidate
         {
           urlPattern: /^https:\/\/(.*\.googleapis\.com|.*\.gstatic\.com|.*\.saavncdn\.com|.*\.jiocdn\.in|.*yt3\.ggpht\.com|i\.ytimg\.com)/,
@@ -110,16 +120,6 @@ export default defineConfig({
             cacheableResponse: { statuses: [0, 200] },
           },
         },
-          // Google Fonts
-          {
-            urlPattern: /^https:\/\/fonts\.(googleapis|gstatic)\.com/,
-            handler: 'CacheFirst',
-            options: {
-              cacheName: 'google-fonts',
-              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
-              cacheableResponse: { statuses: [0, 200] },
-            },
-          },
           // Lyrics APIs — network-first with cache fallback
           {
             urlPattern: /^https:\/\/(lrclib\.net|api\.lyrics\.ovh|music\.163\.com)/,

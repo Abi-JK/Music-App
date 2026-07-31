@@ -240,7 +240,11 @@ export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyP
         <h3 className="sec-title">Featured Albums & Artists</h3>
         <div className="song-scroll">
           {featuredAlbums.map((alb, i) => (
-            <div key={i} className="song-card" onClick={() => onOpenAlbum ? onOpenAlbum(alb.query) : onOpenArtist && onOpenArtist(alb.query)}>
+            <div key={i} className="song-card" onClick={() => {
+              if (alb.type === 'Artist' && onOpenArtist) onOpenArtist(alb.query);
+              else if (onOpenAlbum) onOpenAlbum(alb.query);
+              else if (onOpenArtist) onOpenArtist(alb.query);
+            }}>
               <img src={alb.cover} alt={alb.title} onError={(e) => { e.target.style.display = 'none'; }} />
               <h4>{alb.title}</h4>
               <p>{alb.type} Album</p>

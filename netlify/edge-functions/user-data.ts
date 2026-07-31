@@ -13,7 +13,7 @@ import { getStore } from '@netlify/blobs';
 
 const STORE_NAME = 'soundaura-userdata';
 const MAX_META_BODY = 3_000_000; // ~3MB JSON cap for metadata
-const MAX_AUDIO_BODY = 8_000_000; // ~8MB per audio blob (typical song)
+const MAX_AUDIO_BODY = 25_000_000; // ~25MB per audio blob (typical 320kbps song)
 
 function corsHeaders(contentType?: string): Record<string, string> {
   const h: Record<string, string> = {

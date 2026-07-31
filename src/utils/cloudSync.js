@@ -170,11 +170,11 @@ export const CloudSync = {
   },
 };
 
-/* Strip heavy fields (audioBlob, custom file refs) before sending metadata. */
+/* Strip heavy fields (audioBlob) before sending metadata. _customFile stays
+ * so custom songs survive a cloud restore with their flag intact. */
 function slimSong(s) {
   if (!s) return null;
   const out = { ...s };
   delete out.audioBlob;
-  delete out._customFile;
   return out;
 }

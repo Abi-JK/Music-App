@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { formatTime } from '../utils/helpers';
-import { fetchLyrics } from '../utils/api';
+import { fetchLyrics, downloadAudioBlob } from '../utils/api';
 import { cutAudio } from '../utils/audio';
 
 export default function FullScreenPlayer({

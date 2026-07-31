@@ -3,7 +3,7 @@ import { formatTime } from '../utils/helpers';
 import { refreshSongUrl } from '../utils/api';
 import { Storage } from '../utils/storage';
 
-export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNext, playPrev, liked, toggleLike, onProgressUpdate, onExpand, onShowLyrics, repeatMode, toggleRepeat, shuffleOn, toggleShuffle, onShowQueue, downloadSong, currentSongDownloaded, onSaveToMySongs }) {
+export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNext, playPrev, liked, toggleLike, onProgressUpdate, onExpand, onShowLyrics, repeatMode, toggleRepeat, shuffleOn, toggleShuffle, onShowQueue, downloadSong, currentSongDownloaded, onSaveToMySongs, downloadedIds = [] }) {
   const audioRef = useRef(null);
   const [dur, setDur] = useState(0);
   const [curTime, setCurTime] = useState(0);
@@ -324,9 +324,11 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     const candidates = [];
 
     if (currentSong.source === 'custom' && currentSong._customFile && !currentSong.audioUrl) {
+      const myLoadId = songLoadId.current;
       const loadCustomAudio = async () => {
         try {
           const blob = await Storage.loadCustomSongBlob(currentSong.id);
+          if (songLoadId.current !== myLoadId) return;
           if (blob) {
             const blobUrl = URL.createObjectURL(blob);
             candidates.push({ url: blobUrl, type: 'custom-blob' });
@@ -343,13 +345,52 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
           a.src = candidate.url;
           a.volume = volRef.current;
           a.load();
-          startStallTimer(songLoadId.current);
+          startStallTimer(myLoadId);
         } else {
           setLoading(false);
           setErrorMsg('No playable URL found');
         }
       };
       loadCustomAudio();
+    } else if (downloadedIds.includes(currentSong.id) && !currentSong.audioBlob) {
+      const myLoadId = songLoadId.current;
+      const loadDownloadedAudio = async () => {
+        try {
+          const blob = await Storage.loadSongBlob(currentSong.id);
+          if (songLoadId.current !== myLoadId) return;
+          if (blob) {
+            const blobUrl = URL.createObjectURL(blob);
+            candidates.push({ url: blobUrl, type: 'blob' });
+            blobUrls.current.push(blobUrl);
+          }
+        } catch (err) {
+          console.error('Failed to load downloaded song blob:', err);
+        }
+        if (currentSong.audioUrl) {
+          candidates.push({ url: currentSong.audioUrl, type: 'primary' });
+        }
+        if (currentSong.allAudioUrls) {
+          for (const entry of currentSong.allAudioUrls) {
+            if (entry.url && !candidates.some(c => c.url === entry.url)) {
+              candidates.push({ url: entry.url, type: entry.quality || 'fallback' });
+            }
+          }
+        }
+        urlList.current = candidates;
+        if (candidates.length > 0) {
+          const candidate = candidates[0];
+          urlIndex.current = 0;
+          loadingUrlRef.current = true;
+          a.src = candidate.url;
+          a.volume = volRef.current;
+          a.load();
+          startStallTimer(myLoadId);
+        } else {
+          setLoading(false);
+          setErrorMsg('No playable URL found');
+        }
+      };
+      loadDownloadedAudio();
     } else {
       if (currentSong.audioBlob) {
         const blobUrl = URL.createObjectURL(currentSong.audioBlob);
@@ -437,7 +478,10 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
     const rect = e.currentTarget.getBoundingClientRect();
     const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
     setVol(pct);
-    if (audioRef.current) audioRef.current.volume = pct;
+    if (audioRef.current) {
+      audioRef.current.volume = pct;
+      if (pct > 0) audioRef.current.muted = false;
+    }
     if (pct > 0) setMuted(false);
   }, []);
 

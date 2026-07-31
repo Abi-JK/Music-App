@@ -14,6 +14,13 @@ const LANG_FILTERS = [
   { key: 'Marathi', label: 'Marathi' },
 ];
 
+const normalizeLang = (g) => {
+  const s = (g || '').trim();
+  if (!s) return 'Unknown';
+  const known = LANG_FILTERS.find(f => f.key !== 'all' && s.toLowerCase() === f.key.toLowerCase());
+  return known ? known.key : s.charAt(0).toUpperCase() + s.slice(1);
+};
+
 export default function ArtistPage({ query, playSong, currentSong, isPlaying, onBack, showToast, downloadSong, downloadedIds, downloadingIds, onOpenAlbum }) {
   const [allTracks, setAllTracks] = useState([]);
   const [albums, setAlbums] = useState([]);
@@ -47,7 +54,7 @@ export default function ArtistPage({ query, playSong, currentSong, isPlaying, on
   const getLangCounts = useCallback(() => {
     const counts = { all: allTracks.length };
     for (const track of allTracks) {
-      const lang = track.genre || 'Unknown';
+      const lang = normalizeLang(track.genre);
       counts[lang] = (counts[lang] || 0) + 1;
     }
     return counts;
@@ -74,7 +81,7 @@ export default function ArtistPage({ query, playSong, currentSong, isPlaying, on
 
   const filteredByLang = langFilter === 'all'
     ? allTracks
-    : allTracks.filter(t => (t.genre || 'Unknown') === langFilter);
+    : allTracks.filter(t => normalizeLang(t.genre) === langFilter);
 
   const sortedTracks = [...filteredByLang];
   if (sortBy === 'az') sortedTracks.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
@@ -82,7 +89,7 @@ export default function ArtistPage({ query, playSong, currentSong, isPlaying, on
 
   const filteredAlbums = langFilter === 'all'
     ? albums
-    : albums.filter(a => a.tracks.some(t => (t.genre || 'Unknown') === langFilter));
+    : albums.filter(a => a.tracks.some(t => normalizeLang(t.genre) === langFilter));
 
   const displayTracks = selectedAlbum
     ? (filteredAlbums.find(a => a.id === selectedAlbum)?.tracks || [])

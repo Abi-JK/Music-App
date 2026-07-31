@@ -21,16 +21,19 @@ export default async (request: Request) => {
     });
   }
 
-  const allowedDomains = [
+  const allowedHostSuffixes = [
     'saavncdn.com', 'jiocdn.in', 'saavn.me', 'jioinsights.mediacdn.com',
-    'aac.saavncdn.com', 'c.saavncdn.com', 'hls.saavncdn.com',
     'youtube.com', 'yt3.ggpht.com', 'i.ytimg.com',
-    'googlevideo.com', 'rr1---', 'rr2---', 'rr3---', 'rr4---', 'rr5---',
-    'manifest.googlevideo.com', 'videoplayback',
+    'googlevideo.com',
     'soundcloud.com', 'sndcdn.com',
     'commondatastorage.googleapis.com',
   ];
-  const isAllowed = allowedDomains.some(d => audioUrl.includes(d));
+  let hostname = '';
+  try {
+    hostname = new URL(audioUrl).hostname.toLowerCase();
+  } catch {}
+  const isAllowed = hostname.length > 0 &&
+    allowedHostSuffixes.some(d => hostname === d || hostname.endsWith(`.${d}`));
   if (!isAllowed) {
     return new Response(JSON.stringify({ error: 'Domain not allowed', url: audioUrl }), {
       status: 403,
@@ -70,7 +73,6 @@ export default async (request: Request) => {
     const cr = res.headers.get('content-range');
     if (cl) responseHeaders.set('Content-Length', cl);
     if (cr) responseHeaders.set('Content-Range', cr);
-    if (range && res.status === 206) responseHeaders.set('Status', '206');
 
     return new Response(res.body, {
       status: res.status,
