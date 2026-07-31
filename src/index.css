@@ -208,7 +208,7 @@ img { display: block; max-width: 100%; }
 }
 
 /* ── Home Screen ─────────────────────────── */
-.home-hero { margin-bottom: 28px; position: relative; }
+.home-hero { margin-bottom: 28px; }
 .home-title { font-size: 28px; font-weight: 900; color: var(--accent); margin-bottom: 4px; }
 .home-subtitle { font-size: 14px; color: var(--text-secondary); }
 .home-section { margin-bottom: 28px; }

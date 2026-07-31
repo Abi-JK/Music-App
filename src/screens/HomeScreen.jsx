@@ -252,18 +252,17 @@ export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyP
 
   return (
     <div className="home-screen" ref={scrollRef}>
-      <div className="home-hero">
-        <h1 className="home-title">SoundAura</h1>
-        <p className="home-subtitle">All Indian languages · Full songs · 100% free, no login</p>
-      </div>
-
-      {!installed && (
-        <div style={{ position: 'absolute', top: 12, right: 16 }}>
-          <button onClick={handleInstall} style={{ padding: '5px 14px', borderRadius: 500, background: '#00d4e8', color: '#000', border: 'none', fontWeight: 600, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit' }}>
+      <div className="home-hero" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <div>
+          <h1 className="home-title">SoundAura</h1>
+          <p className="home-subtitle">All Indian languages · Full songs</p>
+        </div>
+        {!installed && (
+          <button onClick={handleInstall} style={{ padding: '8px 20px', borderRadius: 500, background: '#00d4e8', color: '#000', border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0, marginTop: 4 }}>
             Install Now
           </button>
-        </div>
-      )}
+        )}
+      </div>
 
       <div className="home-section">
         <h3 className="sec-title">Featured Albums & Artists</h3>
