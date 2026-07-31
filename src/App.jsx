@@ -45,6 +45,7 @@ function AppContent() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [toastMsg, setToastMsg] = useState('');
+  const [restoring, setRestoring] = useState(false);
   const toastTimer = useRef(null);
 
   const [searchResults, setSearchResults] = useState([]);
@@ -164,6 +165,7 @@ function AppContent() {
               (Array.isArray(meta.downloads) && meta.downloads.length > 0) ||
               (Array.isArray(meta.custom) && meta.custom.length > 0)
             )) {
+              setRestoring(true);
               await Storage.importCloudData({
                 liked: meta.liked || [],
                 recent: meta.recent || [],
@@ -174,9 +176,10 @@ function AppContent() {
               setRecentlyPlayed(meta.recent || []);
               setDownloadedSongs(meta.downloads || []);
               setCustomSongs(meta.custom || []);
-              showToast('Data restored from cloud backup');
+              await new Promise(r => setTimeout(r, 1500));
+              setRestoring(false);
             }
-          } catch {}
+          } catch { setRestoring(false); }
         }
 
         fetchSharedSongs(200).then(songs => {
@@ -508,9 +511,20 @@ function AppContent() {
       try {
         let code = await CloudSync.getDeviceCode();
         if (!code) {
+          try {
+            const cache = await caches.open('soundaura-data-v1');
+            const resp = await cache.match(new Request('https://soundaura.local/backup-code'));
+            if (resp) { const d = await resp.json(); if (d?.code) code = d.code; }
+          } catch {}
+        }
+        if (!code) {
           code = generateBackupCode();
           await CloudSync.saveDeviceCode(code);
         }
+        try {
+          const cache = await caches.open('soundaura-data-v1');
+          await cache.put(new Request('https://soundaura.local/backup-code'), new Response(JSON.stringify({ code })));
+        } catch {}
         if (!cancelled) {
           setBackupCode(code);
           setLastSync(CloudSync.getLastSync());
@@ -962,6 +976,16 @@ function AppContent() {
 
   return (
     <div className="app">
+      {restoring && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.95)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
+          <img src="/icons/icon-128.png" alt="" width={64} height={64} style={{ borderRadius: 16 }} />
+          <div style={{ color: '#00d4e8', fontSize: 18, fontWeight: 700 }}>Restoring your music...</div>
+          <div style={{ color: '#8ab', fontSize: 13, textAlign: 'center', maxWidth: 280 }}>
+            Your liked songs, downloads, and playlists are being restored from your cloud backup.
+          </div>
+          <div style={{ width: 48, height: 48, border: '3px solid #1e293b', borderTopColor: '#00d4e8', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+        </div>
+      )}
       <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} customCount={customSongs.length} onSearch={searchByQuery} showToast={showToast} onOpenArtist={openArtistPage} backupCode={backupCode} cloudSyncing={cloudSyncing} cloudRestoring={cloudRestoring} lastSync={lastSync} onSyncNow={syncMetaNow} onRestore={restoreFromCode} onCopyCode={copyBackupCode} />
       <div className="body">
         <Topbar
