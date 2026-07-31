@@ -229,12 +229,41 @@ export default function HomeScreen({ playSong, currentSong, isPlaying, recentlyP
     { title: 'Kishore Kumar Evergreen', type: 'Artist', query: 'Kishore Kumar', cover: 'https://c.saavncdn.com/artists/Kishore_Kumar_500x500.jpg' },
   ];
 
+  const [installed, setInstalled] = useState(() =>
+    window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone
+  );
+
+  useEffect(() => {
+    if (installed) return;
+    const handler = (e) => { e.preventDefault(); window.__installPrompt = e; };
+    const done = () => setInstalled(true);
+    window.addEventListener('beforeinstallprompt', handler);
+    window.addEventListener('appinstalled', done);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handler);
+      window.removeEventListener('appinstalled', done);
+    };
+  }, [installed]);
+
+  const handleInstall = async () => {
+    const p = window.__installPrompt;
+    if (p) { const r = await p.prompt(); if (r.outcome === 'accepted') setInstalled(true); }
+  };
+
   return (
     <div className="home-screen" ref={scrollRef}>
       <div className="home-hero">
         <h1 className="home-title">SoundAura</h1>
         <p className="home-subtitle">All Indian languages · Full songs · 100% free, no login</p>
       </div>
+
+      {!installed && (
+        <div style={{ padding: '0 16px 12px' }}>
+          <button onClick={handleInstall} style={{ width: '100%', padding: '10px 0', borderRadius: 500, background: '#00d4e8', color: '#000', border: 'none', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'inherit' }}>
+            Install Now
+          </button>
+        </div>
+      )}
 
       <div className="home-section">
         <h3 className="sec-title">Featured Albums & Artists</h3>
