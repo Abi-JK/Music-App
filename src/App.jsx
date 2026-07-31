@@ -148,6 +148,37 @@ function AppContent() {
         setDownloadedSongs(downloaded);
         setCustomSongs(custom);
 
+        const totalLocal = liked.length + recent.length + downloaded.length + custom.length;
+        if (totalLocal === 0) {
+          try {
+            let code = await CloudSync.getDeviceCode();
+            if (!code) {
+              code = generateBackupCode();
+              await CloudSync.saveDeviceCode(code);
+            }
+            setBackupCode(code);
+            const meta = await CloudSync.fetchMeta(code);
+            if (meta && (
+              (Array.isArray(meta.liked) && meta.liked.length > 0) ||
+              (Array.isArray(meta.recent) && meta.recent.length > 0) ||
+              (Array.isArray(meta.downloads) && meta.downloads.length > 0) ||
+              (Array.isArray(meta.custom) && meta.custom.length > 0)
+            )) {
+              await Storage.importCloudData({
+                liked: meta.liked || [],
+                recent: meta.recent || [],
+                downloads: meta.downloads || [],
+                custom: meta.custom || [],
+              });
+              setLikedSongs(meta.liked || []);
+              setRecentlyPlayed(meta.recent || []);
+              setDownloadedSongs(meta.downloads || []);
+              setCustomSongs(meta.custom || []);
+              showToast('Data restored from cloud backup');
+            }
+          } catch {}
+        }
+
         fetchSharedSongs(200).then(songs => {
           if (songs.length > 0) {
             setSharedSongs(songs);
@@ -492,8 +523,8 @@ function AppContent() {
 
   useEffect(() => {
     if (!cloudReady || !backupCode) return;
-    const t = setTimeout(() => { syncMetaNow(); backupAudioNow(); }, 4000);
-    return () => clearTimeout(t);
+    syncMetaNow();
+    backupAudioNow();
   }, [likedSongs, recentlyPlayed, downloadedSongs, customSongs, cloudReady, backupCode, syncMetaNow, backupAudioNow]);
 
   useEffect(() => {

@@ -2,9 +2,14 @@ import React, { useState } from 'react';
 import { Storage } from '../utils/storage';
 import { CloudSync } from '../utils/cloudSync';
 
+function isStandalone() {
+  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+}
+
 export default function DataSettings({ showToast, backupCode, cloudSyncing, cloudRestoring, lastSync, onSyncNow, onRestore, onCopyCode }) {
   const [restoreCode, setRestoreCode] = useState('');
   const [audioBackup, setAudioBackup] = useState(CloudSync.isAudioBackupEnabled());
+  const installed = isStandalone();
 
   const handleExport = async () => {
     try {
@@ -43,6 +48,12 @@ export default function DataSettings({ showToast, backupCode, cloudSyncing, clou
         <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-dim)', marginBottom: 8 }}>
           Cloud Backup
         </div>
+
+        {!installed && (
+          <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '8px 10px', marginBottom: 8, fontSize: 11, color: '#ef4444', lineHeight: 1.4 }}>
+            Your data is stored in Chrome browser. Clearing Chrome data removes it. <strong>Install the app</strong> to protect your data.
+          </div>
+        )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
           <code style={{ background: 'var(--bg-elevated)', padding: '6px 10px', borderRadius: 6, fontWeight: 700, fontSize: 13, letterSpacing: 1, color: 'var(--accent)' }}>
