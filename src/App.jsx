@@ -8,7 +8,7 @@ import PlayerBar from './components/PlayerBar';
 import MiniPlayer from './components/MiniPlayer';
 import MobileNav from './components/MobileNav';
 import Toast from './components/Toast';
-import InstallBanner from './components/InstallBanner';
+
 import FullScreenPlayer from './components/FullScreenPlayer';
 import LyricsPanel from './components/LyricsPanel';
 import QueuePanel from './components/QueuePanel';
@@ -65,7 +65,6 @@ function AppContent() {
   const [showQueue, setShowQueue] = useState(false);
   // Ref to store a timer for auto‑play when the app loses focus
   const autoPlayTimerRef = useRef(null);
-  const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [artistQuery, setArtistQuery] = useState(null);
   const [albumQuery, setAlbumQuery] = useState(null);
 
@@ -205,8 +204,7 @@ function AppContent() {
       if (backupAudioNowRef.current) backupAudioNowRef.current();
     }, 120000);
 
-    if (window.__installPrompt) setDeferredPrompt(window.__installPrompt);
-    const handler = (e) => { e.preventDefault(); window.__installPrompt = e; setDeferredPrompt(e); };
+    const handler = (e) => { e.preventDefault(); window.__installPrompt = e; };
     window.addEventListener('beforeinstallprompt', handler);
 
     let heartbeatRetries = 0;
@@ -226,7 +224,6 @@ function AppContent() {
           if (attempt < 5) {
             setTimeout(() => tryPlay(attempt + 1), 500 * (attempt + 1));
           } else {
-            autoPlayOnReady.current = true;
             try { a.load(); } catch {}
           }
         });
@@ -370,16 +367,6 @@ function AppContent() {
       }
     };
   }, [isPlaying]);
-
-  const handleInstallApp = async () => {
-    if (deferredPrompt) {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      if (outcome === 'accepted') setDeferredPrompt(null);
-    } else {
-      showToast('To install: Open browser menu (⋮) → "Install app" or "Add to Home screen". This gives background playback + keeps your data safe.');
-    }
-  };
 
   const showToast = useCallback((msg) => {
     setToastMsg(msg);
@@ -992,11 +979,6 @@ function AppContent() {
     <div className="app">
       {restoring && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.95)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-          <img src="/icons/icon-128.png" alt="" width={64} height={64} style={{ borderRadius: 16 }} />
-          <div style={{ color: '#00d4e8', fontSize: 18, fontWeight: 700 }}>Restoring your music...</div>
-          <div style={{ color: '#8ab', fontSize: 13, textAlign: 'center', maxWidth: 280 }}>
-            Your liked songs, downloads, and playlists are being restored from your cloud backup.
-          </div>
           <div style={{ width: 48, height: 48, border: '3px solid #1e293b', borderTopColor: '#00d4e8', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
         </div>
       )}
@@ -1008,7 +990,6 @@ function AppContent() {
           onSearch={(q) => doSearch(q)}
         />
         <div className="main-scroll">
-          <InstallBanner />
           {activeTab === 'home' && (
             <HomeScreen
               playSong={playSong}

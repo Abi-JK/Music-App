@@ -1,12 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Storage } from '../utils/storage';
 
-function isStandalone() {
-  return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-}
-
 export default function DataSettings({ showToast }) {
-  const installed = isStandalone();
 
   const handleExport = async () => {
     try {
@@ -28,22 +23,6 @@ export default function DataSettings({ showToast }) {
 
   return (
     <div>
-      <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-dim)', marginBottom: 8 }}>
-          Data Safety
-        </div>
-
-        {installed ? (
-          <div style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.3)', borderRadius: 8, padding: '8px 10px', fontSize: 11, color: '#22c55e', lineHeight: 1.4 }}>
-            <strong>Protected.</strong> Your data is stored in the app. Chrome clearing cannot affect it.
-          </div>
-        ) : (
-          <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, padding: '8px 10px', fontSize: 11, color: '#ef4444', lineHeight: 1.4 }}>
-            <strong>At risk.</strong> Your data is in Chrome browser. Clearing Chrome data removes it. Install the app to protect your data.
-          </div>
-        )}
-      </div>
-
       <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
         <div style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--text-dim)', marginBottom: 8 }}>
           Export / Import
