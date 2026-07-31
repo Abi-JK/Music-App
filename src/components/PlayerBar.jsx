@@ -16,7 +16,6 @@ export default function PlayerBar({ currentSong, isPlaying, setIsPlaying, playNe
   const urlIndex = useRef(0);
   const urlList = useRef([]);
   const blobUrls = useRef([]);
-  const blobSources = useRef([]);
   const playNextRef = useRef(playNext);
   const playPrevRef = useRef(playPrev);
   const endedGuard = useRef(false);

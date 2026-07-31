@@ -76,6 +76,7 @@ function AppContent() {
   const wakeLockRef = useRef(null);
   const isPlayingRef = useRef(false);
   const playedSongIds = useRef(new Set());
+  const keepAliveRef = useRef(null);
   const [backupCode, setBackupCode] = useState(null);
   const [cloudReady, setCloudReady] = useState(false);
   const [cloudSyncing, setCloudSyncing] = useState(false);
@@ -168,7 +169,7 @@ function AppContent() {
       Storage.forceSyncToOpfs().catch(() => {});
       if (syncMetaNowRef.current) syncMetaNowRef.current();
       if (backupAudioNowRef.current) backupAudioNowRef.current();
-    }, 300000);
+    }, 120000);
 
     if (window.__installPrompt) setDeferredPrompt(window.__installPrompt);
     const handler = (e) => { e.preventDefault(); window.__installPrompt = e; setDeferredPrompt(e); };
@@ -295,6 +296,32 @@ function AppContent() {
       wakeLockRef.current = null;
     }
   }, [isPlaying, requestWakeLock]);
+
+  useEffect(() => {
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    if (isStandalone) return;
+    if (isPlaying) {
+      if (!keepAliveRef.current) {
+        try {
+          const a = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
+          a.loop = true;
+          a.volume = 0.001;
+          a.play().then(() => { keepAliveRef.current = a; }).catch(() => {});
+        } catch {}
+      }
+    } else if (keepAliveRef.current) {
+      keepAliveRef.current.pause();
+      keepAliveRef.current.src = '';
+      keepAliveRef.current = null;
+    }
+    return () => {
+      if (keepAliveRef.current) {
+        keepAliveRef.current.pause();
+        keepAliveRef.current.src = '';
+        keepAliveRef.current = null;
+      }
+    };
+  }, [isPlaying]);
 
   const handleInstallApp = async () => {
     if (deferredPrompt) {
@@ -904,7 +931,7 @@ function AppContent() {
 
   return (
     <div className="app">
-      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} customCount={customSongs.length} onSearch={searchByQuery} onInstall={handleInstallApp} showToast={showToast} onOpenArtist={openArtistPage} backupCode={backupCode} cloudSyncing={cloudSyncing} cloudRestoring={cloudRestoring} lastSync={lastSync} onSyncNow={syncMetaNow} onRestore={restoreFromCode} onCopyCode={copyBackupCode} />
+      <Sidebar activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} customCount={customSongs.length} onSearch={searchByQuery} showToast={showToast} onOpenArtist={openArtistPage} backupCode={backupCode} cloudSyncing={cloudSyncing} cloudRestoring={cloudRestoring} lastSync={lastSync} onSyncNow={syncMetaNow} onRestore={restoreFromCode} onCopyCode={copyBackupCode} />
       <div className="body">
         <Topbar
           q={searchQ} setQ={setSearchQ}
@@ -1051,7 +1078,7 @@ function AppContent() {
         downloadSong={downloadSong}
         currentSongDownloaded={currentSong ? downloadedIds.includes(currentSong.id) : false}
       />
-      <MobileNav activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} customCount={customSongs.length} onInstall={handleInstallApp} />
+      <MobileNav activeTab={activeTab} setActiveTab={setActiveTab} likedCount={likedSongs.length} customCount={customSongs.length} />
       <Toast msg={toastMsg} />
       {showFullScreen && currentSong && (
         <FullScreenPlayer

@@ -16,6 +16,14 @@ export default function InstallBanner() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [tipDismissed, setTipDismissed] = useState(() => {
+    try { return localStorage.getItem('sa_tip_dismissed') === '1'; } catch { return false; }
+  });
+
+  const dismissTip = () => {
+    setTipDismissed(true);
+    try { localStorage.setItem('sa_tip_dismissed', '1'); } catch {}
+  };
 
   useEffect(() => {
     if (window.__installPrompt) setDeferredPrompt(window.__installPrompt);
@@ -64,9 +72,10 @@ export default function InstallBanner() {
         </div>
       </div>
 
-      {!isInstalled && (
-        <div style={{ background: 'rgba(255,180,0,0.1)', border: '1px solid rgba(255,180,0,0.3)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#cc9900', lineHeight: 1.5 }}>
-          <strong>Tip:</strong> Install this app for background music playback. Chrome browser stops music when you switch apps — the installed app does NOT.
+      {!isInstalled && !tipDismissed && (
+        <div style={{ background: 'rgba(255,180,0,0.1)', border: '1px solid rgba(255,180,0,0.3)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 13, color: '#cc9900', lineHeight: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <span><strong>Tip:</strong> Install this app for background music playback. Chrome browser stops music when you switch apps — the installed app does NOT.</span>
+          <button onClick={dismissTip} style={{ background: 'none', border: 'none', color: '#cc9900', cursor: 'pointer', fontSize: 16, padding: '0 4px', lineHeight: 1, flexShrink: 0 }}>✕</button>
         </div>
       )}
 

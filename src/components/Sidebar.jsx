@@ -11,7 +11,7 @@ const LogoImage = ({ size = 48 }) => (
   />
 );
 
-export default function Sidebar({ activeTab, setActiveTab, likedCount, customCount, onSearch, onInstall, showToast, onOpenArtist, backupCode, cloudSyncing, cloudRestoring, lastSync, onSyncNow, onRestore, onCopyCode }) {
+export default function Sidebar({ activeTab, setActiveTab, likedCount, customCount, onSearch, showToast, onOpenArtist, backupCode, cloudSyncing, cloudRestoring, lastSync, onSyncNow, onRestore, onCopyCode }) {
   const playlists = [
     { label: '🎬 Bollywood Hits',        term: 'bollywood hindi songs' },
     { label: '🎵 Tamil Hits',            term: 'tamil film songs' },
@@ -85,28 +85,23 @@ export default function Sidebar({ activeTab, setActiveTab, likedCount, customCou
       <div className="sidebar-scroll">
         <div className="nav-label">Menu</div>
         <button className={`nav-item ${activeTab === 'home' ? 'active' : ''}`} onClick={() => setActiveTab('home')}>
-          <span className="nav-icon">🏠</span>Home
+          <span className="nav-icon">⌂</span>Home
         </button>
         <button className={`nav-item ${activeTab === 'search' ? 'active' : ''}`} onClick={() => setActiveTab('search')}>
-          <span className="nav-icon">🔍</span>Search
+          <span className="nav-icon">⌕</span>Search
         </button>
         <button className={`nav-item ${activeTab === 'liked' ? 'active' : ''}`} onClick={() => setActiveTab('liked')}>
-          <span className="nav-icon">❤️</span>Liked Songs {likedCount > 0 && <span className="sidebar-badge">{likedCount}</span>}
+          <span className="nav-icon">♥</span>Liked Songs {likedCount > 0 && <span className="sidebar-badge">{likedCount}</span>}
         </button>
         <button className={`nav-item ${activeTab === 'downloads' ? 'active' : ''}`} onClick={() => setActiveTab('downloads')}>
-          <span className="nav-icon">📥</span>Downloads
+          <span className="nav-icon">↓</span>Downloads
         </button>
         <button className={`nav-item ${activeTab === 'mysongs' ? 'active' : ''}`} onClick={() => setActiveTab('mysongs')}>
-          <span className="nav-icon">🎵</span>My Songs {customCount > 0 && <span className="sidebar-badge">{customCount}</span>}
+          <span className="nav-icon">♪</span>My Songs {customCount > 0 && <span className="sidebar-badge">{customCount}</span>}
         </button>
         <button className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
-          <span className="nav-icon">⚙️</span>Settings
+          <span className="nav-icon">⚙</span>Settings
         </button>
-        {onInstall && (
-          <button className="nav-item" onClick={onInstall} style={{ color: 'var(--accent)' }}>
-            <span className="nav-icon">📱</span>Install App
-          </button>
-        )}
 
         <DataSettings
           showToast={showToast}
