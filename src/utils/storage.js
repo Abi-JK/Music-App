@@ -197,12 +197,10 @@ export const Storage = {
     if (opfs) {
       const current = await OpfsStorage.getLikedSongs();
       if (current.find(s => s.id === song.id)) return;
-      current.push(song);
+      current.push(slimSong(song));
       await OpfsStorage.saveLikedSongs(current);
     }
     await idbPut(STORE_LIKED, song);
-    const all = await idbGetAll(STORE_LIKED);
-    await idbPutAll(STORE_LIKED, all);
   },
 
   async removeLikedSong(songId) {
@@ -217,8 +215,6 @@ export const Storage = {
       await OpfsStorage.saveLikedSongs(current.filter(s => s.id !== songId));
     }
     await idbDelete(STORE_LIKED, songId);
-    const all = await idbGetAll(STORE_LIKED);
-    await idbPutAll(STORE_LIKED, all);
   },
 
   async getRecentlyPlayed() {
@@ -255,12 +251,10 @@ export const Storage = {
     if (opfs) {
       const current = await OpfsStorage.getRecentlyPlayed();
       const filtered = current.filter(s => s.id !== song.id).slice(0, 11);
-      filtered.unshift(song);
+      filtered.unshift(slimSong(song));
       await OpfsStorage.saveRecentlyPlayed(filtered);
     }
     await idbPut(STORE_RECENT, song);
-    const all = await idbGetAll(STORE_RECENT);
-    await idbPutAll(STORE_RECENT, all);
   },
 
   async clearRecentlyPlayed() {
@@ -310,8 +304,6 @@ export const Storage = {
       await OpfsStorage.saveDownloadedSongs(current);
     }
     await idbPut(STORE_DOWNLOADS, song);
-    const all = await idbGetAll(STORE_DOWNLOADS);
-    await idbPutAll(STORE_DOWNLOADS, all);
   },
 
   async removeDownloadedSong(songId) {
@@ -326,8 +318,6 @@ export const Storage = {
       await OpfsStorage.saveDownloadedSongs(current.filter(s => s.id !== songId));
     }
     await idbDelete(STORE_DOWNLOADS, songId);
-    const all = await idbGetAll(STORE_DOWNLOADS);
-    await idbPutAll(STORE_DOWNLOADS, all);
   },
 
   async getCustomSongs() {
@@ -369,8 +359,6 @@ export const Storage = {
     }
     const songWithBlob = { ...song, audioBlob };
     await idbPut(STORE_CUSTOM, songWithBlob);
-    const all = await idbGetAll(STORE_CUSTOM);
-    await idbPutAll(STORE_CUSTOM, all);
     if (opfs && audioBlob) {
       await OpfsStorage.saveAudioBlob(song.id, audioBlob);
     }
@@ -388,8 +376,6 @@ export const Storage = {
       await OpfsStorage.saveCustomSongs(current.filter(s => s.id !== songId));
     }
     await idbDelete(STORE_CUSTOM, songId);
-    const all = await idbGetAll(STORE_CUSTOM);
-    await idbPutAll(STORE_CUSTOM, all);
     if (opfs) await OpfsStorage.removeAudioBlob(songId);
   },
 
@@ -412,8 +398,6 @@ export const Storage = {
       all[idx] = { ...all[idx], ...updates };
       await idbPut(STORE_CUSTOM, all[idx]);
     }
-    const updated = await idbGetAll(STORE_CUSTOM);
-    await idbPutAll(STORE_CUSTOM, updated);
   },
 
   async loadCustomSongBlob(songId) {

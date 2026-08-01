@@ -211,8 +211,8 @@ function AppContent() {
     const resumeAudio = () => {
       const a = document.getElementById('main-audio');
       if (!a) return;
-      reacquireWakeLock();
       if (!isPlayingRef.current) return;
+      reacquireWakeLock();
       if (!a.paused && a.readyState >= 2) return;
       const tryPlay = (attempt) => {
         if (!a.src || a.ended) return;
@@ -318,8 +318,8 @@ function AppContent() {
           heartbeatRetries = 0;
           if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing';
         }
+        reacquireWakeLock();
       }
-      reacquireWakeLock();
     }, 2000);
 
     return () => {

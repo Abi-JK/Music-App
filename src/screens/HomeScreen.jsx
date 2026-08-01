@@ -133,9 +133,6 @@ const ARTIST_SECTION_MAP = {
   kvmdclassic: 'K.V. Mahadevan',
   gprclassic: 'G. Ramanathan',
   msvklassic: 'M.S. Viswanathan',
-  kishore: 'Kishore Kumar',
-  mukesh: 'Mukesh',
-  rafi: 'Mohammed Rafi',
 };
 
 async function loadSaavnSection(sec) {
