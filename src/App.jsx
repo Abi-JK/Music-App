@@ -343,8 +343,6 @@ function AppContent() {
   }, [isPlaying, requestWakeLock]);
 
   useEffect(() => {
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-    if (isStandalone) return;
     if (isPlaying) {
       if (!keepAliveRef.current) {
         try {
