@@ -126,22 +126,25 @@ const CURRENT_YEAR = new Date().getFullYear();
 const PREV_YEAR = CURRENT_YEAR - 1;
 
 export const HOME_SECTIONS = [
-  // ── Trending & Popular ──
-  { key: 'trending',      label: 'Trending India',             query: `trending india ${CURRENT_YEAR}` },
+  // ── Trending & New Releases (auto-updates yearly) ──
+  { key: 'trending',      label: 'Trending India',             query: 'popular hindi songs' },
+  { key: 'newAll',        label: 'New Releases',               query: `new songs ${CURRENT_YEAR}` },
+  { key: 'newHindi',      label: 'New Bollywood Songs',        query: `new hindi songs ${CURRENT_YEAR}` },
+  { key: 'newTamil',      label: 'New Tamil Songs',            query: `new tamil songs ${CURRENT_YEAR}` },
+  { key: 'newTelugu',     label: 'New Telugu Songs',           query: `new telugu songs ${CURRENT_YEAR}` },
+  { key: 'newMalayalam',  label: 'New Malayalam Songs',        query: `new malayalam songs ${CURRENT_YEAR}` },
+  { key: 'newKannada',    label: 'New Kannada Songs',          query: `new kannada songs ${CURRENT_YEAR}` },
+  { key: 'newPunjabi',    label: 'New Punjabi Songs',          query: `new punjabi songs ${CURRENT_YEAR}` },
+  { key: 'newBengali',    label: 'New Bengali Songs',          query: `new bengali songs ${CURRENT_YEAR}` },
+  { key: 'newMarathi',    label: 'New Marathi Songs',          query: `new marathi songs ${CURRENT_YEAR}` },
+  { key: 'newBhojpuri',   label: 'New Bhojpuri Songs',         query: `new bhojpuri songs ${CURRENT_YEAR}` },
+  { key: 'newGujarati',   label: 'New Gujarati Songs',         query: `new gujarati songs ${CURRENT_YEAR}` },
+
+  // ── Popular ──
   { key: 'romantic',      label: 'Romantic Hits',              query: 'romantic songs' },
   { key: 'dance',         label: 'Party & Dance Hits',         query: 'bollywood dance hits' },
   { key: 'sad',           label: 'Sad Songs',                  query: 'hindi sad songs' },
   { key: 'indiepop',      label: 'Indian Pop (I-Pop)',         query: `indian pop songs ${CURRENT_YEAR}` },
-  { key: 'indie2025',     label: `New Releases ${CURRENT_YEAR}`, query: `new bollywood songs ${CURRENT_YEAR}` },
-  { key: 'latestHindi',   label: 'Latest Hindi Movie Songs',   query: `latest hindi movie songs ${CURRENT_YEAR} ${PREV_YEAR}` },
-  { key: 'latestTamil',   label: 'Latest Tamil Movie Songs',   query: `latest tamil movie songs ${CURRENT_YEAR} ${PREV_YEAR}` },
-  { key: 'latestTelugu',  label: 'Latest Telugu Movie Songs',  query: `latest telugu movie songs ${CURRENT_YEAR} ${PREV_YEAR}` },
-  { key: 'latestMalayalam', label: 'Latest Malayalam Movie Songs', query: `latest malayalam movie songs ${CURRENT_YEAR} ${PREV_YEAR}` },
-  { key: 'latestKannada', label: 'Latest Kannada Movie Songs', query: `latest kannada movie songs ${CURRENT_YEAR} ${PREV_YEAR}` },
-  { key: 'latestPunjabi', label: 'Latest Punjabi Movie Songs', query: `latest punjabi movie songs ${CURRENT_YEAR} ${PREV_YEAR}` },
-  { key: 'latestBengali', label: 'Latest Bengali Movie Songs', query: `latest bengali movie songs ${CURRENT_YEAR} ${PREV_YEAR}` },
-  { key: 'latestMarathi', label: 'Latest Marathi Movie Songs', query: `latest marathi movie songs ${CURRENT_YEAR} ${PREV_YEAR}` },
-  { key: 'latestBhojpuri', label: 'Latest Bhojpuri Movie Songs', query: `latest bhojpuri movie songs ${CURRENT_YEAR} ${PREV_YEAR}` },
   { key: 'topAlbums',     label: `Top Albums ${CURRENT_YEAR}`,   query: `bollywood albums ${CURRENT_YEAR}` },
   { key: 'topPunjabi',    label: `Top Punjabi ${CURRENT_YEAR}`,  query: `punjabi hits ${CURRENT_YEAR}` },
   { key: 'topIndie',      label: 'Indian Indie',              query: 'indian independent music' },
@@ -204,7 +207,7 @@ export const HOME_SECTIONS = [
 
   // ── Other Tamil Legends ──
   { key: 'gemini',        label: 'Gemini Ganesan Hits',        query: 'Gemini Ganesan tamil songs' },
-  { key: 'jai Shankar',   label: 'Jaishankar Hits',            query: 'Jaishankar tamil actor songs' },
+  { key: 'jaiShankar',   label: 'Jaishankar Hits',            query: 'Jaishankar tamil actor songs' },
   { key: 'sivaji_devi',   label: 'Pandiarajan Hits',           query: 'Pandiarajan tamil songs' },
   { key: 'tamil_old_heroes', label: 'Tamil Old Heroes',        query: 'tamil old hero songs 60s 70s' },
 
@@ -223,12 +226,12 @@ export const HOME_SECTIONS = [
   { key: 'ranbir',        label: 'Ranbir Kapoor Hits',         query: 'ranbir kapoor songs' },
   { key: 'varun',         label: 'Varun Dhawan Hits',          query: 'varun dhawan songs' },
   { key: 'ranveer',       label: 'Ranveer Singh Hits',         query: 'ranveer singh songs' },
-  { key: 'hindi2025',     label: 'Bollywood 2025 Hits',       query: 'bollywood songs 2025' },
+  { key: 'hindi2025',     label: `Bollywood ${CURRENT_YEAR} Hits`,       query: `bollywood songs ${CURRENT_YEAR}` },
   { key: 'pathaan',       label: 'Pathaan Songs',              query: 'Pathaan movie songs' },
   { key: 'jawan',         label: 'Jawan Songs',                query: 'Jawan movie songs' },
   { key: 'animal',        label: 'Animal Songs',               query: 'Animal movie songs' },
   { key: 'strafer',       label: 'Stree 2 Songs',              query: 'Stree 2 movie songs' },
-  { key: 'tamil2025',     label: 'Tamil 2025 Hits',            query: 'tamil songs 2025' },
+  { key: 'tamil2025',     label: `Tamil ${CURRENT_YEAR} Hits`,            query: `tamil songs ${CURRENT_YEAR}` },
   { key: 'ponniyin',      label: 'Ponniyin Selvan Songs',      query: 'Ponniyin Selvan tamil songs' },
   { key: 'leo',           label: 'Leo Songs',                   query: 'Leo vijay songs' },
   { key: 'jailer',        label: 'Jailer Songs',               query: 'Jailer rajinikanth songs' },
@@ -298,7 +301,7 @@ export const HOME_SECTIONS = [
   { key: 'allu',          label: 'Allu Arjun Hits',            query: 'allu arjun songs' },
   { key: 'ram',           label: 'Ram Charan Hits',            query: 'ram charan songs' },
   { key: 'ntr',           label: 'Jr NTR Hits',                query: 'junior ntr songs' },
-  { key: 'telugu2025',    label: 'Telugu 2025 Hits',           query: 'telugu songs 2025' },
+  { key: 'telugu2025',    label: `Telugu ${CURRENT_YEAR} Hits`,           query: `telugu songs ${CURRENT_YEAR}` },
   { key: 'pushpa',        label: 'Pushpa Songs',               query: 'Pushpa telugu songs' },
   { key: 'rrr',           label: 'RRR Songs',                  query: 'RRR telugu songs' },
 
@@ -306,31 +309,31 @@ export const HOME_SECTIONS = [
   { key: 'riba',          label: 'Rituparna Sengupta',         query: 'bengali film songs' },
   { key: 'jeet',          label: 'Jeet Gannguli',              query: 'jeet gannguli songs' },
   { key: 'anupam',        label: 'Anupam Roy',                 query: 'anupam roy songs' },
-  { key: 'bengali2025',   label: 'Bengali 2025',              query: 'bengali songs 2025' },
+  { key: 'bengali2025',   label: `Bengali ${CURRENT_YEAR}`,              query: `bengali songs ${CURRENT_YEAR}` },
 
   // ── Odia ──
   { key: 'odia',          label: 'Odia Hits',                  query: 'odia film songs' },
-  { key: 'odia2025',      label: 'Odia 2025',                 query: 'odia songs 2025' },
+  { key: 'odia2025',      label: `Odia ${CURRENT_YEAR}`,                 query: `odia songs ${CURRENT_YEAR}` },
   { key: 'odiaold',       label: 'Odia Classics',              query: 'odia old songs' },
 
   // ── Assamese ──
   { key: 'assamese',      label: 'Assamese Hits',              query: 'assamese film songs' },
-  { key: 'assamese2025',  label: 'Assamese 2025',             query: 'assamese songs 2025' },
+  { key: 'assamese2025',  label: `Assamese ${CURRENT_YEAR}`,             query: `assamese songs ${CURRENT_YEAR}` },
   { key: 'zubeen',        label: 'Zubeen Garg Hits',           query: 'zubeen garg songs' },
   { key: 'bhupen',        label: 'Bhupen Hazarika Classics',   query: 'bhupen hazardika songs' },
 
   // ── Gujarati ──
-  { key: 'gujarati2025',  label: 'Gujarati 2025',             query: 'gujarati songs 2025' },
+  { key: 'gujarati2025',  label: `Gujarati ${CURRENT_YEAR}`,             query: `gujarati songs ${CURRENT_YEAR}` },
   { key: 'gujaratiold',   label: 'Gujarati Classics',          query: 'gujarati old songs' },
   { key: 'navratri',      label: 'Navratri Garba Songs',       query: 'garba songs' },
 
   // ── Bhojpuri ──
-  { key: 'bhojpuri2025',  label: 'Bhojpuri 2025',             query: 'bhojpuri songs 2025' },
+  { key: 'bhojpuri2025',  label: `Bhojpuri ${CURRENT_YEAR}`,             query: `bhojpuri songs ${CURRENT_YEAR}` },
   { key: 'bhojpuriold',   label: 'Bhojpuri Classics',          query: 'bhojpuri old songs' },
 
   // ── Rajasthani ──
   { key: 'rajasthani',    label: 'Rajasthani Hits',            query: 'rajasthani songs' },
-  { key: 'rajasthani2025', label: 'Rajasthani 2025',           query: 'rajasthani songs 2025' },
+  { key: 'rajasthani2025', label: `Rajasthani ${CURRENT_YEAR}`,           query: `rajasthani songs ${CURRENT_YEAR}` },
   { key: 'manganiyar',    label: 'Rajasthani Folk',            query: 'rajasthani folk songs' },
 
   // ── Sanskrit ──
