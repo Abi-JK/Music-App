@@ -151,12 +151,25 @@ function AppContent() {
         const totalLocal = liked.length + recent.length + downloaded.length + custom.length;
         if (totalLocal === 0) {
           try {
-            let code = await CloudSync.getDeviceCode();
+            // Try to recover backup code from multiple sources
+            let code = null;
+            const codeSources = [
+              () => CloudSync.getDeviceCode(),
+              () => caches.open('soundaura-data-v1').then(c => c.match(new Request('https://soundaura.local/backup-code'))).then(r => r?.json()).then(d => d?.code),
+              () => localStorage.getItem('sa_backup_code'),
+              () => sessionStorage.getItem('sa_backup_code'),
+            ];
+            for (const get of codeSources) {
+              try { code = await get(); if (code) break; } catch {}
+            }
             if (!code) {
               code = generateBackupCode();
               await CloudSync.saveDeviceCode(code);
             }
             setBackupCode(code);
+            // Save recovered code to all locations
+            try { localStorage.setItem('sa_backup_code', code); } catch {}
+            try { sessionStorage.setItem('sa_backup_code', code); } catch {}
             const meta = await CloudSync.fetchMeta(code);
             if (meta && (
               (Array.isArray(meta.liked) && meta.liked.length > 0) ||
@@ -508,22 +521,28 @@ function AppContent() {
     let cancelled = false;
     (async () => {
       try {
-        let code = await CloudSync.getDeviceCode();
-        if (!code) {
-          try {
-            const cache = await caches.open('soundaura-data-v1');
-            const resp = await cache.match(new Request('https://soundaura.local/backup-code'));
-            if (resp) { const d = await resp.json(); if (d?.code) code = d.code; }
-          } catch {}
+        let code = null;
+        // Try to recover backup code from multiple sources (survives partial clears)
+        const sources = [
+          () => CloudSync.getDeviceCode(),
+          () => caches.open('soundaura-data-v1').then(c => c.match(new Request('https://soundaura.local/backup-code'))).then(r => r?.json()).then(d => d?.code),
+          () => localStorage.getItem('sa_backup_code'),
+          () => sessionStorage.getItem('sa_backup_code'),
+        ];
+        for (const get of sources) {
+          try { code = await get(); if (code) break; } catch {}
         }
         if (!code) {
           code = generateBackupCode();
           await CloudSync.saveDeviceCode(code);
         }
+        // Save to ALL locations so at least one survives clear data
         try {
           const cache = await caches.open('soundaura-data-v1');
           await cache.put(new Request('https://soundaura.local/backup-code'), new Response(JSON.stringify({ code })));
         } catch {}
+        try { localStorage.setItem('sa_backup_code', code); } catch {}
+        try { sessionStorage.setItem('sa_backup_code', code); } catch {}
         if (!cancelled) {
           setBackupCode(code);
           setLastSync(CloudSync.getLastSync());
