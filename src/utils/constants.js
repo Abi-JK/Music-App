@@ -122,22 +122,28 @@ export const LANG_SEARCH_QUERIES = {
   ],
 };
 
+const CURRENT_YEAR = new Date().getFullYear();
+const PREV_YEAR = CURRENT_YEAR - 1;
+
 export const HOME_SECTIONS = [
   // ── Trending & Popular ──
-  { key: 'trending',      label: 'Trending India',             query: 'trending india 2025' },
+  { key: 'trending',      label: 'Trending India',             query: `trending india ${CURRENT_YEAR}` },
   { key: 'romantic',      label: 'Romantic Hits',              query: 'romantic songs' },
   { key: 'dance',         label: 'Party & Dance Hits',         query: 'bollywood dance hits' },
   { key: 'sad',           label: 'Sad Songs',                  query: 'hindi sad songs' },
-  { key: 'indiepop',      label: 'Indian Pop (I-Pop)',         query: 'indian pop songs 2025' },
-  { key: 'indie2025',     label: 'New Releases 2025',         query: 'new bollywood songs 2025' },
-  { key: 'latestHindi',   label: 'Latest Hindi Movie Songs',   query: 'latest hindi movie songs 2025 2026' },
-  { key: 'latestTamil',   label: 'Latest Tamil Movie Songs',   query: 'latest tamil movie songs 2025 2026' },
-  { key: 'latestTelugu',  label: 'Latest Telugu Movie Songs',  query: 'latest telugu movie songs 2025 2026' },
-  { key: 'latestMalayalam', label: 'Latest Malayalam Movie Songs', query: 'latest malayalam movie songs 2025 2026' },
-  { key: 'latestKannada', label: 'Latest Kannada Movie Songs', query: 'latest kannada movie songs 2025 2026' },
-  { key: 'latestPunjabi', label: 'Latest Punjabi Movie Songs', query: 'latest punjabi movie songs 2025 2026' },
-  { key: 'topAlbums',     label: 'Top Albums 2025',           query: 'bollywood albums 2025' },
-  { key: 'topPunjabi',    label: 'Top Punjabi 2025',          query: 'punjabi hits 2025' },
+  { key: 'indiepop',      label: 'Indian Pop (I-Pop)',         query: `indian pop songs ${CURRENT_YEAR}` },
+  { key: 'indie2025',     label: `New Releases ${CURRENT_YEAR}`, query: `new bollywood songs ${CURRENT_YEAR}` },
+  { key: 'latestHindi',   label: 'Latest Hindi Movie Songs',   query: `latest hindi movie songs ${CURRENT_YEAR} ${PREV_YEAR}` },
+  { key: 'latestTamil',   label: 'Latest Tamil Movie Songs',   query: `latest tamil movie songs ${CURRENT_YEAR} ${PREV_YEAR}` },
+  { key: 'latestTelugu',  label: 'Latest Telugu Movie Songs',  query: `latest telugu movie songs ${CURRENT_YEAR} ${PREV_YEAR}` },
+  { key: 'latestMalayalam', label: 'Latest Malayalam Movie Songs', query: `latest malayalam movie songs ${CURRENT_YEAR} ${PREV_YEAR}` },
+  { key: 'latestKannada', label: 'Latest Kannada Movie Songs', query: `latest kannada movie songs ${CURRENT_YEAR} ${PREV_YEAR}` },
+  { key: 'latestPunjabi', label: 'Latest Punjabi Movie Songs', query: `latest punjabi movie songs ${CURRENT_YEAR} ${PREV_YEAR}` },
+  { key: 'latestBengali', label: 'Latest Bengali Movie Songs', query: `latest bengali movie songs ${CURRENT_YEAR} ${PREV_YEAR}` },
+  { key: 'latestMarathi', label: 'Latest Marathi Movie Songs', query: `latest marathi movie songs ${CURRENT_YEAR} ${PREV_YEAR}` },
+  { key: 'latestBhojpuri', label: 'Latest Bhojpuri Movie Songs', query: `latest bhojpuri movie songs ${CURRENT_YEAR} ${PREV_YEAR}` },
+  { key: 'topAlbums',     label: `Top Albums ${CURRENT_YEAR}`,   query: `bollywood albums ${CURRENT_YEAR}` },
+  { key: 'topPunjabi',    label: `Top Punjabi ${CURRENT_YEAR}`,  query: `punjabi hits ${CURRENT_YEAR}` },
   { key: 'topIndie',      label: 'Indian Indie',              query: 'indian independent music' },
 
   // ── Language Hits ──
